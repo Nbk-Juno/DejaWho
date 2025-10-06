@@ -1,0 +1,73 @@
+Build a web-based prototype called "Who That!?" - an AI-powered memory app that helps users remember people they've met.
+
+CORE FUNCTIONALITY:
+
+1. RECORD ENCOUNTER
+- Simple form or voice input to log a new person
+- Capture: Name, Location (manual text input for now), Date/Time (auto-generated), Context/Notes
+- Store in a simple database (use JSON file or SQLite for prototype)
+- Success confirmation after saving
+
+2. SEARCH/RECALL
+- Text input box: "Who did I meet at [location] [timeframe]?"
+- AI-powered search using OpenAI API (use GPT-3.5-turbo for cost efficiency)
+- Search should be conversational and flexible (e.g., "who was that guy at the coffee shop last week?")
+- Return matching encounters with: Name, Location, Date, and the original notes/context
+- If multiple matches, show all with relevance ranking
+
+3. AI INTEGRATION
+- Use OpenAI API for:
+  a) Understanding natural language queries
+  b) Semantic search through stored encounters
+  c) Generating human-readable responses
+- API key should be environment variable
+- Include embeddings for better semantic search (store embedding vectors with each encounter)
+
+TECH STACK:
+- Frontend: React with Tailwind CSS for clean, modern UI
+- Backend: Node.js/Express
+- Database: JSON file storage (simple for prototype)
+- AI: OpenAI API (gpt-3.5-turbo for queries, text-embedding-ada-002 for semantic search)
+
+UI/UX REQUIREMENTS:
+
+Homepage:
+- Clean, minimal design
+- Two main buttons: "Record New Encounter" and "Find Someone"
+- Show recent encounters (last 5) below buttons
+
+Record Page:
+- Form fields:
+  * Name (required)
+  * Location (text input, required)
+  * Date/Time (auto-populated, editable)
+  * Context/Notes (textarea, optional)
+- "Save" button
+- Success message with option to "Add Another" or "Back to Home"
+
+Search Page:
+- Large text input: "Ask me anything... e.g., 'Who did I meet at Starbucks last Tuesday?'"
+- Search button
+- Results display:
+  * If 1 match: Show full details in a card
+  * If multiple: Show list of cards, most relevant first
+  * If no match: Friendly message suggesting to try different terms
+
+VISUAL DESIGN:
+- Modern, clean aesthetic
+- Color scheme: Professional blues/purples (think productivity app)
+- Mobile-responsive (should work on phone)
+- Smooth transitions/animations
+- Icons for actions (use lucide-react or heroicons)
+
+DATA STRUCTURE (example):
+```json
+{
+  "id": "uuid",
+  "name": "John Doe",
+  "location": "Skydeck San Diego",
+  "datetime": "2025-01-15T13:00:00Z",
+  "context": "Met after lunch with wife, discussed sailing",
+  "embedding": [0.123, -0.456, ...],
+  "created_at": "2025-01-15T13:05:00Z"
+}
