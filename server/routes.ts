@@ -3,6 +3,14 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertEncounterSchema } from "@shared/schema";
 import { generateEmbedding, cosineSimilarity, keywordMatch, generateNaturalLanguageResponse } from "./openai";
+import { 
+  extractDateFromQuery, 
+  calculateDateSimilarity, 
+  extractLocationTerms, 
+  calculateLocationScore,
+  isDateQuery,
+  isLocationQuery
+} from "./search-utils";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/encounters", async (req, res) => {
@@ -59,6 +67,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const allEncounters = await storage.getAllEncounters();
 
+      const isDateBasedQuery = isDateQuery(query);
+      const isLocationBasedQuery = isLocationQuery(query);
+      const extractedDate = isDateBasedQuery ? extractDateFromQuery(query) : null;
+      const locationTerms = isLocationBasedQuery ? extractLocationTerms(query) : [];
+
       const scoredResults = allEncounters
         .map((encounter) => {
           try {
@@ -68,7 +81,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const searchableText = `${encounter.name} ${encounter.location} ${encounter.context || ""}`;
             const keywordScore = keywordMatch(query, searchableText);
 
-            const combinedScore = semanticScore * 0.7 + keywordScore * 0.3;
+            let dateScore = 0;
+            let locationScore = 0;
+            let shouldInclude = true;
+
+            if (extractedDate) {
+              dateScore = calculateDateSimilarity(extractedDate, encounter.datetime);
+              if (dateScore === 0) {
+                shouldInclude = false;
+              }
+            }
+
+            if (locationTerms.length > 0) {
+              const locationResult = calculateLocationScore(
+                locationTerms,
+                encounter.location,
+                encounter.context
+              );
+              locationScore = locationResult.score;
+              if (!locationResult.hasMatch) {
+                shouldInclude = false;
+              }
+            }
+
+            if (!shouldInclude) {
+              return null;
+            }
+
+            let combinedScore: number;
+            
+            if (extractedDate && locationTerms.length > 0) {
+              combinedScore = semanticScore * 0.3 + keywordScore * 0.1 + dateScore * 0.3 + locationScore * 0.3;
+            } else if (extractedDate) {
+              combinedScore = semanticScore * 0.3 + keywordScore * 0.2 + dateScore * 0.5;
+            } else if (locationTerms.length > 0) {
+              combinedScore = semanticScore * 0.3 + keywordScore * 0.2 + locationScore * 0.5;
+            } else {
+              combinedScore = semanticScore * 0.7 + keywordScore * 0.3;
+            }
 
             return {
               encounter,
@@ -80,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         })
         .filter((result): result is { encounter: typeof allEncounters[number]; score: number } => 
-          result !== null && result.score > 0.3
+          result !== null && result.score > 0.2
         )
         .sort((a, b) => b.score - a.score)
         .slice(0, 10);
