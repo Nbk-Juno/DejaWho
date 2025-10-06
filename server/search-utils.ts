@@ -126,6 +126,8 @@ export function extractLocationTerms(query: string): string[] {
     .split(/\s+/)
     .filter(term => term.length > 0);
   
+  console.log('Location extraction:', { originalQuery: query, cleanedQuery, extractedTerms: terms });
+  
   return terms;
 }
 
@@ -154,6 +156,7 @@ export function calculateLocationScore(
   }
   
   if (locationMatches === 0 && contextMatches === 0) {
+    console.log('No location match:', { locationTerms, encounterLocation, encounterContext });
     return { score: 0, hasMatch: false };
   }
   
@@ -161,6 +164,14 @@ export function calculateLocationScore(
   const contextMatchRatio = contextMatches / locationTerms.length;
   
   const score = (locationMatchRatio * 0.8) + (contextMatchRatio * 0.2);
+  
+  console.log('Location match found:', { 
+    locationTerms, 
+    encounterLocation, 
+    locationMatches, 
+    contextMatches,
+    score 
+  });
   
   return { score, hasMatch: true };
 }
