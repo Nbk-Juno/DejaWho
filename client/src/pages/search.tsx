@@ -25,7 +25,7 @@ export default function SearchPage() {
   const searchMutation = useMutation<SearchResponse, Error, string>({
     mutationFn: async (searchQuery: string) => {
       const response = await apiRequest("POST", "/api/search", { query: searchQuery });
-      return response as unknown as SearchResponse;
+      return await response.json() as SearchResponse;
     },
     onSuccess: (data) => {
       setSearchResults(data);
