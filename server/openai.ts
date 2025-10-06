@@ -57,10 +57,17 @@ export async function generateNaturalLanguageResponse(
 
 User Query: "${query}"
 
-Matching Encounters:
+Matching Encounters (ordered by relevance):
 ${encountersText}
 
-Generate a helpful, natural language response that directly answers the user's query. Be conversational and specific. If there's only one match, provide a detailed answer. If there are multiple matches, briefly mention all of them. Include relevant details from the context when available.`;
+IMPORTANT: Always mention the top match's name directly in your response. Be conversational and personalized.
+
+Examples:
+- If asked "who did I meet at the farmers market?" → "You met Lisa Anderson at the Farmers Market."
+- If asked "what was the name of the girl I met at the coffee shop?" → "Her name was Sarah Johnson."
+- If asked "who did I meet on February 15th?" → "You met John Smith on February 15th at the conference center."
+
+Generate a helpful, natural language response that directly answers the user's query. Always mention the person's name. Be conversational and specific. If there's only one match, provide a detailed answer mentioning their name and key details. If there are multiple matches, mention the top match by name first, then briefly reference others.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-5",

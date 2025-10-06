@@ -91,31 +91,30 @@ export function calculateDateSimilarity(queryDate: DateMatch, encounterDate: Dat
 export function extractLocationTerms(query: string): string[] {
   const lowerQuery = query.toLowerCase();
   
-  const locationIndicators = [
-    'at the', 'at', 'in', 'near', 'from', 
-    'where', 'location', 'place'
-  ];
-  
-  let cleanedQuery = lowerQuery;
-  
-  for (const indicator of locationIndicators) {
-    cleanedQuery = cleanedQuery.replace(new RegExp(`\\b${indicator}\\b`, 'g'), '');
-  }
-  
   const dateWords = [
     'january', 'february', 'march', 'april', 'may', 'june',
     'july', 'august', 'september', 'october', 'november', 'december',
     'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
     'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
-    'today', 'yesterday', 'tomorrow', 'last', 'this', 'next', 'week', 'month', 'year'
+    'today', 'yesterday', 'tomorrow', 'last', 'this', 'next', 'week', 'month', 'year', 'on', 'in'
   ];
   
-  for (const dateWord of dateWords) {
-    cleanedQuery = cleanedQuery.replace(new RegExp(`\\b${dateWord}\\b`, 'g'), '');
-  }
+  const questionWords = [
+    'who', 'what', 'when', 'where', 'why', 'how',
+    'did', 'do', 'does', 'was', 'were', 'is', 'are',
+    'i', 'me', 'my',
+    'meet', 'met', 'saw', 'see', 'seen',
+    'the', 'a', 'an',
+    'at', 'of', 'to', 'from', 'with',
+    'that', 'this', 'name', 'person', 'people',
+    'girl', 'guy', 'man', 'woman', 'boy'
+  ];
   
-  const questionWords = ['who', 'did', 'i', 'meet', 'met', 'saw', 'see', 'was', 'were', 'the'];
-  for (const word of questionWords) {
+  const allWordsToRemove = [...dateWords, ...questionWords];
+  
+  let cleanedQuery = lowerQuery;
+  
+  for (const word of allWordsToRemove) {
     cleanedQuery = cleanedQuery.replace(new RegExp(`\\b${word}\\b`, 'g'), '');
   }
   
@@ -125,7 +124,7 @@ export function extractLocationTerms(query: string): string[] {
   const terms = cleanedQuery
     .trim()
     .split(/\s+/)
-    .filter(term => term.length > 2);
+    .filter(term => term.length > 0);
   
   return terms;
 }
@@ -183,13 +182,6 @@ export function isDateQuery(query: string): boolean {
 }
 
 export function isLocationQuery(query: string): boolean {
-  const lowerQuery = query.toLowerCase();
-  
-  const locationIndicators = [
-    'at the', 'at ', 'in ', 'near ', 'from ',
-    'where', 'location', 'place', 'market', 'store', 'restaurant',
-    'coffee', 'cafe', 'bar', 'park', 'gym', 'office'
-  ];
-  
-  return locationIndicators.some(indicator => lowerQuery.includes(indicator));
+  const locationTerms = extractLocationTerms(query);
+  return locationTerms.length > 0;
 }
