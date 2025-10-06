@@ -11,10 +11,15 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private encounters: Map<string, Encounter>;
+  private initialized: Promise<void>;
 
   constructor() {
     this.encounters = new Map();
-    this.initializeSampleData();
+    this.initialized = this.initializeSampleData();
+  }
+
+  async ensureInitialized() {
+    await this.initialized;
   }
 
   private async initializeSampleData() {
@@ -90,16 +95,19 @@ export class MemStorage implements IStorage {
   }
 
   async getAllEncounters(): Promise<Encounter[]> {
+    await this.ensureInitialized();
     return Array.from(this.encounters.values()).sort(
       (a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
     );
   }
 
   async getEncounter(id: string): Promise<Encounter | undefined> {
+    await this.ensureInitialized();
     return this.encounters.get(id);
   }
 
   async createEncounter(insertEncounter: InsertEncounter): Promise<Encounter> {
+    await this.ensureInitialized();
     const id = randomUUID();
     const embeddingText = `${insertEncounter.name} ${insertEncounter.location} ${insertEncounter.context || ""}`;
     const embedding = await generateEmbedding(embeddingText);
@@ -117,6 +125,7 @@ export class MemStorage implements IStorage {
   }
 
   async searchEncounters(query: string, limit: number = 10): Promise<Encounter[]> {
+    await this.ensureInitialized();
     const allEncounters = await this.getAllEncounters();
     return allEncounters.slice(0, limit);
   }

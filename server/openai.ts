@@ -4,18 +4,27 @@ import OpenAI from "openai";
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  try {
-    const response = await openai.embeddings.create({
-      model: "text-embedding-ada-002",
-      input: text,
-    });
+export async function generateEmbedding(text: string, retries = 2): Promise<number[]> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await openai.embeddings.create({
+        model: "text-embedding-ada-002",
+        input: text,
+      });
 
-    return response.data[0].embedding;
-  } catch (error) {
-    console.error("Error generating embedding:", error);
-    throw new Error("Failed to generate embedding");
+      return response.data[0].embedding;
+    } catch (error) {
+      console.error(`Error generating embedding (attempt ${attempt + 1}/${retries + 1}):`, error);
+      
+      if (attempt === retries) {
+        throw new Error("Failed to generate embedding after retries");
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
   }
+  
+  throw new Error("Failed to generate embedding");
 }
 
 export async function generateNaturalLanguageResponse(

@@ -47,25 +47,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Query is required" });
       }
 
-      const queryEmbedding = await generateEmbedding(query);
+      let queryEmbedding: number[];
+      try {
+        queryEmbedding = await generateEmbedding(query);
+      } catch (error) {
+        console.error("Failed to generate query embedding:", error);
+        return res.status(503).json({ 
+          error: "AI service is currently unavailable. Please try again in a moment." 
+        });
+      }
+
       const allEncounters = await storage.getAllEncounters();
 
       const scoredResults = allEncounters
         .map((encounter) => {
-          const encounterEmbedding = JSON.parse(encounter.embedding);
-          const semanticScore = cosineSimilarity(queryEmbedding, encounterEmbedding);
+          try {
+            const encounterEmbedding = JSON.parse(encounter.embedding);
+            const semanticScore = cosineSimilarity(queryEmbedding, encounterEmbedding);
 
-          const searchableText = `${encounter.name} ${encounter.location} ${encounter.context || ""}`;
-          const keywordScore = keywordMatch(query, searchableText);
+            const searchableText = `${encounter.name} ${encounter.location} ${encounter.context || ""}`;
+            const keywordScore = keywordMatch(query, searchableText);
 
-          const combinedScore = semanticScore * 0.7 + keywordScore * 0.3;
+            const combinedScore = semanticScore * 0.7 + keywordScore * 0.3;
 
-          return {
-            encounter,
-            score: combinedScore,
-          };
+            return {
+              encounter,
+              score: combinedScore,
+            };
+          } catch (error) {
+            console.error(`Error processing encounter ${encounter.id}:`, error);
+            return null;
+          }
         })
-        .filter((result) => result.score > 0.3)
+        .filter((result): result is { encounter: typeof allEncounters[number]; score: number } => 
+          result !== null && result.score > 0.3
+        )
         .sort((a, b) => b.score - a.score)
         .slice(0, 10);
 
@@ -76,7 +92,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         context: r.encounter.context || undefined,
       }));
 
-      const naturalLanguageResponse = await generateNaturalLanguageResponse(query, topEncounters);
+      let naturalLanguageResponse: string;
+      try {
+        naturalLanguageResponse = await generateNaturalLanguageResponse(query, topEncounters);
+      } catch (error) {
+        console.error("Failed to generate natural language response:", error);
+        naturalLanguageResponse = scoredResults.length > 0
+          ? `Found ${scoredResults.length} matching encounter${scoredResults.length > 1 ? 's' : ''}.`
+          : "No matching encounters found for your search.";
+      }
 
       res.json({
         results: scoredResults,

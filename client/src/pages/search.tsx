@@ -22,9 +22,10 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
 
-  const searchMutation = useMutation({
+  const searchMutation = useMutation<SearchResponse, Error, string>({
     mutationFn: async (searchQuery: string) => {
-      return await apiRequest("POST", "/api/search", { query: searchQuery }) as SearchResponse;
+      const response = await apiRequest("POST", "/api/search", { query: searchQuery });
+      return response as unknown as SearchResponse;
     },
     onSuccess: (data) => {
       setSearchResults(data);

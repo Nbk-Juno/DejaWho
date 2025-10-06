@@ -166,25 +166,32 @@ export default function Record() {
                 <FormField
                   control={form.control}
                   name="datetime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date & Time *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="datetime-local"
-                          {...field}
-                          value={
-                            field.value instanceof Date
-                              ? field.value.toISOString().slice(0, 16)
-                              : field.value
-                          }
-                          onChange={(e) => field.onChange(new Date(e.target.value))}
-                          data-testid="input-datetime"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const formatDatetimeLocal = (date: Date | string) => {
+                      const d = date instanceof Date ? date : new Date(date);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      const hours = String(d.getHours()).padStart(2, '0');
+                      const minutes = String(d.getMinutes()).padStart(2, '0');
+                      return `${year}-${month}-${day}T${hours}:${minutes}`;
+                    };
+
+                    return (
+                      <FormItem>
+                        <FormLabel>Date & Time *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            value={formatDatetimeLocal(field.value)}
+                            onChange={(e) => field.onChange(new Date(e.target.value))}
+                            data-testid="input-datetime"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
