@@ -140,3 +140,69 @@ export function keywordMatch(query: string, text: string): number {
 
   return matchedWords.length / queryWords.length;
 }
+
+export interface EnhancedKeywordScore {
+  locationScore: number;
+  contextScore: number;
+  nameScore: number;
+  overallScore: number;
+}
+
+export function enhancedKeywordMatch(
+  query: string,
+  name: string,
+  location: string,
+  context: string | null
+): EnhancedKeywordScore {
+  const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+  
+  if (queryWords.length === 0) {
+    return { locationScore: 0, contextScore: 0, nameScore: 0, overallScore: 0 };
+  }
+
+  const locationText = location.toLowerCase();
+  const contextText = (context || '').toLowerCase();
+  const nameText = name.toLowerCase();
+
+  let locationExactMatches = 0;
+  let locationPartialMatches = 0;
+  let contextExactMatches = 0;
+  let contextPartialMatches = 0;
+  let nameExactMatches = 0;
+  let namePartialMatches = 0;
+
+  for (const word of queryWords) {
+    const wordRegex = new RegExp(`\\b${word}\\b`);
+    
+    if (wordRegex.test(locationText)) {
+      locationExactMatches++;
+    } else if (locationText.includes(word)) {
+      locationPartialMatches++;
+    }
+    
+    if (wordRegex.test(contextText)) {
+      contextExactMatches++;
+    } else if (contextText.includes(word)) {
+      contextPartialMatches++;
+    }
+    
+    if (wordRegex.test(nameText)) {
+      nameExactMatches++;
+    } else if (nameText.includes(word)) {
+      namePartialMatches++;
+    }
+  }
+
+  const locationScore = (locationExactMatches * 1.0 + locationPartialMatches * 0.3) / queryWords.length;
+  const contextScore = (contextExactMatches * 1.0 + contextPartialMatches * 0.3) / queryWords.length;
+  const nameScore = (nameExactMatches * 1.0 + namePartialMatches * 0.3) / queryWords.length;
+
+  const overallScore = (locationScore * 0.4) + (contextScore * 0.4) + (nameScore * 0.2);
+
+  return {
+    locationScore,
+    contextScore,
+    nameScore,
+    overallScore
+  };
+}

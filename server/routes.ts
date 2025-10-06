@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertEncounterSchema } from "@shared/schema";
-import { generateEmbedding, cosineSimilarity, keywordMatch, generateNaturalLanguageResponse } from "./openai";
+import { generateEmbedding, cosineSimilarity, keywordMatch, enhancedKeywordMatch, generateNaturalLanguageResponse } from "./openai";
 import { 
   extractDateFromQuery, 
   calculateDateSimilarity, 
@@ -78,8 +78,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const encounterEmbedding = JSON.parse(encounter.embedding);
             const semanticScore = cosineSimilarity(queryEmbedding, encounterEmbedding);
 
-            const searchableText = `${encounter.name} ${encounter.location} ${encounter.context || ""}`;
-            const keywordScore = keywordMatch(query, searchableText);
+            const enhancedScore = enhancedKeywordMatch(
+              query,
+              encounter.name,
+              encounter.location,
+              encounter.context
+            );
 
             let dateScore = 0;
             let locationScore = 0;
@@ -111,13 +115,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let combinedScore: number;
             
             if (extractedDate && locationTerms.length > 0) {
-              combinedScore = semanticScore * 0.3 + keywordScore * 0.1 + dateScore * 0.3 + locationScore * 0.3;
+              combinedScore = semanticScore * 0.25 + enhancedScore.overallScore * 0.25 + dateScore * 0.25 + locationScore * 0.25;
             } else if (extractedDate) {
-              combinedScore = semanticScore * 0.3 + keywordScore * 0.2 + dateScore * 0.5;
+              combinedScore = semanticScore * 0.3 + enhancedScore.overallScore * 0.2 + dateScore * 0.5;
             } else if (locationTerms.length > 0) {
-              combinedScore = semanticScore * 0.3 + keywordScore * 0.2 + locationScore * 0.5;
+              combinedScore = semanticScore * 0.3 + enhancedScore.overallScore * 0.2 + locationScore * 0.5;
             } else {
-              combinedScore = semanticScore * 0.7 + keywordScore * 0.3;
+              combinedScore = semanticScore * 0.5 + enhancedScore.overallScore * 0.5;
             }
 
             return {
