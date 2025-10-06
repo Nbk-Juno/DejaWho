@@ -140,6 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         location: r.encounter.location,
         datetime: r.encounter.datetime.toISOString(),
         context: r.encounter.context || undefined,
+        score: r.score,
       }));
 
       let naturalLanguageResponse: string;
