@@ -141,7 +141,7 @@ export default function SearchPage() {
               </Card>
             )}
 
-            {searchResults.results.length > 0 ? (
+            {searchResults.results && searchResults.results.length > 0 ? (
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-foreground">
                   {searchResults.results.length === 1 
