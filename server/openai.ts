@@ -148,21 +148,37 @@ export interface EnhancedKeywordScore {
   overallScore: number;
 }
 
+function stripSurroundingPunctuation(word: string): string {
+  return word.replace(/^\p{P}+|\p{P}+$/gu, '');
+}
+
 export function enhancedKeywordMatch(
   query: string,
   name: string,
   location: string,
   context: string | null
 ): EnhancedKeywordScore {
-  const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+  const queryWords = query.toLowerCase()
+    .split(/\s+/)
+    .map(stripSurroundingPunctuation)
+    .filter(w => w.length > 0);
   
   if (queryWords.length === 0) {
     return { locationScore: 0, contextScore: 0, nameScore: 0, overallScore: 0 };
   }
 
-  const locationText = location.toLowerCase();
-  const contextText = (context || '').toLowerCase();
-  const nameText = name.toLowerCase();
+  const locationWords = location.toLowerCase()
+    .split(/\s+/)
+    .map(stripSurroundingPunctuation)
+    .filter(w => w.length > 0);
+  const contextWords = (context || '').toLowerCase()
+    .split(/\s+/)
+    .map(stripSurroundingPunctuation)
+    .filter(w => w.length > 0);
+  const nameWords = name.toLowerCase()
+    .split(/\s+/)
+    .map(stripSurroundingPunctuation)
+    .filter(w => w.length > 0);
 
   let locationExactMatches = 0;
   let locationPartialMatches = 0;
@@ -172,23 +188,21 @@ export function enhancedKeywordMatch(
   let namePartialMatches = 0;
 
   for (const word of queryWords) {
-    const wordRegex = new RegExp(`\\b${word}\\b`);
-    
-    if (wordRegex.test(locationText)) {
+    if (locationWords.includes(word)) {
       locationExactMatches++;
-    } else if (locationText.includes(word)) {
+    } else if (word.length >= 3 && locationWords.some(w => w.includes(word))) {
       locationPartialMatches++;
     }
     
-    if (wordRegex.test(contextText)) {
+    if (contextWords.includes(word)) {
       contextExactMatches++;
-    } else if (contextText.includes(word)) {
+    } else if (word.length >= 3 && contextWords.some(w => w.includes(word))) {
       contextPartialMatches++;
     }
     
-    if (wordRegex.test(nameText)) {
+    if (nameWords.includes(word)) {
       nameExactMatches++;
-    } else if (nameText.includes(word)) {
+    } else if (word.length >= 3 && nameWords.some(w => w.includes(word))) {
       namePartialMatches++;
     }
   }
