@@ -71,6 +71,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isLocationBasedQuery = isLocationQuery(query);
       const extractedDate = isDateBasedQuery ? extractDateFromQuery(query) : null;
       const locationTerms = isLocationBasedQuery ? extractLocationTerms(query) : [];
+      
+      console.log('Query analysis:', { query, isDateBasedQuery, isLocationBasedQuery, extractedDate, locationTerms });
 
       const scoredResults = allEncounters
         .map((encounter) => {
@@ -115,7 +117,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let combinedScore: number;
             
             if (extractedDate && locationTerms.length > 0) {
-              combinedScore = semanticScore * 0.25 + enhancedScore.overallScore * 0.25 + dateScore * 0.25 + locationScore * 0.25;
+              combinedScore = semanticScore * 0.15 + enhancedScore.overallScore * 0.15 + dateScore * 0.35 + locationScore * 0.35;
+              
+              if (dateScore >= 0.8 && locationScore >= 0.7) {
+                const synergyBoost = (dateScore * locationScore) * 0.2;
+                combinedScore = Math.min(1.0, combinedScore + synergyBoost);
+              }
+              
+              console.log(`Date+Location scoring for ${encounter.name}:`, {
+                semantic: semanticScore.toFixed(3),
+                semanticContribution: (semanticScore * 0.15).toFixed(3),
+                keyword: enhancedScore.overallScore.toFixed(3),
+                keywordContribution: (enhancedScore.overallScore * 0.15).toFixed(3),
+                date: dateScore.toFixed(3),
+                dateContribution: (dateScore * 0.35).toFixed(3),
+                location: locationScore.toFixed(3),
+                locationContribution: (locationScore * 0.35).toFixed(3),
+                combined: combinedScore.toFixed(3)
+              });
             } else if (extractedDate) {
               combinedScore = semanticScore * 0.3 + enhancedScore.overallScore * 0.2 + dateScore * 0.5;
             } else if (locationTerms.length > 0) {

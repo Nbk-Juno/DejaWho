@@ -64,13 +64,13 @@ export function calculateDateSimilarity(queryDate: DateMatch, encounterDate: Dat
     return 0;
   }
   
-  let score = 0.3;
+  let score = 1.0;
   
   if (queryDate.year !== undefined) {
     if (queryDate.year === encYear) {
-      score = 0.7;
+      score = 1.0;
     } else {
-      return score * 0.5;
+      return 0;
     }
   }
   
@@ -80,12 +80,18 @@ export function calculateDateSimilarity(queryDate: DateMatch, encounterDate: Dat
     } else {
       const dayDiff = Math.abs(queryDate.day - encDay);
       if (dayDiff <= 3) {
-        score = Math.max(score, 0.8 - (dayDiff * 0.1));
+        score = 0.8 - (dayDiff * 0.1);
+      } else {
+        return 0;
       }
     }
   }
   
   return score;
+}
+
+function stripSurroundingPunctuation(word: string): string {
+  return word.replace(/^\p{P}+|\p{P}+$/gu, '');
 }
 
 export function extractLocationTerms(query: string): string[] {
@@ -103,10 +109,10 @@ export function extractLocationTerms(query: string): string[] {
     'who', 'what', 'when', 'where', 'why', 'how',
     'did', 'do', 'does', 'was', 'were', 'is', 'are',
     'i', 'me', 'my',
-    'meet', 'met', 'saw', 'see', 'seen',
+    'meet', 'met', 'saw', 'see', 'seen', 'encounter', 'encountered',
     'the', 'a', 'an',
     'at', 'of', 'to', 'from', 'with',
-    'that', 'this', 'name', 'person', 'people',
+    'that', 'this', 'name', 'person', 'people', 'location',
     'girl', 'guy', 'man', 'woman', 'boy'
   ];
   
@@ -124,6 +130,7 @@ export function extractLocationTerms(query: string): string[] {
   const terms = cleanedQuery
     .trim()
     .split(/\s+/)
+    .map(term => stripSurroundingPunctuation(term))
     .filter(term => term.length > 0);
   
   console.log('Location extraction:', { originalQuery: query, cleanedQuery, extractedTerms: terms });

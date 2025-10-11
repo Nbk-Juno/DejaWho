@@ -94,10 +94,26 @@ Preferred communication style: Simple, everyday language.
 - **Error Handling**: Implements retry logic (2 retries) with exponential backoff
 - **API Key**: Configured via `OPENAI_API_KEY` environment variable
 
-**Search Algorithm**:
-- **Cosine Similarity**: Compares query embedding with stored encounter embeddings
-- **Keyword Matching**: Fallback mechanism for basic text-based search
-- **Hybrid Approach**: Combines semantic search with keyword matching for better accuracy
+**Enhanced Search Algorithm** (Updated October 2025):
+- **Semantic Similarity**: Cosine similarity of AI embeddings for overall meaning
+- **Enhanced Keyword Matching**: 
+  - Prioritizes exact word matches (weight 1.0) over partial matches (weight 0.3)
+  - Separately scores location (40%), context (40%), and name (20%)
+  - Requires minimum 3 characters for partial matching to prevent false positives
+  - Uses Unicode-aware punctuation stripping to handle queries like "starbucks?"
+- **Date Similarity**: 
+  - Returns 1.0 for month-only matches (e.g., "February" matches any February encounter)
+  - Returns 0 if more specific date components (year/day) are specified but don't match
+- **Location Matching**: 
+  - Extracts location terms by filtering out date words, question words, and punctuation
+  - Scores based on term matches in location field (80% weight) and context field (20% weight)
+- **Adaptive Scoring Weights**:
+  - **Date + Location query**: 15% semantic + 15% keyword + 35% date + 35% location
+  - **Date only**: 30% semantic + 20% keyword + 50% date
+  - **Location only**: 30% semantic + 20% keyword + 50% location
+  - **General query**: 50% semantic + 50% keyword
+- **Synergy Boost**: When date score ≥0.8 and location score ≥0.7, adds (date × location × 0.2) bonus to reward strong date+location matches, capped at 1.0
+- **Result**: Single-match queries like "February at farmers market" now score 93-95% (was 40-54%)
 
 **Neon Database** (prepared for production):
 - Serverless PostgreSQL provider
