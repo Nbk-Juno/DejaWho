@@ -55,27 +55,27 @@ export default function SearchPage() {
             <h1 className="text-2xl font-bold text-foreground">Find Someone</h1>
           </div>
 
-          <form onSubmit={handleSearch} className="relative">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
+          <form onSubmit={handleSearch}>
+            <div className="relative flex items-center h-16 bg-background border border-input rounded-md px-4 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <input
                 type="search"
                 placeholder="Ask me anything... e.g., 'Who did I meet at Starbucks last Tuesday?'"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-12 pr-32 h-16 text-lg"
+                className="flex-1 px-3 bg-transparent text-lg outline-none placeholder:text-muted-foreground"
                 data-testid="input-search"
               />
               <Button
                 type="submit"
-                size="lg"
-                className="absolute right-2 top-1/2 -translate-y-1/2"
+                size="default"
+                className="flex-shrink-0 ml-2"
                 disabled={searchMutation.isPending || !query.trim()}
                 data-testid="button-search"
               >
                 {searchMutation.isPending ? (
                   <>
-                    <Sparkles className="h-5 w-5 mr-2 animate-pulse" />
+                    <Sparkles className="h-4 w-4 mr-2 animate-pulse" />
                     Searching...
                   </>
                 ) : (
