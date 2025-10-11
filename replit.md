@@ -88,9 +88,10 @@ Preferred communication style: Simple, everyday language.
 - **Model for Embeddings**: `text-embedding-ada-002`
   - Generates 1536-dimensional vectors for semantic search
   - Applied to both encounter data and search queries
-- **Model for Natural Language Responses**: GPT-5 (as of August 2025)
+- **Model for Natural Language Responses**: GPT-4o
   - Generates human-readable search result summaries
   - Provides contextual responses to user queries
+  - Mentions person names when confidence is above 50%
 - **Error Handling**: Implements retry logic (2 retries) with exponential backoff
 - **API Key**: Configured via `OPENAI_API_KEY` environment variable
 

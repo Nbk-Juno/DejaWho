@@ -25,7 +25,8 @@ export function extractDateFromQuery(query: string): DateMatch | null {
   let extractedDate: DateMatch = {};
   
   for (const [monthName, monthNum] of Object.entries(monthMap)) {
-    if (lowerQuery.includes(monthName)) {
+    const regex = new RegExp(`\\b${monthName}\\b`, 'i');
+    if (regex.test(lowerQuery)) {
       extractedDate.month = monthNum;
       break;
     }
@@ -194,7 +195,12 @@ export function isDateQuery(query: string): boolean {
     'today', 'yesterday', 'last week', 'this week', 'last month'
   ];
   
-  return dateIndicators.some(indicator => lowerQuery.includes(indicator)) ||
+  const hasDateWord = dateIndicators.some(indicator => {
+    const regex = new RegExp(`\\b${indicator}\\b`, 'i');
+    return regex.test(lowerQuery);
+  });
+  
+  return hasDateWord ||
          /\b\d{1,2}(?:st|nd|rd|th)?\b/.test(lowerQuery) ||
          /\b(20\d{2}|19\d{2})\b/.test(lowerQuery);
 }

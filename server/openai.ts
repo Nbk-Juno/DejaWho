@@ -1,7 +1,5 @@
 import OpenAI from "openai";
 
-// Reference to javascript_openai blueprint integration
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function generateEmbedding(text: string, retries = 2): Promise<number[]> {
@@ -83,7 +81,7 @@ Examples for LOW confidence (<50%):
 Generate a helpful, natural language response that directly answers the user's query. Always mention the person's name. Be conversational and specific. If there are multiple matches, mention the top match by name first, then briefly reference others if relevant.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -98,7 +96,10 @@ Generate a helpful, natural language response that directly answers the user's q
       max_completion_tokens: 300,
     });
 
-    return response.choices[0].message.content || "Found your encounters!";
+    const aiResponse = response.choices[0].message.content;
+    console.log('OpenAI natural language response:', { aiResponse, hasContent: !!aiResponse });
+    
+    return aiResponse || "Found your encounters!";
   } catch (error) {
     console.error("Error generating natural language response:", error);
     return "Found matching encounters for your search.";
