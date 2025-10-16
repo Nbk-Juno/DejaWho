@@ -8,6 +8,13 @@
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Updates (October 2025)
+
+### Voice Input & Output Features
+- **Voice Input**: Users can speak their queries or encounter details instead of typing
+- **Voice Output**: AI responses are automatically spoken back for voice queries
+- **Smart Parsing**: AI extracts name, location, and context from spoken encounter descriptions
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -34,6 +41,15 @@ Preferred communication style: Simple, everyday language.
 - Three main routes: Home (/), Record (/record), Search (/search)
 - 404 Not Found page for invalid routes
 
+**Voice Interaction Components**:
+- VoiceRecorder: Reusable component using MediaRecorder API
+  - Visual feedback with pulsing red indicator during recording
+  - Automatic transcription via OpenAI Whisper
+  - Error handling for microphone permissions
+- Audio Playback: Browser Audio API
+  - Auto-plays AI responses for voice queries
+  - Stop/Replay controls for user convenience
+
 **Form Handling**: React Hook Form with Zod validation
 - Type-safe form validation using shared schemas
 - Integration with shadcn/ui form components
@@ -47,6 +63,9 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/encounters/:id` - Fetch single encounter by ID
 - `POST /api/encounters` - Create new encounter
 - `POST /api/search` - Search encounters using natural language
+- `POST /api/transcribe` - Convert audio to text using Whisper
+- `POST /api/text-to-speech` - Convert text to speech using OpenAI TTS or ElevenLabs
+- `POST /api/parse-encounter` - Parse spoken encounter description into structured fields
 
 **Data Validation**: Zod schemas shared between client and server
 - Ensures type safety and validation consistency across the stack
@@ -92,8 +111,16 @@ Preferred communication style: Simple, everyday language.
   - Generates human-readable search result summaries
   - Provides contextual responses to user queries
   - Mentions person names when confidence is above 50%
+- **Model for Speech-to-Text**: Whisper-1
+  - Transcribes voice input from users
+  - Handles various audio formats (WebM with Opus codec)
+  - Max recording duration: 60 seconds
+- **Model for Text-to-Speech**: TTS-1 (with ElevenLabs fallback)
+  - Converts AI responses to natural speech
+  - Only activates for voice queries (not text queries)
+  - Uses "alloy" voice for OpenAI, "Rachel" for ElevenLabs
 - **Error Handling**: Implements retry logic (2 retries) with exponential backoff
-- **API Key**: Configured via `OPENAI_API_KEY` environment variable
+- **API Keys**: Configured via `OPENAI_API_KEY` and `ELEVENLABS_API_KEY` (optional) environment variables
 
 **Enhanced Search Algorithm** (Updated October 2025):
 - **Semantic Similarity**: Cosine similarity of AI embeddings for overall meaning

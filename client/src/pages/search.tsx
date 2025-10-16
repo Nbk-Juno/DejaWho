@@ -52,6 +52,9 @@ export default function SearchPage() {
       
       if (audioRef.current) {
         audioRef.current.pause();
+        if (audioRef.current.src) {
+          URL.revokeObjectURL(audioRef.current.src);
+        }
         audioRef.current = null;
       }
       
@@ -77,6 +80,9 @@ export default function SearchPage() {
 
   const stopAudio = () => {
     if (audioRef.current) {
+      if (audioRef.current.src) {
+        URL.revokeObjectURL(audioRef.current.src);
+      }
       audioRef.current.pause();
       audioRef.current = null;
       setIsPlayingAudio(false);
