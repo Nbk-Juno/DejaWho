@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Search, Sparkles, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { EncounterCard } from "@/components/encounter-card";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import type { Encounter } from "@shared/schema";
@@ -21,6 +22,7 @@ export default function SearchPage() {
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
+  const [isVoiceQuery, setIsVoiceQuery] = useState(false);
 
   const searchMutation = useMutation<SearchResponse, Error, string>({
     mutationFn: async (searchQuery: string) => {
@@ -32,11 +34,21 @@ export default function SearchPage() {
     },
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (query.trim()) {
       searchMutation.mutate(query);
     }
+  };
+
+  const handleVoiceTranscription = (text: string) => {
+    setQuery(text);
+    setIsVoiceQuery(true);
+    setTimeout(() => {
+      if (text.trim()) {
+        searchMutation.mutate(text);
+      }
+    }, 100);
   };
 
   return (
@@ -62,9 +74,18 @@ export default function SearchPage() {
                 type="search"
                 placeholder="Ask me anything... e.g., 'Who did I meet at Starbucks last Tuesday?'"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setIsVoiceQuery(false);
+                }}
                 className="flex-1 px-3 bg-transparent text-lg outline-none placeholder:text-muted-foreground"
                 data-testid="input-search"
+              />
+              <VoiceRecorder 
+                onTranscriptionComplete={handleVoiceTranscription}
+                buttonSize="icon"
+                buttonVariant="ghost"
+                className="flex-shrink-0"
               />
               <Button
                 type="submit"
