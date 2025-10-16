@@ -282,3 +282,60 @@ export async function textToSpeech(text: string): Promise<Buffer> {
     throw new Error("Failed to generate speech");
   }
 }
+
+interface ParsedEncounter {
+  name: string;
+  location: string;
+  context: string;
+}
+
+export async function parseEncounterFromSpeech(text: string): Promise<ParsedEncounter> {
+  try {
+    const prompt = `Parse the following spoken text about an encounter with someone and extract the structured information.
+
+Spoken text: "${text}"
+
+Extract:
+1. The person's NAME (if mentioned, otherwise return "Unknown")
+2. The LOCATION where they met (if mentioned, otherwise return "Unknown location")
+3. Any CONTEXT or notes about the encounter (what they talked about, what happened, etc.)
+
+Return ONLY a JSON object in this exact format:
+{
+  "name": "extracted name",
+  "location": "extracted location",
+  "context": "extracted context and notes"
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that extracts structured information from spoken text about encounters. Return only valid JSON.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 200,
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("No response from OpenAI");
+    }
+
+    const parsed = JSON.parse(content);
+    return {
+      name: parsed.name || "Unknown",
+      location: parsed.location || "Unknown location",
+      context: parsed.context || "",
+    };
+  } catch (error) {
+    console.error("Error parsing encounter from speech:", error);
+    throw new Error("Failed to parse encounter details");
+  }
+}

@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -14,10 +14,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { insertEncounterSchema, type InsertEncounter } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { useState } from "react";
 
 export default function Record() {
@@ -67,6 +68,30 @@ export default function Record() {
 
   const onSubmit = (data: InsertEncounter) => {
     createMutation.mutate(data);
+  };
+
+  const handleVoiceTranscription = async (text: string) => {
+    try {
+      const response = await apiRequest("POST", "/api/parse-encounter", { text });
+      const parsed = await response.json();
+      
+      form.setValue("name", parsed.name);
+      form.setValue("location", parsed.location);
+      if (parsed.context) {
+        form.setValue("context", parsed.context);
+      }
+      
+      toast({
+        title: "Voice input parsed",
+        description: "Review the extracted details and adjust if needed",
+      });
+    } catch (error) {
+      toast({
+        title: "Parsing failed",
+        description: "Could not extract encounter details. Please fill manually.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (showSuccess) {
@@ -119,10 +144,30 @@ export default function Record() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Record New Encounter</CardTitle>
-            <p className="text-muted-foreground mt-2">
-              Save details about someone you've met so you can find them later with AI search
-            </p>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <CardTitle className="text-2xl">Record New Encounter</CardTitle>
+                <CardDescription className="mt-2">
+                  Save details about someone you've met so you can find them later with AI search
+                </CardDescription>
+              </div>
+              <div className="flex-shrink-0">
+                <VoiceRecorder 
+                  onTranscriptionComplete={handleVoiceTranscription}
+                  buttonSize="default"
+                  buttonVariant="outline"
+                />
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border">
+              <div className="flex gap-2 items-start">
+                <Mic className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">Tip:</span> Tap the microphone and speak your encounter details. 
+                  For example: "I met Sarah Johnson at Starbucks this morning. We talked about her new startup."
+                </p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Form {...form}>
