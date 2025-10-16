@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertEncounterSchema } from "@shared/schema";
-import { generateEmbedding, cosineSimilarity, keywordMatch, enhancedKeywordMatch, generateNaturalLanguageResponse } from "./openai";
+import { generateEmbedding, cosineSimilarity, keywordMatch, enhancedKeywordMatch, generateNaturalLanguageResponse, transcribeAudio, textToSpeech } from "./openai";
 import { 
   extractDateFromQuery, 
   calculateDateSimilarity, 
@@ -11,8 +11,50 @@ import {
   isDateQuery,
   isLocationQuery
 } from "./search-utils";
+import multer from "multer";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 25 * 1024 * 1024 }
+  });
+
+  app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No audio file provided" });
+      }
+
+      const text = await transcribeAudio(req.file.buffer, req.file.originalname);
+      res.json({ text });
+    } catch (error: any) {
+      console.error("Error transcribing audio:", error);
+      res.status(500).json({ error: error.message || "Failed to transcribe audio" });
+    }
+  });
+
+  app.post("/api/text-to-speech", async (req, res) => {
+    try {
+      const { text } = req.body;
+
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ error: "Text is required" });
+      }
+
+      const audioBuffer = await textToSpeech(text);
+      
+      res.set({
+        "Content-Type": "audio/mpeg",
+        "Content-Length": audioBuffer.length,
+      });
+      
+      res.send(audioBuffer);
+    } catch (error: any) {
+      console.error("Error generating speech:", error);
+      res.status(500).json({ error: error.message || "Failed to generate speech" });
+    }
+  });
+
   app.get("/api/encounters", async (req, res) => {
     try {
       const encounters = await storage.getAllEncounters();

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { toFile } from "openai/uploads";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -220,4 +221,64 @@ export function enhancedKeywordMatch(
     nameScore,
     overallScore
   };
+}
+
+export async function transcribeAudio(audioBuffer: Buffer, filename: string): Promise<string> {
+  try {
+    const file = await toFile(audioBuffer, filename);
+    
+    const transcription = await openai.audio.transcriptions.create({
+      file: file,
+      model: "whisper-1",
+    });
+    
+    return transcription.text;
+  } catch (error) {
+    console.error("Error transcribing audio:", error);
+    throw new Error("Failed to transcribe audio");
+  }
+}
+
+export async function textToSpeech(text: string): Promise<Buffer> {
+  try {
+    if (process.env.ELEVENLABS_API_KEY) {
+      try {
+        const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM", {
+          method: "POST",
+          headers: {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": process.env.ELEVENLABS_API_KEY
+          },
+          body: JSON.stringify({
+            text: text,
+            model_id: "eleven_monolingual_v1",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.5
+            }
+          })
+        });
+
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          return Buffer.from(arrayBuffer);
+        }
+      } catch (elevenLabsError) {
+        console.log("ElevenLabs failed, falling back to OpenAI TTS:", elevenLabsError);
+      }
+    }
+
+    const mp3 = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy",
+      input: text,
+    });
+
+    const buffer = Buffer.from(await mp3.arrayBuffer());
+    return buffer;
+  } catch (error) {
+    console.error("Error generating speech:", error);
+    throw new Error("Failed to generate speech");
+  }
 }
