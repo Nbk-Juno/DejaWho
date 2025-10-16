@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Search, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowLeft, Search, Sparkles, AlertCircle, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,8 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [isVoiceQuery, setIsVoiceQuery] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const searchMutation = useMutation<SearchResponse, Error, string>({
     mutationFn: async (searchQuery: string) => {
@@ -33,6 +35,53 @@ export default function SearchPage() {
       setSearchResults(data);
     },
   });
+
+  useEffect(() => {
+    if (searchResults?.naturalLanguageResponse && isVoiceQuery) {
+      playVoiceResponse(searchResults.naturalLanguageResponse);
+    }
+  }, [searchResults, isVoiceQuery]);
+
+  const playVoiceResponse = async (text: string) => {
+    try {
+      setIsPlayingAudio(true);
+      
+      const response = await apiRequest("POST", "/api/text-to-speech", { text });
+      const blob = await response.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error("Error playing voice response:", error);
+      setIsPlayingAudio(false);
+    }
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlayingAudio(false);
+    }
+  };
 
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -151,8 +200,34 @@ export default function SearchPage() {
                 <CardContent className="py-6">
                   <div className="flex gap-4">
                     <Sparkles className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-2">AI Response</h3>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-foreground">AI Response</h3>
+                        {isVoiceQuery && isPlayingAudio && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={stopAudio}
+                            className="h-6 px-2"
+                            data-testid="button-stop-audio"
+                          >
+                            <VolumeX className="h-4 w-4 mr-1" />
+                            <span className="text-xs">Stop</span>
+                          </Button>
+                        )}
+                        {isVoiceQuery && !isPlayingAudio && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => playVoiceResponse(searchResults.naturalLanguageResponse)}
+                            className="h-6 px-2"
+                            data-testid="button-replay-audio"
+                          >
+                            <Volume2 className="h-4 w-4 mr-1" />
+                            <span className="text-xs">Replay</span>
+                          </Button>
+                        )}
+                      </div>
                       <p className="text-foreground leading-relaxed" data-testid="text-ai-response">
                         {searchResults.naturalLanguageResponse}
                       </p>
