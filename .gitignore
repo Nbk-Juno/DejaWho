@@ -4,3 +4,17 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Claude Code local overrides
+.claude/settings.local.json
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
