@@ -16,6 +16,20 @@ AI-powered memory app: record encounters with people, search them with natural l
 
 Tests run against a real Postgres (Docker locally, GitHub Actions service in CI). There's no UI test suite yet — for UI changes, start the dev server and verify in a browser. Typecheck alone does not prove feature correctness.
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `Nbk-Juno/Who-That`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the default shared label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a single-context domain layout with root `CONTEXT.md` and root `docs/adr/` for ADRs. See `docs/agents/domain.md`.
+
 ## Architecture in 30 seconds
 
 Monorepo with three roots:

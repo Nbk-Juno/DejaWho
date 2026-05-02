@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import { EMBEDDING_DIMENSIONS } from "@shared/schema";
+import * as openai from "../server/openai";
+import { resetAiPolicyForTests } from "../server/ai-policy";
 
 const TEST_SECRET = "test-jwt-secret-for-vitest-only-do-not-use-in-prod";
 const USER_A = "11111111-1111-1111-1111-111111111111";
@@ -89,6 +91,11 @@ beforeAll(async () => {
   await registerRoutes(app);
 });
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetAiPolicyForTests();
+});
+
 describe("API smoke", () => {
   it("creates an encounter then finds it via search (authenticated)", async () => {
     const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
@@ -134,6 +141,62 @@ describe("API smoke", () => {
 
     const noAuthList = await request(app).get("/api/encounters");
     expect(noAuthList.status).toBe(401);
+  });
+
+  it("rejects oversized search queries before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/search")
+      .set("Authorization", auth)
+      .send({ query: "x".repeat(501) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.generateEmbedding).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized text-to-speech text before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/text-to-speech")
+      .set("Authorization", auth)
+      .send({ text: "x".repeat(1501) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.textToSpeech).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized encounter parsing text before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/parse-encounter")
+      .set("Authorization", auth)
+      .send({ text: "x".repeat(5001) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.parseEncounterFromSpeech).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized transcription audio before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+    const oversizedAudio = Buffer.alloc(2 * 1024 * 1024 + 1, "a");
+
+    const res = await request(app)
+      .post("/api/transcribe")
+      .set("Authorization", auth)
+      .attach("audio", oversizedAudio, {
+        filename: "too-large.webm",
+        contentType: "audio/webm",
+      });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.transcribeAudio).not.toHaveBeenCalled();
   });
 
   it("isolates encounters per user (B cannot see or fetch A's)", async () => {

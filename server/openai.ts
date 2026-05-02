@@ -1,5 +1,12 @@
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
+import {
+  buildNaturalLanguageResponsePrompt,
+  buildParseEncounterPrompt,
+  EMPTY_NATURAL_LANGUAGE_RESPONSE,
+  type NaturalLanguageEncounter,
+} from "./encounter-ai-prompts";
+import { logError, logInfo, logWarn } from "./logger";
 
 let _client: OpenAI | null = null;
 function openai(): OpenAI {
@@ -19,7 +26,10 @@ export async function generateEmbedding(text: string, retries = 2): Promise<numb
 
       return response.data[0].embedding;
     } catch (error) {
-      console.error(`Error generating embedding (attempt ${attempt + 1}/${retries + 1}):`, error);
+      logError("openai_embedding_failed", error, {
+        attempt: attempt + 1,
+        maxAttempts: retries + 1,
+      });
       
       if (attempt === retries) {
         throw new Error("Failed to generate embedding after retries");
@@ -34,58 +44,14 @@ export async function generateEmbedding(text: string, retries = 2): Promise<numb
 
 export async function generateNaturalLanguageResponse(
   query: string,
-  encounters: Array<{ name: string; location: string; datetime: string; context?: string; score: number }>
+  encounters: NaturalLanguageEncounter[],
 ): Promise<string> {
   try {
     if (encounters.length === 0) {
-      return "I couldn't find anyone matching your search criteria. Try different search terms or check if the encounter has been recorded.";
+      return EMPTY_NATURAL_LANGUAGE_RESPONSE;
     }
 
-    const topScore = encounters[0].score;
-    const confidencePercentage = Math.round(topScore * 100);
-    const isHighConfidence = topScore > 0.5;
-
-    const encountersText = encounters
-      .map((e, i) => {
-        const date = new Date(e.datetime);
-        const dateStr = date.toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        });
-        const timeStr = date.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
-        const scorePercent = Math.round(e.score * 100);
-        return `${i + 1}. ${e.name} at ${e.location} on ${dateStr} at ${timeStr} (${scorePercent}% match)${e.context ? `. Context: ${e.context}` : ""}`;
-      })
-      .join("\n");
-
-    const confidenceInstruction = isHighConfidence
-      ? `The top match has a ${confidencePercentage}% confidence score (above 50%), so you should mention their name directly and confidently in your response.`
-      : `The top match has a ${confidencePercentage}% confidence score (below 50%), so you should start by saying "I couldn't find an exact match, but here's who it could be:" and then mention the name.`;
-
-    const prompt = `Based on the user's query and the matching encounters below, generate a natural, conversational response that answers their question.
-
-User Query: "${query}"
-
-Matching Encounters (ordered by relevance with confidence scores):
-${encountersText}
-
-CONFIDENCE GUIDANCE:
-${confidenceInstruction}
-
-Examples for HIGH confidence (>50%):
-- If asked "who did I meet at the farmers market?" → "You met Lisa Anderson at the Farmers Market."
-- If asked "what was the name of the girl I met at the coffee shop?" → "Her name was Sarah Johnson."
-
-Examples for LOW confidence (<50%):
-- If asked "who did I meet at the farmers market?" → "I couldn't find an exact match, but here's who it could be: Lisa Anderson at the Farmers Market."
-- If asked "what was the name of the person at the coffee shop?" → "I couldn't find an exact match, but here's who it could be: Sarah Johnson."
-
-Generate a helpful, natural language response that directly answers the user's query. Always mention the person's name. Be conversational and specific. If there are multiple matches, mention the top match by name first, then briefly reference others if relevant.`;
+    const prompt = buildNaturalLanguageResponsePrompt(query, encounters);
 
     const response = await openai().chat.completions.create({
       model: "gpt-4o",
@@ -104,129 +70,13 @@ Generate a helpful, natural language response that directly answers the user's q
     });
 
     const aiResponse = response.choices[0].message.content;
-    console.log('OpenAI natural language response:', { aiResponse, hasContent: !!aiResponse });
+    logInfo("openai_natural_language_response_generated", { hasContent: !!aiResponse });
     
     return aiResponse || "Found your encounters!";
   } catch (error) {
-    console.error("Error generating natural language response:", error);
+    logError("openai_natural_language_response_failed", error);
     return "Found matching encounters for your search.";
   }
-}
-
-export function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
-    throw new Error("Vectors must have the same length");
-  }
-
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-
-  normA = Math.sqrt(normA);
-  normB = Math.sqrt(normB);
-
-  if (normA === 0 || normB === 0) {
-    return 0;
-  }
-
-  return dotProduct / (normA * normB);
-}
-
-export function keywordMatch(query: string, text: string): number {
-  const queryWords = query.toLowerCase().split(/\s+/);
-  const textWords = text.toLowerCase().split(/\s+/);
-
-  const matchedWords = queryWords.filter((word) =>
-    textWords.some((textWord) => textWord.includes(word) || word.includes(textWord))
-  );
-
-  return matchedWords.length / queryWords.length;
-}
-
-export interface EnhancedKeywordScore {
-  locationScore: number;
-  contextScore: number;
-  nameScore: number;
-  overallScore: number;
-}
-
-function stripSurroundingPunctuation(word: string): string {
-  return word.replace(/^\p{P}+|\p{P}+$/gu, '');
-}
-
-export function enhancedKeywordMatch(
-  query: string,
-  name: string,
-  location: string,
-  context: string | null
-): EnhancedKeywordScore {
-  const queryWords = query.toLowerCase()
-    .split(/\s+/)
-    .map(stripSurroundingPunctuation)
-    .filter(w => w.length > 0);
-  
-  if (queryWords.length === 0) {
-    return { locationScore: 0, contextScore: 0, nameScore: 0, overallScore: 0 };
-  }
-
-  const locationWords = location.toLowerCase()
-    .split(/\s+/)
-    .map(stripSurroundingPunctuation)
-    .filter(w => w.length > 0);
-  const contextWords = (context || '').toLowerCase()
-    .split(/\s+/)
-    .map(stripSurroundingPunctuation)
-    .filter(w => w.length > 0);
-  const nameWords = name.toLowerCase()
-    .split(/\s+/)
-    .map(stripSurroundingPunctuation)
-    .filter(w => w.length > 0);
-
-  let locationExactMatches = 0;
-  let locationPartialMatches = 0;
-  let contextExactMatches = 0;
-  let contextPartialMatches = 0;
-  let nameExactMatches = 0;
-  let namePartialMatches = 0;
-
-  for (const word of queryWords) {
-    if (locationWords.includes(word)) {
-      locationExactMatches++;
-    } else if (word.length >= 3 && locationWords.some(w => w.includes(word))) {
-      locationPartialMatches++;
-    }
-    
-    if (contextWords.includes(word)) {
-      contextExactMatches++;
-    } else if (word.length >= 3 && contextWords.some(w => w.includes(word))) {
-      contextPartialMatches++;
-    }
-    
-    if (nameWords.includes(word)) {
-      nameExactMatches++;
-    } else if (word.length >= 3 && nameWords.some(w => w.includes(word))) {
-      namePartialMatches++;
-    }
-  }
-
-  const locationScore = (locationExactMatches * 1.0 + locationPartialMatches * 0.3) / queryWords.length;
-  const contextScore = (contextExactMatches * 1.0 + contextPartialMatches * 0.3) / queryWords.length;
-  const nameScore = (nameExactMatches * 1.0 + namePartialMatches * 0.3) / queryWords.length;
-
-  const overallScore = (locationScore * 0.4) + (contextScore * 0.4) + (nameScore * 0.2);
-
-  return {
-    locationScore,
-    contextScore,
-    nameScore,
-    overallScore
-  };
 }
 
 export async function transcribeAudio(audioBuffer: Buffer, filename: string): Promise<string> {
@@ -240,7 +90,7 @@ export async function transcribeAudio(audioBuffer: Buffer, filename: string): Pr
     
     return transcription.text;
   } catch (error) {
-    console.error("Error transcribing audio:", error);
+    logError("openai_transcription_failed", error);
     throw new Error("Failed to transcribe audio");
   }
 }
@@ -271,7 +121,14 @@ export async function textToSpeech(text: string): Promise<Buffer> {
           return Buffer.from(arrayBuffer);
         }
       } catch (elevenLabsError) {
-        console.log("ElevenLabs failed, falling back to OpenAI TTS:", elevenLabsError);
+        logWarn("elevenlabs_tts_failed_falling_back", {
+          ...((elevenLabsError instanceof Error) ? {
+            errorName: elevenLabsError.name,
+            errorMessage: elevenLabsError.message,
+          } : {
+            errorType: typeof elevenLabsError,
+          }),
+        });
       }
     }
 
@@ -284,7 +141,7 @@ export async function textToSpeech(text: string): Promise<Buffer> {
     const buffer = Buffer.from(await mp3.arrayBuffer());
     return buffer;
   } catch (error) {
-    console.error("Error generating speech:", error);
+    logError("openai_tts_failed", error);
     throw new Error("Failed to generate speech");
   }
 }
@@ -297,21 +154,7 @@ interface ParsedEncounter {
 
 export async function parseEncounterFromSpeech(text: string): Promise<ParsedEncounter> {
   try {
-    const prompt = `Parse the following spoken text about an encounter with someone and extract the structured information.
-
-Spoken text: "${text}"
-
-Extract:
-1. The person's NAME (if mentioned, otherwise return "Unknown")
-2. The LOCATION where they met (if mentioned, otherwise return "Unknown location")
-3. Any CONTEXT or notes about the encounter (what they talked about, what happened, etc.)
-
-Return ONLY a JSON object in this exact format:
-{
-  "name": "extracted name",
-  "location": "extracted location",
-  "context": "extracted context and notes"
-}`;
+    const prompt = buildParseEncounterPrompt(text);
 
     const response = await openai().chat.completions.create({
       model: "gpt-4o",
@@ -341,7 +184,7 @@ Return ONLY a JSON object in this exact format:
       context: parsed.context || "",
     };
   } catch (error) {
-    console.error("Error parsing encounter from speech:", error);
+    logError("openai_parse_encounter_failed", error);
     throw new Error("Failed to parse encounter details");
   }
 }

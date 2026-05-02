@@ -122,6 +122,10 @@ npm run db:migrate # apply versioned migrations (production-safe)
 
 Tests run against the same local Postgres as `npm run dev`. The setup file applies migrations and truncates tables between tests, so don't point `TEST_DATABASE_URL` at any database with data you care about. CI runs the same suite against a fresh `pgvector/pgvector:pg16` service container.
 
+## Operations
+
+- [Invite operations](docs/INVITES.md) — add/remove friends-and-family invitees, inspect a user's encounters for support, and handle subject-deletion requests.
+
 ## API surface
 
 | Method | Endpoint | Purpose |

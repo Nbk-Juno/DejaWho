@@ -1,6 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { supabase } from "./supabase";
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+
 async function authHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -14,18 +16,25 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function apiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
   const headers: Record<string, string> = { ...(await authHeaders()) };
-  if (data) headers["Content-Type"] = "application/json";
+  const isFormData = data instanceof FormData;
+  if (data !== undefined && !isFormData) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(url, {
+  const res = await fetch(apiUrl(url), {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: data === undefined ? undefined : isFormData ? data : JSON.stringify(data),
   });
 
   await throwIfResNotOk(res);
@@ -39,7 +48,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const headers = await authHeaders();
-    const res = await fetch(queryKey.join("/") as string, { headers });
+    const res = await fetch(apiUrl(queryKey.join("/") as string), { headers });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
