@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: who-that-postgres
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_USER: who_that
+      POSTGRES_PASSWORD: who_that_dev
+      POSTGRES_DB: who_that
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U who_that -d who_that"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+volumes:
+  postgres_data:

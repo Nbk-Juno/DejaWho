@@ -6,13 +6,15 @@ AI-powered memory app: record encounters with people, search them with natural l
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Start Express + Vite together on port 5000 (hot reload) |
-| `npm run check` | TypeScript typecheck (no emit) — run this before declaring work done |
+| `npm run dev` | Start Express + Vite together (port 5050 by default; macOS uses 5000 for AirPlay Receiver) |
+| `npm run check` | TypeScript typecheck (no emit) — run before declaring work done |
+| `npm run test` | Vitest integration suite (requires `docker compose up -d` first) |
 | `npm run build` | Production build: Vite for client, esbuild for server |
 | `npm run start` | Run the production build |
-| `npm run db:push` | Push the Drizzle schema to the configured `DATABASE_URL` |
+| `npm run db:push` | Push the Drizzle schema directly to `DATABASE_URL` (dev convenience) |
+| `npm run db:migrate` | Apply versioned migrations from `./migrations` |
 
-There is no test suite yet. For UI changes, start the dev server and verify in a browser — typecheck alone does not prove feature correctness.
+Tests run against a real Postgres (Docker locally, GitHub Actions service in CI). There's no UI test suite yet — for UI changes, start the dev server and verify in a browser. Typecheck alone does not prove feature correctness.
 
 ## Architecture in 30 seconds
 
@@ -35,17 +37,15 @@ The Vite dev server is mounted *inside* Express in development (see `server/vite
 
 ## Storage
 
-Currently `MemStorage` (in-memory, with seeded sample encounters) behind an `IStorage` interface in `server/storage.ts`. The Drizzle schema in `shared/schema.ts` is production-ready for Postgres (Neon). To switch:
+`DbStorage` against Postgres (Supabase in production, Docker locally) behind the `IStorage` interface in `server/storage.ts`. Embeddings live in a pgvector `vector(1536)` column — search code reads them directly as `number[]` (no `JSON.parse` step). The Drizzle schema in `shared/schema.ts` is the single source of truth; migrations live in `./migrations`.
 
-1. Set `DATABASE_URL`.
-2. `npm run db:push`.
-3. Add a `DbStorage` implementing `IStorage` and swap which one `storage` exports.
+Local development uses `docker compose up -d` to start a `pgvector/pgvector:pg16` container on port 54322. Tests share that database and truncate tables between runs, so don't point `TEST_DATABASE_URL` at any database with data you care about.
 
-Embeddings are stored as JSON-stringified text — portable, but pgvector would be the right move at scale.
+`encounters.userId` is currently nullable — Phase 2 (Auth) will make it non-null and add RLS policies. Until then, the service-role connection has full access and the application layer is the only thing keeping data scoped.
 
 ## Environment
 
-See `.env.example`. `OPENAI_API_KEY` is required for any meaningful work; everything else is optional. Never hardcode keys — always `process.env.X`.
+See `.env.example`. `OPENAI_API_KEY` and `DATABASE_URL` are required to run the app. `TEST_DATABASE_URL` falls back to `DATABASE_URL` if unset. Never hardcode keys — always `process.env.X`. The server entrypoint loads `.env` via `dotenv/config`, so values populate at startup.
 
 ## Conventions / gotchas
 

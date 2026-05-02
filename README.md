@@ -60,9 +60,10 @@ When the top match exceeds 50% confidence, GPT-4o answers directly by name. Belo
 - Custom search engine combining cosine similarity, keyword scoring, date/location heuristics, and adaptive weighting
 
 **Data**
-- Drizzle ORM with a schema ready for Neon serverless Postgres
+- Drizzle ORM against Postgres (Supabase in production, Docker locally)
+- pgvector for embedding storage — `vector(1536)` column with native cosine math available when the time comes for indexing
 - Zod schemas shared between client and server for end-to-end type safety
-- In-memory storage for the prototype, behind an `IStorage` interface so swapping in Postgres is a one-line change
+- `IStorage` interface seam left in place for future swap-outs (e.g., a different vector store)
 
 **AI features**
 - Voice in → Whisper transcription → GPT-4o structured extraction → Zod-validated form fields
@@ -82,35 +83,44 @@ who-that/
 │   ├── routes.ts        # REST endpoints
 │   ├── openai.ts        # Embeddings, chat, Whisper, TTS, parsing
 │   ├── search-utils.ts  # Date/location extraction + scoring
-│   └── storage.ts       # IStorage interface + in-memory implementation
-└── shared/
-    └── schema.ts        # Drizzle tables + Zod schemas (single source of truth)
+│   ├── db.ts            # Drizzle + postgres.js client
+│   └── storage.ts       # IStorage interface + DbStorage (Postgres)
+├── shared/
+│   └── schema.ts        # Drizzle tables + Zod schemas (single source of truth)
+├── tests/                # Vitest integration tests
+├── migrations/           # Drizzle SQL migrations
+└── docker-compose.yml    # Local Postgres + pgvector
 ```
 
 ## Running it locally
 
 ```bash
 npm install
+cp .env.example .env       # then fill in OPENAI_API_KEY at minimum
 
-# Required
-export OPENAI_API_KEY=sk-...
-
-# Optional (better-quality TTS voice)
-export ELEVENLABS_API_KEY=...
-
-# Optional (for Postgres mode — defaults to in-memory)
-export DATABASE_URL=postgres://...
-
-npm run dev
+docker compose up -d       # local Postgres on :54322 with pgvector
+npm run db:migrate         # apply Drizzle migrations
+npm run dev                # Express + Vite on http://localhost:5050
 ```
 
-The dev server runs the Express API and serves the Vite frontend together on a single port. Visit `http://localhost:5000` and you'll have sample encounters preloaded so you can try search immediately.
+Required environment variables (see `.env.example`):
+
+- `OPENAI_API_KEY` — required for embeddings, GPT-4o, Whisper, TTS
+- `DATABASE_URL` — Postgres connection string. The default in `.env.example` points at the local Docker container; swap for a Supabase connection string in production
+- `ELEVENLABS_API_KEY` — optional, higher-quality TTS voice
+- `PORT` — defaults to 5000. macOS uses 5000 for AirPlay Receiver, so `.env.example` recommends 5050 locally
 
 ```bash
-npm run check     # typecheck
+npm run check     # typecheck (no emit)
+npm run test      # run the Vitest suite (requires Postgres up)
 npm run build     # production build (Vite + esbuild)
-npm run db:push   # push Drizzle schema to Postgres
+npm run db:push   # push Drizzle schema directly (dev convenience)
+npm run db:migrate # apply versioned migrations (production-safe)
 ```
+
+### Testing
+
+Tests run against the same local Postgres as `npm run dev`. The setup file applies migrations and truncates tables between tests, so don't point `TEST_DATABASE_URL` at any database with data you care about. CI runs the same suite against a fresh `pgvector/pgvector:pg16` service container.
 
 ## API surface
 
@@ -124,12 +134,15 @@ npm run db:push   # push Drizzle schema to Postgres
 | `POST` | `/api/text-to-speech` | Text → audio (OpenAI TTS or ElevenLabs) |
 | `POST` | `/api/parse-encounter` | Spoken description → `{ name, location, context }` |
 
-## What I'd add next
+## What's next
 
-- **Auth & multi-user** — currently single-user; the storage interface is already structured to scope queries per user.
-- **pgvector** — embeddings live as JSON text today for portability; a real vector index would scale to thousands of encounters.
-- **Photos** — attaching a face to a name is the obvious next memory hook.
-- **Mobile PWA** — the UI is already mobile-first; a proper install experience is the missing piece.
+The full production plan lives in [`docs/PRODUCTION_PLAN.md`](docs/PRODUCTION_PLAN.md) (also tracked as issue #1). Highlights:
+
+- **Auth & multi-user** — Supabase Auth + RLS, invite-only friends-and-family launch
+- **Cost-and-abuse defenses** — per-request input caps, per-user monthly OpenAI counters, per-IP rate limit
+- **Privacy** — export-all-my-data + delete-account from day one
+- **PWA** — installable web app, with Capacitor-readiness so a native iOS/Android wrap is a one-week add later
+- **Observability** — Sentry + Pino structured logs
 
 ---
 

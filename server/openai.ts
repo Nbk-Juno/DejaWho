@@ -1,12 +1,18 @@
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let _client: OpenAI | null = null;
+function openai(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _client;
+}
 
 export async function generateEmbedding(text: string, retries = 2): Promise<number[]> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const response = await openai.embeddings.create({
+      const response = await openai().embeddings.create({
         model: "text-embedding-ada-002",
         input: text,
       });
@@ -81,7 +87,7 @@ Examples for LOW confidence (<50%):
 
 Generate a helpful, natural language response that directly answers the user's query. Always mention the person's name. Be conversational and specific. If there are multiple matches, mention the top match by name first, then briefly reference others if relevant.`;
 
-    const response = await openai.chat.completions.create({
+    const response = await openai().chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
@@ -227,7 +233,7 @@ export async function transcribeAudio(audioBuffer: Buffer, filename: string): Pr
   try {
     const file = await toFile(audioBuffer, filename);
     
-    const transcription = await openai.audio.transcriptions.create({
+    const transcription = await openai().audio.transcriptions.create({
       file: file,
       model: "whisper-1",
     });
@@ -269,7 +275,7 @@ export async function textToSpeech(text: string): Promise<Buffer> {
       }
     }
 
-    const mp3 = await openai.audio.speech.create({
+    const mp3 = await openai().audio.speech.create({
       model: "tts-1",
       voice: "alloy",
       input: text,
@@ -307,7 +313,7 @@ Return ONLY a JSON object in this exact format:
   "context": "extracted context and notes"
 }`;
 
-    const response = await openai.chat.completions.create({
+    const response = await openai().chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
