@@ -20,6 +20,32 @@ function tokenFor(userId: string, email: string): string {
   );
 }
 
+vi.mock("../server/supabase", () => ({
+  supabaseAuth: () => ({
+    auth: {
+      async getUser(token: string) {
+        try {
+          const payload = jwt.verify(token, TEST_SECRET, {
+            algorithms: ["HS256"],
+          }) as jwt.JwtPayload & { email?: string };
+          if (typeof payload.sub !== "string" || payload.sub.length === 0) {
+            return { data: { user: null }, error: { message: "no subject" } };
+          }
+          return {
+            data: { user: { id: payload.sub, email: payload.email } },
+            error: null,
+          };
+        } catch (err) {
+          return {
+            data: { user: null },
+            error: { message: (err as Error).message },
+          };
+        }
+      },
+    },
+  }),
+}));
+
 vi.mock("../server/openai", async () => {
   function deterministicEmbedding(text: string): number[] {
     let hash = 0;

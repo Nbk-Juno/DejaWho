@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 import jwt from "jsonwebtoken";
@@ -10,10 +10,35 @@ function signToken(payload: object, opts: jwt.SignOptions = {}): string {
   return jwt.sign(payload, TEST_SECRET, { algorithm: "HS256", ...opts });
 }
 
+vi.mock("../server/supabase", () => ({
+  supabaseAuth: () => ({
+    auth: {
+      async getUser(token: string) {
+        try {
+          const payload = jwt.verify(token, TEST_SECRET, {
+            algorithms: ["HS256"],
+          }) as jwt.JwtPayload & { email?: string };
+          if (typeof payload.sub !== "string" || payload.sub.length === 0) {
+            return { data: { user: null }, error: { message: "no subject" } };
+          }
+          return {
+            data: { user: { id: payload.sub, email: payload.email } },
+            error: null,
+          };
+        } catch (err) {
+          return {
+            data: { user: null },
+            error: { message: (err as Error).message },
+          };
+        }
+      },
+    },
+  }),
+}));
+
 let app: express.Express;
 
 beforeAll(async () => {
-  process.env.SUPABASE_JWT_SECRET = TEST_SECRET;
   const { requireAuth } = await import("../server/auth");
   app = express();
   app.get("/protected", requireAuth, (req, res) => {
