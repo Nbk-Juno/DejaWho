@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DbStorage } from "../server/storage";
 import { EMBEDDING_DIMENSIONS } from "@shared/schema";
-import { cosineSimilarity } from "../server/openai";
+import { cosineSimilarity } from "../server/search-scoring";
 
 const TEST_USER_A = "11111111-1111-1111-1111-111111111111";
 const TEST_USER_B = "22222222-2222-2222-2222-222222222222";

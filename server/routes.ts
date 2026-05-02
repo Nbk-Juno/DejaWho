@@ -1,18 +1,31 @@
-import type { Express, Request } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertEncounterSchema } from "@shared/schema";
-import { generateEmbedding, cosineSimilarity, keywordMatch, enhancedKeywordMatch, generateNaturalLanguageResponse, transcribeAudio, textToSpeech, parseEncounterFromSpeech } from "./openai";
 import {
-  extractDateFromQuery,
-  calculateDateSimilarity,
-  extractLocationTerms,
-  calculateLocationScore,
-  isDateQuery,
-  isLocationQuery
-} from "./search-utils";
+  generateEmbedding,
+  generateNaturalLanguageResponse,
+  parseEncounterFromSpeech,
+  textToSpeech,
+  transcribeAudio,
+} from "./openai";
+import { rankEncounters } from "./encounter-search";
 import multer from "multer";
 import { requireAuth } from "./auth";
+import { logError } from "./logger";
+import {
+  AI_AUDIO_MAX_BYTES,
+  AI_TEXT_LIMITS,
+  AiPolicyError,
+  assertAiTextWithinLimit,
+} from "./ai-policy";
+import {
+  getMonthlyUsageSummary,
+  type MonthlyAiOperation,
+  reserveMonthlyAiCall,
+  rollbackMonthlyAiCall,
+} from "./usage-counters";
+import { apiRateLimit } from "./rate-limit";
 
 function userIdFrom(req: Request): string {
   if (!req.user?.id) {
@@ -21,11 +34,55 @@ function userIdFrom(req: Request): string {
   return req.user.id;
 }
 
+function handleAiPolicyError(error: unknown, res: Response): boolean {
+  if (error instanceof AiPolicyError) {
+    res.status(error.statusCode).json({ error: error.message, code: error.code });
+    return true;
+  }
+
+  return false;
+}
+
+async function runBillableAiCall<T>(
+  userId: string,
+  operation: MonthlyAiOperation,
+  call: () => Promise<T>,
+): Promise<T> {
+  await reserveMonthlyAiCall(userId, operation);
+  try {
+    return await call();
+  } catch (error) {
+    await rollbackMonthlyAiCall(userId, operation);
+    throw error;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use(apiRateLimit);
+
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 25 * 1024 * 1024 }
+    limits: { fileSize: AI_AUDIO_MAX_BYTES },
   });
+  const uploadAudio = (req: Request, res: Response, next: NextFunction) => {
+    upload.single("audio")(req, res, (error) => {
+      if (!error) {
+        next();
+        return;
+      }
+
+      if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({
+          error: "Audio file must be 2 MB or smaller",
+          code: "ai_input_too_large",
+        });
+        return;
+      }
+
+      logError("audio_upload_failed", error);
+      res.status(400).json({ error: "Invalid audio upload" });
+    });
+  };
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
@@ -49,16 +106,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ id: userIdFrom(req), email });
   });
 
-  app.post("/api/transcribe", requireAuth, upload.single("audio"), async (req, res) => {
+  app.get("/api/me/usage", requireAuth, async (req, res) => {
+    try {
+      res.json(await getMonthlyUsageSummary(userIdFrom(req)));
+    } catch (error) {
+      logError("usage_summary_route_failed", error);
+      res.status(500).json({ error: "Failed to fetch usage summary" });
+    }
+  });
+
+  app.post("/api/transcribe", requireAuth, uploadAudio, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
       }
 
-      const text = await transcribeAudio(req.file.buffer, req.file.originalname);
+      const text = await runBillableAiCall(userIdFrom(req), "voice_transcriptions", () =>
+        transcribeAudio(req.file!.buffer, req.file!.originalname),
+      );
       res.json({ text });
     } catch (error: any) {
-      console.error("Error transcribing audio:", error);
+      if (handleAiPolicyError(error, res)) return;
+      logError("transcribe_route_failed", error);
       res.status(500).json({ error: error.message || "Failed to transcribe audio" });
     }
   });
@@ -71,7 +140,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const audioBuffer = await textToSpeech(text);
+      assertAiTextWithinLimit(text, AI_TEXT_LIMITS.textToSpeech, "Text");
+      const audioBuffer = await runBillableAiCall(userIdFrom(req), "tts_calls", () =>
+        textToSpeech(text),
+      );
       
       res.set({
         "Content-Type": "audio/mpeg",
@@ -80,7 +152,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.send(audioBuffer);
     } catch (error: any) {
-      console.error("Error generating speech:", error);
+      if (handleAiPolicyError(error, res)) return;
+      logError("tts_route_failed", error);
       res.status(500).json({ error: error.message || "Failed to generate speech" });
     }
   });
@@ -93,10 +166,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const parsed = await parseEncounterFromSpeech(text);
+      assertAiTextWithinLimit(text, AI_TEXT_LIMITS.parseEncounter, "Text");
+      const parsed = await runBillableAiCall(userIdFrom(req), "parse_calls", () =>
+        parseEncounterFromSpeech(text),
+      );
       res.json(parsed);
     } catch (error: any) {
-      console.error("Error parsing encounter:", error);
+      if (handleAiPolicyError(error, res)) return;
+      logError("parse_encounter_route_failed", error);
       res.status(500).json({ error: error.message || "Failed to parse encounter" });
     }
   });
@@ -106,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const encounters = await storage.getAllEncountersForUser(userIdFrom(req));
       res.json(encounters);
     } catch (error) {
-      console.error("Error fetching encounters:", error);
+      logError("list_encounters_route_failed", error);
       res.status(500).json({ error: "Failed to fetch encounters" });
     }
   });
@@ -119,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(encounter);
     } catch (error) {
-      console.error("Error fetching encounter:", error);
+      logError("get_encounter_route_failed", error);
       res.status(500).json({ error: "Failed to fetch encounter" });
     }
   });
@@ -128,6 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validated = insertEncounterSchema.parse(req.body);
       const embeddingText = `${validated.name} ${validated.location} ${validated.context || ""}`;
+      assertAiTextWithinLimit(embeddingText, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
       const embedding = await generateEmbedding(embeddingText);
       const encounter = await storage.createEncounter({
         ...validated,
@@ -136,7 +214,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.status(201).json(encounter);
     } catch (error: any) {
-      console.error("Error creating encounter:", error);
+      if (handleAiPolicyError(error, res)) return;
+      logError("create_encounter_route_failed", error);
       res.status(400).json({ error: error.message || "Failed to create encounter" });
     }
   });
@@ -149,107 +228,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Query is required" });
       }
 
+      assertAiTextWithinLimit(query, AI_TEXT_LIMITS.searchQuery, "Query");
+
       let queryEmbedding: number[];
+      const userId = userIdFrom(req);
       try {
+        await reserveMonthlyAiCall(userId, "search_calls");
         queryEmbedding = await generateEmbedding(query);
       } catch (error) {
-        console.error("Failed to generate query embedding:", error);
+        if (handleAiPolicyError(error, res)) return;
+        await rollbackMonthlyAiCall(userId, "search_calls");
+        logError("search_embedding_failed", error);
         return res.status(503).json({ 
           error: "AI service is currently unavailable. Please try again in a moment." 
         });
       }
 
-      const allEncounters = await storage.getAllEncountersForUser(userIdFrom(req));
+      const allEncounters = await storage.getAllEncountersForUser(userId);
 
-      const isDateBasedQuery = isDateQuery(query);
-      const isLocationBasedQuery = isLocationQuery(query);
-      const extractedDate = isDateBasedQuery ? extractDateFromQuery(query) : null;
-      const locationTerms = isLocationBasedQuery ? extractLocationTerms(query) : [];
-      
-      console.log('Query analysis:', { query, isDateBasedQuery, isLocationBasedQuery, extractedDate, locationTerms });
-
-      const scoredResults = allEncounters
-        .map((encounter) => {
-          try {
-            const semanticScore = cosineSimilarity(queryEmbedding, encounter.embedding);
-
-            const enhancedScore = enhancedKeywordMatch(
-              query,
-              encounter.name,
-              encounter.location,
-              encounter.context
-            );
-
-            let dateScore = 0;
-            let locationScore = 0;
-            let shouldInclude = true;
-
-            if (extractedDate) {
-              dateScore = calculateDateSimilarity(extractedDate, encounter.datetime);
-              if (dateScore === 0) {
-                shouldInclude = false;
-              }
-            }
-
-            if (locationTerms.length > 0) {
-              const locationResult = calculateLocationScore(
-                locationTerms,
-                encounter.location,
-                encounter.context
-              );
-              locationScore = locationResult.score;
-              if (!locationResult.hasMatch) {
-                shouldInclude = false;
-              }
-            }
-
-            if (!shouldInclude) {
-              return null;
-            }
-
-            let combinedScore: number;
-            
-            if (extractedDate && locationTerms.length > 0) {
-              combinedScore = semanticScore * 0.15 + enhancedScore.overallScore * 0.15 + dateScore * 0.35 + locationScore * 0.35;
-              
-              if (dateScore >= 0.8 && locationScore >= 0.7) {
-                const synergyBoost = (dateScore * locationScore) * 0.2;
-                combinedScore = Math.min(1.0, combinedScore + synergyBoost);
-              }
-              
-              console.log(`Date+Location scoring for ${encounter.name}:`, {
-                semantic: semanticScore.toFixed(3),
-                semanticContribution: (semanticScore * 0.15).toFixed(3),
-                keyword: enhancedScore.overallScore.toFixed(3),
-                keywordContribution: (enhancedScore.overallScore * 0.15).toFixed(3),
-                date: dateScore.toFixed(3),
-                dateContribution: (dateScore * 0.35).toFixed(3),
-                location: locationScore.toFixed(3),
-                locationContribution: (locationScore * 0.35).toFixed(3),
-                combined: combinedScore.toFixed(3)
-              });
-            } else if (extractedDate) {
-              combinedScore = semanticScore * 0.3 + enhancedScore.overallScore * 0.2 + dateScore * 0.5;
-            } else if (locationTerms.length > 0) {
-              combinedScore = semanticScore * 0.3 + enhancedScore.overallScore * 0.2 + locationScore * 0.5;
-            } else {
-              combinedScore = semanticScore * 0.5 + enhancedScore.overallScore * 0.5;
-            }
-
-            return {
-              encounter,
-              score: combinedScore,
-            };
-          } catch (error) {
-            console.error(`Error processing encounter ${encounter.id}:`, error);
-            return null;
-          }
-        })
-        .filter((result): result is { encounter: typeof allEncounters[number]; score: number } => 
-          result !== null && result.score > 0.2
-        )
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
+      const scoredResults = rankEncounters(query, queryEmbedding, allEncounters);
 
       const topEncounters = scoredResults.map((r) => ({
         name: r.encounter.name,
@@ -263,7 +260,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         naturalLanguageResponse = await generateNaturalLanguageResponse(query, topEncounters);
       } catch (error) {
-        console.error("Failed to generate natural language response:", error);
+        if (handleAiPolicyError(error, res)) return;
+        logError("search_natural_language_response_failed", error);
         naturalLanguageResponse = scoredResults.length > 0
           ? `Found ${scoredResults.length} matching encounter${scoredResults.length > 1 ? 's' : ''}.`
           : "No matching encounters found for your search.";
@@ -274,7 +272,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         naturalLanguageResponse,
       });
     } catch (error: any) {
-      console.error("Error searching encounters:", error);
+      if (handleAiPolicyError(error, res)) return;
+      logError("search_route_failed", error);
       res.status(500).json({ error: error.message || "Failed to search encounters" });
     }
   });

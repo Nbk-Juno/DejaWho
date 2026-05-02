@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, uuid, timestamp, vector, index } from "drizzle-orm/pg-core";
+import { integer, pgTable, text, uuid, timestamp, vector, index, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -29,6 +29,25 @@ export const whitelistedEmails = pgTable("whitelisted_emails", {
 });
 
 export type WhitelistedEmail = typeof whitelistedEmails.$inferSelect;
+
+export const usageCounters = pgTable(
+  "usage_counters",
+  {
+    userId: uuid("user_id").notNull(),
+    yearMonth: text("year_month").notNull(),
+    voiceTranscriptions: integer("voice_transcriptions").notNull().default(0),
+    ttsCalls: integer("tts_calls").notNull().default(0),
+    parseCalls: integer("parse_calls").notNull().default(0),
+    searchCalls: integer("search_calls").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.yearMonth] }),
+  }),
+);
+
+export type UsageCounter = typeof usageCounters.$inferSelect;
 
 export const insertEncounterSchema = createInsertSchema(encounters).omit({
   id: true,

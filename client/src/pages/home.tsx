@@ -5,9 +5,60 @@ import { Button } from "@/components/ui/button";
 import { EncounterCard } from "@/components/encounter-card";
 import type { Encounter } from "@shared/schema";
 
+type UsageMetric = {
+  count: number;
+  cap: number;
+};
+
+type UsageSummary = {
+  resetDate: string;
+  voiceTranscriptions: UsageMetric;
+  ttsCalls: UsageMetric;
+  searchCalls: UsageMetric;
+};
+
+function formatResetDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric" }).format(
+    new Date(`${value}T00:00:00Z`),
+  );
+}
+
+function UsageLine({
+  usage,
+  isLoading,
+  isError,
+}: {
+  usage?: UsageSummary;
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  if (isLoading) {
+    return <p className="text-xs text-muted-foreground">Loading monthly usage...</p>;
+  }
+
+  if (isError || !usage) {
+    return <p className="text-xs text-muted-foreground">Monthly usage unavailable</p>;
+  }
+
+  return (
+    <p className="text-xs sm:text-sm text-muted-foreground">
+      voice {usage.voiceTranscriptions.count}/{usage.voiceTranscriptions.cap} <span aria-hidden="true">•</span>{" "}
+      TTS {usage.ttsCalls.count}/{usage.ttsCalls.cap} <span aria-hidden="true">•</span> search{" "}
+      {usage.searchCalls.count}/{usage.searchCalls.cap} (resets {formatResetDate(usage.resetDate)})
+    </p>
+  );
+}
+
 export default function Home() {
   const { data: encounters, isLoading } = useQuery<Encounter[]>({
     queryKey: ["/api/encounters"],
+  });
+  const {
+    data: usage,
+    isLoading: usageLoading,
+    isError: usageError,
+  } = useQuery<UsageSummary>({
+    queryKey: ["/api/me/usage"],
   });
 
   const recentEncounters = encounters?.slice(0, 5) || [];
@@ -51,6 +102,7 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
+            <UsageLine usage={usage} isLoading={usageLoading} isError={usageError} />
           </div>
         </div>
       </div>

@@ -1,12 +1,37 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 import jwt from "jsonwebtoken";
+import { sql } from "drizzle-orm";
 import { EMBEDDING_DIMENSIONS } from "@shared/schema";
+import { db } from "../server/db";
+import * as openai from "../server/openai";
+import { resetAiPolicyForTests } from "../server/ai-policy";
+import { resetApiRateLimitForTests } from "../server/rate-limit";
 
 const TEST_SECRET = "test-jwt-secret-for-vitest-only-do-not-use-in-prod";
 const USER_A = "11111111-1111-1111-1111-111111111111";
 const USER_B = "22222222-2222-2222-2222-222222222222";
+
+function currentYearMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function previousYearMonth(): string {
+  const date = new Date();
+  date.setUTCMonth(date.getUTCMonth() - 1);
+  return date.toISOString().slice(0, 7);
+}
+
+async function ttsCallsFor(userId: string, yearMonth = currentYearMonth()): Promise<number> {
+  const rows = await db.execute(sql`
+    SELECT tts_calls
+    FROM usage_counters
+    WHERE user_id = ${userId}
+      AND year_month = ${yearMonth}
+  `);
+  return Number((rows as Array<{ tts_calls: number }>)[0]?.tts_calls ?? 0);
+}
 
 function tokenFor(userId: string, email: string): string {
   return jwt.sign(
@@ -85,8 +110,20 @@ beforeAll(async () => {
   process.env.SUPABASE_JWT_SECRET = TEST_SECRET;
   const { registerRoutes } = await import("../server/routes");
   app = express();
+  app.set("trust proxy", true);
   app.use(express.json());
   await registerRoutes(app);
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetAiPolicyForTests();
+  delete process.env.AI_MONTHLY_TTS_LIMIT;
+  delete process.env.AI_MONTHLY_SEARCH_LIMIT;
+  delete process.env.AI_MONTHLY_PARSE_LIMIT;
+  delete process.env.AI_MONTHLY_VOICE_TRANSCRIPTION_LIMIT;
+  delete process.env.API_RATE_LIMIT_REQUESTS_PER_MINUTE;
+  resetApiRateLimitForTests();
 });
 
 describe("API smoke", () => {
@@ -134,6 +171,165 @@ describe("API smoke", () => {
 
     const noAuthList = await request(app).get("/api/encounters");
     expect(noAuthList.status).toBe(401);
+  });
+
+  it("rejects oversized search queries before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/search")
+      .set("Authorization", auth)
+      .send({ query: "x".repeat(501) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.generateEmbedding).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized text-to-speech text before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/text-to-speech")
+      .set("Authorization", auth)
+      .send({ text: "x".repeat(1501) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.textToSpeech).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 without calling text-to-speech when the user is at the monthly cap", async () => {
+    process.env.AI_MONTHLY_TTS_LIMIT = "1";
+    await db.execute(sql`
+      INSERT INTO usage_counters (user_id, year_month, tts_calls)
+      VALUES (${USER_A}, ${new Date().toISOString().slice(0, 7)}, 1)
+    `);
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/text-to-speech")
+      .set("Authorization", auth)
+      .send({ text: "hello" });
+
+    expect(res.status).toBe(429);
+    expect(res.body.code).toBe("ai_monthly_limit_reached");
+    expect(openai.textToSpeech).not.toHaveBeenCalled();
+  });
+
+  it("increments the monthly text-to-speech counter after a successful provider call", async () => {
+    vi.mocked(openai.textToSpeech).mockResolvedValue(Buffer.from("audio"));
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/text-to-speech")
+      .set("Authorization", auth)
+      .send({ text: "hello" });
+
+    expect(res.status).toBe(200);
+    expect(await ttsCallsFor(USER_A)).toBe(1);
+  });
+
+  it("does not consume monthly quota when text-to-speech provider fails", async () => {
+    vi.mocked(openai.textToSpeech).mockRejectedValueOnce(new Error("provider down"));
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const failed = await request(app)
+      .post("/api/text-to-speech")
+      .set("Authorization", auth)
+      .send({ text: "hello" });
+
+    expect(failed.status).toBe(500);
+    expect(await ttsCallsFor(USER_A)).toBe(0);
+  });
+
+  it("tracks monthly usage separately per month", async () => {
+    process.env.AI_MONTHLY_TTS_LIMIT = "1";
+    vi.mocked(openai.textToSpeech).mockResolvedValue(Buffer.from("audio"));
+    await db.execute(sql`
+      INSERT INTO usage_counters (user_id, year_month, tts_calls)
+      VALUES (${USER_A}, ${previousYearMonth()}, 1)
+    `);
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/text-to-speech")
+      .set("Authorization", auth)
+      .send({ text: "hello" });
+
+    expect(res.status).toBe(200);
+    expect(await ttsCallsFor(USER_A, previousYearMonth())).toBe(1);
+    expect(await ttsCallsFor(USER_A)).toBe(1);
+  });
+
+  it("checks monthly caps before search, parse, and transcription provider calls", async () => {
+    process.env.AI_MONTHLY_SEARCH_LIMIT = "1";
+    process.env.AI_MONTHLY_PARSE_LIMIT = "1";
+    process.env.AI_MONTHLY_VOICE_TRANSCRIPTION_LIMIT = "1";
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+    await db.execute(sql`
+      INSERT INTO usage_counters (
+        user_id,
+        year_month,
+        search_calls,
+        parse_calls,
+        voice_transcriptions
+      )
+      VALUES (${USER_A}, ${currentYearMonth()}, 1, 1, 1)
+    `);
+
+    const search = await request(app)
+      .post("/api/search")
+      .set("Authorization", auth)
+      .send({ query: "hello" });
+    const parse = await request(app)
+      .post("/api/parse-encounter")
+      .set("Authorization", auth)
+      .send({ text: "Met Sarah at the cafe" });
+    const transcribe = await request(app)
+      .post("/api/transcribe")
+      .set("Authorization", auth)
+      .attach("audio", Buffer.from("audio"), {
+        filename: "audio.webm",
+        contentType: "audio/webm",
+      });
+
+    expect(search.status).toBe(429);
+    expect(parse.status).toBe(429);
+    expect(transcribe.status).toBe(429);
+    expect(openai.generateEmbedding).not.toHaveBeenCalled();
+    expect(openai.parseEncounterFromSpeech).not.toHaveBeenCalled();
+    expect(openai.transcribeAudio).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized encounter parsing text before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/parse-encounter")
+      .set("Authorization", auth)
+      .send({ text: "x".repeat(5001) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.parseEncounterFromSpeech).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized transcription audio before calling AI", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+    const oversizedAudio = Buffer.alloc(2 * 1024 * 1024 + 1, "a");
+
+    const res = await request(app)
+      .post("/api/transcribe")
+      .set("Authorization", auth)
+      .attach("audio", oversizedAudio, {
+        filename: "too-large.webm",
+        contentType: "audio/webm",
+      });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe("ai_input_too_large");
+    expect(openai.transcribeAudio).not.toHaveBeenCalled();
   });
 
   it("isolates encounters per user (B cannot see or fetch A's)", async () => {
@@ -205,6 +401,42 @@ describe("API smoke", () => {
     expect(res.body.status).toBe("ok");
   });
 
+  it("rejects an API burst over the per-IP rate limit before auth", async () => {
+    process.env.API_RATE_LIMIT_REQUESTS_PER_MINUTE = "2";
+
+    const first = await request(app).get("/api/me");
+    const second = await request(app).get("/api/me");
+    const third = await request(app).get("/api/me");
+
+    expect(first.status).toBe(401);
+    expect(second.status).toBe(401);
+    expect(third.status).toBe(429);
+    expect(third.body.code).toBe("rate_limit_exceeded");
+  });
+
+  it("does not let normal API traffic block the healthcheck", async () => {
+    process.env.API_RATE_LIMIT_REQUESTS_PER_MINUTE = "1";
+
+    await request(app).get("/api/me");
+    const limited = await request(app).get("/api/me");
+    const health = await request(app).get("/api/health");
+
+    expect(limited.status).toBe(429);
+    expect(health.status).toBe(200);
+  });
+
+  it("keeps separate rate-limit buckets for different IPs", async () => {
+    process.env.API_RATE_LIMIT_REQUESTS_PER_MINUTE = "1";
+
+    const firstIpFirst = await request(app).get("/api/me").set("X-Forwarded-For", "203.0.113.10");
+    const firstIpSecond = await request(app).get("/api/me").set("X-Forwarded-For", "203.0.113.10");
+    const secondIpFirst = await request(app).get("/api/me").set("X-Forwarded-For", "203.0.113.11");
+
+    expect(firstIpFirst.status).toBe(401);
+    expect(firstIpSecond.status).toBe(429);
+    expect(secondIpFirst.status).toBe(401);
+  });
+
   it("/api/me returns 200 for an allow-listed email", async () => {
     const { storage } = await import("../server/storage");
     await storage.addAllowedEmail("alice@example.com");
@@ -225,5 +457,47 @@ describe("API smoke", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe("invite_only");
+  });
+
+  it("returns the authenticated user's monthly usage summary and ignores spoofed user input", async () => {
+    process.env.AI_MONTHLY_TTS_LIMIT = "7";
+    await db.execute(sql`
+      INSERT INTO usage_counters (
+        user_id,
+        year_month,
+        voice_transcriptions,
+        tts_calls,
+        parse_calls,
+        search_calls
+      )
+      VALUES
+        (${USER_A}, ${currentYearMonth()}, 2, 3, 4, 5),
+        (${USER_B}, ${currentYearMonth()}, 20, 30, 40, 50)
+    `);
+
+    const res = await request(app)
+      .get(`/api/me/usage?userId=${USER_B}`)
+      .set("Authorization", `Bearer ${tokenFor(USER_A, "alice@example.com")}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.yearMonth).toBe(currentYearMonth());
+    expect(res.body.voiceTranscriptions).toEqual({ count: 2, cap: 100 });
+    expect(res.body.ttsCalls).toEqual({ count: 3, cap: 7 });
+    expect(res.body.parseCalls).toEqual({ count: 4, cap: 200 });
+    expect(res.body.searchCalls).toEqual({ count: 5, cap: 500 });
+  });
+
+  it("returns a first-of-next-month usage reset date", async () => {
+    const now = new Date();
+    const resetDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+      .toISOString()
+      .slice(0, 10);
+
+    const res = await request(app)
+      .get("/api/me/usage")
+      .set("Authorization", `Bearer ${tokenFor(USER_A, "alice@example.com")}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.resetDate).toBe(resetDate);
   });
 });

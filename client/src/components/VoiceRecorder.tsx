@@ -1,8 +1,7 @@
-import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
+import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
+import { Loader2, Mic, MicOff } from "lucide-react";
 
 interface VoiceRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -19,98 +18,33 @@ export function VoiceRecorder({
   buttonVariant = "outline",
   className = "",
 }: VoiceRecorderProps) {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-  }, [isRecording]);
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+  const { isRecording, isProcessing, startRecording, stopRecording } = useVoiceTranscription({
+    maxDuration,
+    onTranscriptionComplete: (text) => {
+      onTranscriptionComplete(text);
+      toast({
+        title: "Transcription complete",
+        description: "Your voice has been converted to text",
       });
-      
-      chunksRef.current = [];
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-      
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop());
-        setIsRecording(false);
-        setIsProcessing(true);
-        
-        try {
-          const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-          
-          const formData = new FormData();
-          formData.append('audio', audioBlob, 'recording.webm');
-          
-          const { data: sessionData } = await supabase.auth.getSession();
-          const token = sessionData.session?.access_token;
-          const response = await fetch('/api/transcribe', {
-            method: 'POST',
-            body: formData,
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
-          
-          if (!response.ok) {
-            throw new Error('Transcription failed');
-          }
-          
-          const data = await response.json();
-          onTranscriptionComplete(data.text);
-          
-          toast({
-            title: "Transcription complete",
-            description: "Your voice has been converted to text",
-          });
-        } catch (error) {
-          console.error('Error transcribing audio:', error);
-          toast({
-            title: "Transcription failed",
-            description: "Could not convert speech to text. Please try again.",
-            variant: "destructive",
-          });
-        } finally {
-          setIsProcessing(false);
-        }
-      };
-      
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-      setIsRecording(true);
-      
-      timerRef.current = setTimeout(() => {
-        stopRecording();
-      }, maxDuration);
-      
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
+    },
+    onTranscriptionError: (error) => {
+      console.error("Error transcribing audio:", error);
+      toast({
+        title: "Transcription failed",
+        description: "Could not convert speech to text. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onMicrophoneError: (error) => {
+      console.error("Error accessing microphone:", error);
       toast({
         title: "Microphone access denied",
         description: "Please allow microphone access to use voice input.",
         variant: "destructive",
       });
-    }
-  };
+    },
+  });
 
   const handleClick = () => {
     if (isRecording) {
