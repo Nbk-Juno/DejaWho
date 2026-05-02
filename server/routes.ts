@@ -97,7 +97,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/encounters", async (req, res) => {
     try {
       const validated = insertEncounterSchema.parse(req.body);
-      const encounter = await storage.createEncounter(validated);
+      const embeddingText = `${validated.name} ${validated.location} ${validated.context || ""}`;
+      const embedding = await generateEmbedding(embeddingText);
+      const encounter = await storage.createEncounter({ ...validated, embedding });
       res.status(201).json(encounter);
     } catch (error: any) {
       console.error("Error creating encounter:", error);
@@ -135,8 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scoredResults = allEncounters
         .map((encounter) => {
           try {
-            const encounterEmbedding = JSON.parse(encounter.embedding);
-            const semanticScore = cosineSimilarity(queryEmbedding, encounterEmbedding);
+            const semanticScore = cosineSimilarity(queryEmbedding, encounter.embedding);
 
             const enhancedScore = enhancedKeywordMatch(
               query,
