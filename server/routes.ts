@@ -18,8 +18,14 @@ import {
   AI_TEXT_LIMITS,
   AiPolicyError,
   assertAiTextWithinLimit,
-  consumeAiCall,
 } from "./ai-policy";
+import {
+  getMonthlyUsageSummary,
+  type MonthlyAiOperation,
+  reserveMonthlyAiCall,
+  rollbackMonthlyAiCall,
+} from "./usage-counters";
+import { apiRateLimit } from "./rate-limit";
 
 function userIdFrom(req: Request): string {
   if (!req.user?.id) {
@@ -37,7 +43,23 @@ function handleAiPolicyError(error: unknown, res: Response): boolean {
   return false;
 }
 
+async function runBillableAiCall<T>(
+  userId: string,
+  operation: MonthlyAiOperation,
+  call: () => Promise<T>,
+): Promise<T> {
+  await reserveMonthlyAiCall(userId, operation);
+  try {
+    return await call();
+  } catch (error) {
+    await rollbackMonthlyAiCall(userId, operation);
+    throw error;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use(apiRateLimit);
+
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: AI_AUDIO_MAX_BYTES },
@@ -84,14 +106,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ id: userIdFrom(req), email });
   });
 
+  app.get("/api/me/usage", requireAuth, async (req, res) => {
+    try {
+      res.json(await getMonthlyUsageSummary(userIdFrom(req)));
+    } catch (error) {
+      logError("usage_summary_route_failed", error);
+      res.status(500).json({ error: "Failed to fetch usage summary" });
+    }
+  });
+
   app.post("/api/transcribe", requireAuth, uploadAudio, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
       }
 
-      consumeAiCall(userIdFrom(req), "transcription");
-      const text = await transcribeAudio(req.file.buffer, req.file.originalname);
+      const text = await runBillableAiCall(userIdFrom(req), "voice_transcriptions", () =>
+        transcribeAudio(req.file!.buffer, req.file!.originalname),
+      );
       res.json({ text });
     } catch (error: any) {
       if (handleAiPolicyError(error, res)) return;
@@ -109,8 +141,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       assertAiTextWithinLimit(text, AI_TEXT_LIMITS.textToSpeech, "Text");
-      consumeAiCall(userIdFrom(req), "tts");
-      const audioBuffer = await textToSpeech(text);
+      const audioBuffer = await runBillableAiCall(userIdFrom(req), "tts_calls", () =>
+        textToSpeech(text),
+      );
       
       res.set({
         "Content-Type": "audio/mpeg",
@@ -134,8 +167,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       assertAiTextWithinLimit(text, AI_TEXT_LIMITS.parseEncounter, "Text");
-      consumeAiCall(userIdFrom(req), "parse_encounter");
-      const parsed = await parseEncounterFromSpeech(text);
+      const parsed = await runBillableAiCall(userIdFrom(req), "parse_calls", () =>
+        parseEncounterFromSpeech(text),
+      );
       res.json(parsed);
     } catch (error: any) {
       if (handleAiPolicyError(error, res)) return;
@@ -172,7 +206,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertEncounterSchema.parse(req.body);
       const embeddingText = `${validated.name} ${validated.location} ${validated.context || ""}`;
       assertAiTextWithinLimit(embeddingText, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
-      consumeAiCall(userIdFrom(req), "embedding");
       const embedding = await generateEmbedding(embeddingText);
       const encounter = await storage.createEncounter({
         ...validated,
@@ -198,18 +231,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       assertAiTextWithinLimit(query, AI_TEXT_LIMITS.searchQuery, "Query");
 
       let queryEmbedding: number[];
+      const userId = userIdFrom(req);
       try {
-        consumeAiCall(userIdFrom(req), "embedding");
+        await reserveMonthlyAiCall(userId, "search_calls");
         queryEmbedding = await generateEmbedding(query);
       } catch (error) {
         if (handleAiPolicyError(error, res)) return;
+        await rollbackMonthlyAiCall(userId, "search_calls");
         logError("search_embedding_failed", error);
         return res.status(503).json({ 
           error: "AI service is currently unavailable. Please try again in a moment." 
         });
       }
 
-      const allEncounters = await storage.getAllEncountersForUser(userIdFrom(req));
+      const allEncounters = await storage.getAllEncountersForUser(userId);
 
       const scoredResults = rankEncounters(query, queryEmbedding, allEncounters);
 
@@ -223,9 +258,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let naturalLanguageResponse: string;
       try {
-        if (topEncounters.length > 0) {
-          consumeAiCall(userIdFrom(req), "natural_language_response");
-        }
         naturalLanguageResponse = await generateNaturalLanguageResponse(query, topEncounters);
       } catch (error) {
         if (handleAiPolicyError(error, res)) return;
