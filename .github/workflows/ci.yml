@@ -26,7 +26,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://who_that:who_that_dev@localhost:5432/who_that
-      TEST_DATABASE_URL: postgresql://who_that:who_that_dev@localhost:5432/who_that
+      TEST_DATABASE_URL: postgresql://who_that:who_that_dev@localhost:5432/who_that_test
 
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +35,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      - name: Create test database
+        run: PGPASSWORD=who_that_dev psql -h localhost -U who_that -d postgres -c "CREATE DATABASE who_that_test;"
 
       - run: npm ci
 

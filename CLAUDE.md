@@ -39,7 +39,10 @@ The Vite dev server is mounted *inside* Express in development (see `server/vite
 
 `DbStorage` against Postgres (Supabase in production, Docker locally) behind the `IStorage` interface in `server/storage.ts`. Embeddings live in a pgvector `vector(1536)` column — search code reads them directly as `number[]` (no `JSON.parse` step). The Drizzle schema in `shared/schema.ts` is the single source of truth; migrations live in `./migrations`.
 
-Local development uses `docker compose up -d` to start a `pgvector/pgvector:pg16` container on port 54322. Tests share that database and truncate tables between runs, so don't point `TEST_DATABASE_URL` at any database with data you care about.
+Local development uses `docker compose up -d` to start a `pgvector/pgvector:pg16` container on port 54322. The compose init mounts `docker/init/` so the container creates two databases on first boot: `who_that` (dev) and `who_that_test` (tests). `DATABASE_URL` points to the dev DB, `TEST_DATABASE_URL` to the test DB — keep them separate so the test suite (which truncates every table between runs) can't wipe your dev seed data. If you have an existing volume from before the split, create the test DB manually:
+```bash
+docker exec who-that-postgres psql -U who_that -d postgres -c "CREATE DATABASE who_that_test;"
+```
 
 `encounters.userId` is `NOT NULL` and is populated server-side from the JWT subject — never from the request body. Storage methods are user-scoped: `getAllEncountersForUser(userId)`, `getEncounterForUser(id, userId)`. The application-layer `WHERE user_id = $1` filter is the gate everywhere. RLS policies referencing `auth.uid()` are also defined and only activate on Supabase (the migration's `DO $$ ... IF EXISTS auth $$` block makes it a no-op locally) — they are defense-in-depth against app-layer bugs and require a non-superuser DB role to actually enforce. The `whitelisted_emails` table backs the invite-only allow-list.
 
