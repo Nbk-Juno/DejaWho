@@ -1,25 +1,55 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertEncounterSchema } from "@shared/schema";
 import { generateEmbedding, cosineSimilarity, keywordMatch, enhancedKeywordMatch, generateNaturalLanguageResponse, transcribeAudio, textToSpeech, parseEncounterFromSpeech } from "./openai";
-import { 
-  extractDateFromQuery, 
-  calculateDateSimilarity, 
-  extractLocationTerms, 
+import {
+  extractDateFromQuery,
+  calculateDateSimilarity,
+  extractLocationTerms,
   calculateLocationScore,
   isDateQuery,
   isLocationQuery
 } from "./search-utils";
 import multer from "multer";
+import { requireAuth } from "./auth";
+
+function userIdFrom(req: Request): string {
+  if (!req.user?.id) {
+    throw new Error("requireAuth middleware did not attach req.user — route is misconfigured");
+  }
+  return req.user.id;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const upload = multer({ 
+  const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 25 * 1024 * 1024 }
   });
 
-  app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
+  app.get("/api/me", requireAuth, async (req, res) => {
+    const email = req.user?.email;
+    if (!email) {
+      res.status(401).json({ error: "Token has no email claim" });
+      return;
+    }
+    const allowed = await storage.isEmailAllowed(email);
+    if (!allowed) {
+      res.status(403).json({
+        error: "invite_only",
+        message:
+          "Your email isn't on the invite list yet. Request access from the operator and try again.",
+      });
+      return;
+    }
+    res.json({ id: userIdFrom(req), email });
+  });
+
+  app.post("/api/transcribe", requireAuth, upload.single("audio"), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
@@ -33,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/text-to-speech", async (req, res) => {
+  app.post("/api/text-to-speech", requireAuth, async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -55,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/parse-encounter", async (req, res) => {
+  app.post("/api/parse-encounter", requireAuth, async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -71,9 +101,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/encounters", async (req, res) => {
+  app.get("/api/encounters", requireAuth, async (req, res) => {
     try {
-      const encounters = await storage.getAllEncounters();
+      const encounters = await storage.getAllEncountersForUser(userIdFrom(req));
       res.json(encounters);
     } catch (error) {
       console.error("Error fetching encounters:", error);
@@ -81,9 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/encounters/:id", async (req, res) => {
+  app.get("/api/encounters/:id", requireAuth, async (req, res) => {
     try {
-      const encounter = await storage.getEncounter(req.params.id);
+      const encounter = await storage.getEncounterForUser(req.params.id, userIdFrom(req));
       if (!encounter) {
         return res.status(404).json({ error: "Encounter not found" });
       }
@@ -94,12 +124,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/encounters", async (req, res) => {
+  app.post("/api/encounters", requireAuth, async (req, res) => {
     try {
       const validated = insertEncounterSchema.parse(req.body);
       const embeddingText = `${validated.name} ${validated.location} ${validated.context || ""}`;
       const embedding = await generateEmbedding(embeddingText);
-      const encounter = await storage.createEncounter({ ...validated, embedding });
+      const encounter = await storage.createEncounter({
+        ...validated,
+        embedding,
+        userId: userIdFrom(req),
+      });
       res.status(201).json(encounter);
     } catch (error: any) {
       console.error("Error creating encounter:", error);
@@ -107,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/search", async (req, res) => {
+  app.post("/api/search", requireAuth, async (req, res) => {
     try {
       const { query } = req.body;
 
@@ -125,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const allEncounters = await storage.getAllEncounters();
+      const allEncounters = await storage.getAllEncountersForUser(userIdFrom(req));
 
       const isDateBasedQuery = isDateQuery(query);
       const isLocationBasedQuery = isLocationQuery(query);

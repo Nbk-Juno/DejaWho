@@ -1,20 +1,34 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, uuid, timestamp, vector } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, vector, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const EMBEDDING_DIMENSIONS = 1536;
 
-export const encounters = pgTable("encounters", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id"),
-  name: text("name").notNull(),
-  location: text("location").notNull(),
-  datetime: timestamp("datetime", { withTimezone: true }).notNull(),
-  context: text("context"),
-  embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+export const encounters = pgTable(
+  "encounters",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull(),
+    name: text("name").notNull(),
+    location: text("location").notNull(),
+    datetime: timestamp("datetime", { withTimezone: true }).notNull(),
+    context: text("context"),
+    embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+  },
+  (table) => ({
+    userIdIdx: index("encounters_user_id_idx").on(table.userId),
+  }),
+);
+
+export const whitelistedEmails = pgTable("whitelisted_emails", {
+  email: text("email").primaryKey(),
+  invitedBy: uuid("invited_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
 });
+
+export type WhitelistedEmail = typeof whitelistedEmails.$inferSelect;
 
 export const insertEncounterSchema = createInsertSchema(encounters).omit({
   id: true,

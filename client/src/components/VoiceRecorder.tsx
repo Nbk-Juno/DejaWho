@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface VoiceRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -62,9 +63,12 @@ export function VoiceRecorder({
           const formData = new FormData();
           formData.append('audio', audioBlob, 'recording.webm');
           
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
           const response = await fetch('/api/transcribe', {
             method: 'POST',
             body: formData,
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           
           if (!response.ok) {

@@ -10,8 +10,8 @@ vite.config.ts.*
 .env.*
 !.env.example
 
-# Claude Code local overrides
-.claude/settings.local.json
+# Claude Code local overrides + working state
+.claude/
 
 # Editor / OS
 .vscode/
