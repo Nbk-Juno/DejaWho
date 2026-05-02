@@ -21,5 +21,9 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await migrationDb.execute(sql`TRUNCATE TABLE encounters RESTART IDENTITY CASCADE`);
+  await migrationDb.execute(
+    sql`TRUNCATE TABLE encounters, whitelisted_emails RESTART IDENTITY CASCADE`,
+  );
 });
+
+process.env.SUPABASE_JWT_SECRET ??= "test-jwt-secret-for-vitest-only-do-not-use-in-prod";

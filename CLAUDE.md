@@ -39,13 +39,29 @@ The Vite dev server is mounted *inside* Express in development (see `server/vite
 
 `DbStorage` against Postgres (Supabase in production, Docker locally) behind the `IStorage` interface in `server/storage.ts`. Embeddings live in a pgvector `vector(1536)` column — search code reads them directly as `number[]` (no `JSON.parse` step). The Drizzle schema in `shared/schema.ts` is the single source of truth; migrations live in `./migrations`.
 
-Local development uses `docker compose up -d` to start a `pgvector/pgvector:pg16` container on port 54322. Tests share that database and truncate tables between runs, so don't point `TEST_DATABASE_URL` at any database with data you care about.
+Local development uses `docker compose up -d` to start a `pgvector/pgvector:pg16` container on port 54322. The compose init mounts `docker/init/` so the container creates two databases on first boot: `who_that` (dev) and `who_that_test` (tests). `DATABASE_URL` points to the dev DB, `TEST_DATABASE_URL` to the test DB — keep them separate so the test suite (which truncates every table between runs) can't wipe your dev seed data. If you have an existing volume from before the split, create the test DB manually:
+```bash
+docker exec who-that-postgres psql -U who_that -d postgres -c "CREATE DATABASE who_that_test;"
+```
 
-`encounters.userId` is currently nullable — Phase 2 (Auth) will make it non-null and add RLS policies. Until then, the service-role connection has full access and the application layer is the only thing keeping data scoped.
+`encounters.userId` is `NOT NULL` and is populated server-side from the JWT subject — never from the request body. Storage methods are user-scoped: `getAllEncountersForUser(userId)`, `getEncounterForUser(id, userId)`. The application-layer `WHERE user_id = $1` filter is the gate everywhere. RLS policies referencing `auth.uid()` are also defined and only activate on Supabase (the migration's `DO $$ ... IF EXISTS auth $$` block makes it a no-op locally) — they are defense-in-depth against app-layer bugs and require a non-superuser DB role to actually enforce. The `whitelisted_emails` table backs the invite-only allow-list.
+
+## Auth
+
+Supabase magic-link auth, JWT bearer tokens (no cookies). The server-side middleware `requireAuth` (in `server/auth.ts`) verifies `Authorization: Bearer <token>` against `SUPABASE_JWT_SECRET` (HS256) and attaches `req.user = { id, email }`. Apply it to any route that touches user data or calls OpenAI. `/api/health` is the single carve-out (Render healthcheck).
+
+`/api/me` checks the email against `whitelisted_emails` and returns 403 (`error: "invite_only"`) for non-allow-listed users. The client calls it on first sign-in and shows an "invite-only" screen on 403. Allow-list is currently checked only on `/api/me`, not on every request — revoking access requires invalidating Supabase sessions until a stricter middleware is wired up.
+
+To seed an allow-list email locally:
+```bash
+docker exec -i who-that-postgres psql -U who_that -d who_that -c \
+  "INSERT INTO whitelisted_emails (email) VALUES ('you@example.com') ON CONFLICT DO NOTHING;"
+```
+For Supabase, run the same `INSERT` in the SQL editor.
 
 ## Environment
 
-See `.env.example`. `OPENAI_API_KEY` and `DATABASE_URL` are required to run the app. `TEST_DATABASE_URL` falls back to `DATABASE_URL` if unset. Never hardcode keys — always `process.env.X`. The server entrypoint loads `.env` via `dotenv/config`, so values populate at startup.
+See `.env.example`. Required: `OPENAI_API_KEY`, `DATABASE_URL`, the four `SUPABASE_*` keys (server), and the two `VITE_SUPABASE_*` keys (client). `TEST_DATABASE_URL` falls back to `DATABASE_URL` if unset. Never hardcode keys — always `process.env.X` (server) or `import.meta.env.VITE_X` (client). The server entrypoint loads `.env` via `dotenv/config`, so values populate at startup. Vite reads the same `.env` file but only exposes `VITE_*` prefixed values to the client bundle.
 
 ## Conventions / gotchas
 
@@ -53,7 +69,7 @@ See `.env.example`. `OPENAI_API_KEY` and `DATABASE_URL` are required to run the 
 - **Server validates with Zod even when the client also does.** Don't skip server-side validation just because the form already validates.
 - **OpenAI calls have retry with exponential backoff** (see `generateEmbedding`). Match this pattern for any new AI calls.
 - **Logging in `server/index.ts:22` captures full API JSON responses** to stdout. This currently includes encounter contents — fine for dev, scrub before production.
-- **No auth yet.** All endpoints are public. Don't add features that assume a `req.user`; thread the auth story first if you need it.
+- **All `/api/*` routes except `/api/health` require `requireAuth`.** New routes that touch user data or OpenAI must apply it; populate user scope from `req.user.id`, never from the request body.
 - **No rate limiting on AI endpoints.** Adding it is a near-term TODO — endpoints that call OpenAI are a wallet-drain vector if exposed publicly.
 
 ## Style
