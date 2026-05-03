@@ -138,16 +138,6 @@ Tests run against the same local Postgres as `npm run dev`. The setup file appli
 | `POST` | `/api/text-to-speech` | Text → audio (OpenAI TTS or ElevenLabs) |
 | `POST` | `/api/parse-encounter` | Spoken description → `{ name, location, context }` |
 
-## What's next
-
-The full production plan lives in [`docs/PRODUCTION_PLAN.md`](docs/PRODUCTION_PLAN.md) (also tracked as issue #1). Highlights:
-
-- **Auth & multi-user** — Supabase Auth + RLS, invite-only friends-and-family launch
-- **Cost-and-abuse defenses** — per-request input caps, per-user monthly OpenAI counters, per-IP rate limit
-- **Privacy** — export-all-my-data + delete-account from day one
-- **PWA** — installable web app, with Capacitor-readiness so a native iOS/Android wrap is a one-week add later
-- **Observability** — Sentry + Pino structured logs
-
 ---
 
 Built as a portfolio project to explore the intersection of LLMs, semantic search, and voice UX in a real product. Feedback and questions welcome.
