@@ -13,4 +13,23 @@ describe("supportedAudioRecordingFormat", () => {
 
     expect(format).toEqual({ mimeType: "audio/mp4", extension: "m4a" });
   });
+
+  it("returns null when no formats are supported", () => {
+    const format = supportedAudioRecordingFormat(() => false);
+
+    expect(format).toBeNull();
+  });
+
+  it("prefers plain webm over mp4 when opus unavailable", () => {
+    const supported = new Set(["audio/webm", "audio/mp4"]);
+    const format = supportedAudioRecordingFormat((mimeType) => supported.has(mimeType));
+
+    expect(format).toEqual({ mimeType: "audio/webm", extension: "webm" });
+  });
+
+  it("falls back to mpeg as last resort", () => {
+    const format = supportedAudioRecordingFormat((mimeType) => mimeType === "audio/mpeg");
+
+    expect(format).toEqual({ mimeType: "audio/mpeg", extension: "mp3" });
+  });
 });
