@@ -45,6 +45,8 @@ function tokenFor(userId: string, email: string): string {
   );
 }
 
+const mockDeleteUser = vi.fn(async () => ({ data: null, error: null }));
+
 vi.mock("../server/supabase", () => ({
   supabaseAuth: () => ({
     auth: {
@@ -66,6 +68,13 @@ vi.mock("../server/supabase", () => ({
             error: { message: (err as Error).message },
           };
         }
+      },
+    },
+  }),
+  supabaseAdmin: () => ({
+    auth: {
+      admin: {
+        deleteUser: mockDeleteUser,
       },
     },
   }),
@@ -499,5 +508,110 @@ describe("API smoke", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.resetDate).toBe(resetDate);
+  });
+
+  it("exports only the requesting user's encounters without embeddings", async () => {
+    const authA = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+    const authB = `Bearer ${tokenFor(USER_B, "bob@example.com")}`;
+
+    await request(app)
+      .post("/api/encounters")
+      .set("Authorization", authA)
+      .send({ name: "Alice Friend", location: "Park", datetime: "2026-04-01T10:00:00Z" });
+
+    await request(app)
+      .post("/api/encounters")
+      .set("Authorization", authB)
+      .send({ name: "Bob Friend", location: "Gym", datetime: "2026-04-02T10:00:00Z" });
+
+    const res = await request(app)
+      .get("/api/me/export")
+      .set("Authorization", authA);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-disposition"]).toContain("encounters-export.json");
+    expect(res.body.encounters).toHaveLength(1);
+    expect(res.body.encounters[0].name).toBe("Alice Friend");
+    expect(res.body.encounters[0]).not.toHaveProperty("embedding");
+    expect(res.body.exportedAt).toBeTruthy();
+  });
+
+  it("DELETE /api/me cascades encounters and usage counters then deletes auth user", async () => {
+    const authA = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    await request(app)
+      .post("/api/encounters")
+      .set("Authorization", authA)
+      .send({ name: "Will Delete", location: "Office", datetime: "2026-04-01T10:00:00Z" });
+
+    await db.execute(sql`
+      INSERT INTO usage_counters (user_id, year_month, voice_transcriptions)
+      VALUES (${USER_A}, ${currentYearMonth()}, 5)
+    `);
+
+    mockDeleteUser.mockResolvedValueOnce({ data: null, error: null });
+
+    const res = await request(app)
+      .delete("/api/me")
+      .set("Authorization", authA);
+
+    expect(res.status).toBe(204);
+    expect(mockDeleteUser).toHaveBeenCalledWith(USER_A);
+
+    const encounters = await db.execute(
+      sql`SELECT id FROM encounters WHERE user_id = ${USER_A}`,
+    );
+    expect(encounters).toHaveLength(0);
+
+    const counters = await db.execute(
+      sql`SELECT user_id FROM usage_counters WHERE user_id = ${USER_A}`,
+    );
+    expect(counters).toHaveLength(0);
+  });
+
+  it("DELETE /api/me returns 502 when Supabase auth deletion fails but data is still cleaned", async () => {
+    const authA = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    await request(app)
+      .post("/api/encounters")
+      .set("Authorization", authA)
+      .send({ name: "Partial Delete", location: "Cafe", datetime: "2026-04-01T10:00:00Z" });
+
+    mockDeleteUser.mockResolvedValueOnce({
+      data: null,
+      error: { message: "Supabase is down" },
+    });
+
+    const res = await request(app)
+      .delete("/api/me")
+      .set("Authorization", authA);
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toContain("auth removal failed");
+
+    const encounters = await db.execute(
+      sql`SELECT id FROM encounters WHERE user_id = ${USER_A}`,
+    );
+    expect(encounters).toHaveLength(0);
+  });
+
+  it("export returns empty array after account deletion", async () => {
+    const authA = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    await request(app)
+      .post("/api/encounters")
+      .set("Authorization", authA)
+      .send({ name: "Gone Soon", location: "Beach", datetime: "2026-04-01T10:00:00Z" });
+
+    mockDeleteUser.mockResolvedValueOnce({ data: null, error: null });
+
+    await request(app).delete("/api/me").set("Authorization", authA);
+
+    const res = await request(app)
+      .get("/api/me/export")
+      .set("Authorization", authA);
+
+    expect(res.status).toBe(200);
+    expect(res.body.encounters).toHaveLength(0);
   });
 });

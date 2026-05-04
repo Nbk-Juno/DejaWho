@@ -2,6 +2,7 @@ import {
   type Encounter,
   type InsertEncounter,
   encounters,
+  usageCounters,
   whitelistedEmails,
 } from "@shared/schema";
 import { and, desc, eq } from "drizzle-orm";
@@ -17,6 +18,8 @@ export interface IStorage {
   getAllEncountersForUser(userId: string): Promise<Encounter[]>;
   getEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   createEncounter(input: CreateEncounterInput): Promise<Encounter>;
+  deleteAllEncountersForUser(userId: string): Promise<number>;
+  deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
   addAllowedEmail(email: string, invitedBy?: string | null): Promise<void>;
 }
@@ -52,6 +55,22 @@ export class DbStorage implements IStorage {
       .from(encounters)
       .where(eq(encounters.userId, userId))
       .orderBy(desc(encounters.datetime));
+  }
+
+  async deleteAllEncountersForUser(userId: string): Promise<number> {
+    const deleted = await db
+      .delete(encounters)
+      .where(eq(encounters.userId, userId))
+      .returning({ id: encounters.id });
+    return deleted.length;
+  }
+
+  async deleteUsageCountersForUser(userId: string): Promise<number> {
+    const deleted = await db
+      .delete(usageCounters)
+      .where(eq(usageCounters.userId, userId))
+      .returning({ userId: usageCounters.userId });
+    return deleted.length;
   }
 
   async isEmailAllowed(email: string): Promise<boolean> {
