@@ -9,6 +9,7 @@ import {
   textToSpeech,
   transcribeAudio,
 } from "./openai";
+import { supabaseAdmin } from "./supabase";
 import { rankEncounters } from "./encounter-search";
 import multer from "multer";
 import { requireAuth } from "./auth";
@@ -112,6 +113,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logError("usage_summary_route_failed", error);
       res.status(500).json({ error: "Failed to fetch usage summary" });
+    }
+  });
+
+  app.get("/api/me/export", requireAuth, async (req, res) => {
+    try {
+      const userId = userIdFrom(req);
+      const allEncounters = await storage.getAllEncountersForUser(userId);
+      const exported = allEncounters.map(({ embedding, ...rest }) => rest);
+      res.setHeader("Content-Disposition", 'attachment; filename="encounters-export.json"');
+      res.json({ encounters: exported, exportedAt: new Date().toISOString() });
+    } catch (error) {
+      logError("export_route_failed", error);
+      res.status(500).json({ error: "Failed to export data" });
+    }
+  });
+
+  app.delete("/api/me", requireAuth, async (req, res) => {
+    try {
+      const userId = userIdFrom(req);
+      await storage.deleteAllEncountersForUser(userId);
+      await storage.deleteUsageCountersForUser(userId);
+
+      const { error: deleteError } = await supabaseAdmin().auth.admin.deleteUser(userId);
+      if (deleteError) {
+        logError("delete_account_supabase_failed", deleteError, { userId });
+        res.status(502).json({ error: "Account data deleted but auth removal failed. Contact support." });
+        return;
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      logError("delete_account_route_failed", error);
+      res.status(500).json({ error: "Failed to delete account" });
     }
   });
 
