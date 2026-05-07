@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { LogOut, AlertCircle } from "lucide-react";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { IosInstallBanner } from "@/components/ios-install-banner";
 import Home from "@/pages/home";
 import Record from "@/pages/record";
 import SearchPage from "@/pages/search";
@@ -93,11 +94,12 @@ function AuthenticatedShell() {
 
   return (
     <div className="relative min-h-screen">
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+      <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50 flex items-center gap-2">
         <ThemeToggle />
         <SignOutButton />
       </div>
       <Router />
+      <IosInstallBanner />
     </div>
   );
 }
@@ -116,7 +118,7 @@ function AppContent() {
   if (!session) {
     return (
       <div className="relative min-h-screen">
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50">
           <ThemeToggle />
         </div>
         <SignIn />
