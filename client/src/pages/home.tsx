@@ -74,7 +74,7 @@ export default function Home() {
               <span className="text-sm font-medium text-primary">AI-Powered Memory</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground tracking-tight">
-              Who That!?
+              DejaWho
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Never forget a face or a name again. Remember everyone you've met with intelligent AI search.

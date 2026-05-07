@@ -1,4 +1,4 @@
-# Design Guidelines for "Who That!?" AI Memory App
+# Design Guidelines for DejaWho AI Memory App
 
 ## Design Approach
 **Selected Approach:** Design System (Material Design 3 inspired) with productivity app aesthetics

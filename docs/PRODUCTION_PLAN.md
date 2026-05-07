@@ -1,16 +1,16 @@
 # Production Plan — v1 (PRD)
 
-> Working name: "Who That!?" — **rename pending before launch.** See *Further Notes* for the IP background and *Rename sweep* in the phasing.
+> Renamed to **DejaWho** as of Phase 9.
 
 ## Problem Statement
 
-The MVP — a private memory app for recording and searching encounters with people — was vibe-coded on Replit and proves the product loop works: record someone you met (text or voice), search later with natural language, get a hybrid-scored answer that blends semantic similarity with date and location signals. But the codebase as it stands cannot be shown to a real user. It is single-tenant, in-memory (data dies on server restart), has no auth, no rate limiting, no abuse defense, no privacy story, no path to mobile, and no observability. The co-founder backed out and ghosted, then a third-party app launched under the same name approximately one month later (very likely from the ex-co-founder), so the current name is also no longer safe to ship under.
+The MVP — a private memory app for recording and searching encounters with people — was vibe-coded on Replit and proves the product loop works: record someone you met (text or voice), search later with natural language, get a hybrid-scored answer that blends semantic similarity with date and location signals. But the codebase as it stands cannot be shown to a real user. It is single-tenant, in-memory (data dies on server restart), has no auth, no rate limiting, no abuse defense, no privacy story, no path to mobile, and no observability.
 
 The user wants to harden this MVP into something a small invite-only friends-and-family cohort can actually use, so feedback can drive the next phase of product work — without making infrastructure or tooling choices that will require a swap-out as the app grows.
 
 ## Solution
 
-Ship v1 as a strictly-private, invite-only PWA on Render free tier, backed by Supabase (Auth + Postgres + RLS) so tenancy is enforced at the database layer not the app layer. Keep full feature parity with the MVP — text and voice encounter creation, hybrid search, GPT-4o natural-language responses, TTS playback, Whisper transcription — but defended by three independent layers of cost-and-abuse safeguards (per-request input caps, per-user monthly OpenAI counters, per-IP rate limit) with the user's monthly usage visible to them. Replace the broken iOS audio codec, ship a real PWA shell, and bake in a small set of Capacitor-readiness constraints so the eventual native iOS/Android wrap is a one-week project rather than a refactor. Add Sentry + structured logging. Write real tests for the security-critical deep modules (auth, cost-caps, privacy export/delete) plus one Playwright end-to-end smoke test. Rename + register a domain before public-facing launch. Preserve defensive IP evidence first.
+Ship v1 as a strictly-private, invite-only PWA on Render free tier, backed by Supabase (Auth + Postgres + RLS) so tenancy is enforced at the database layer not the app layer. Keep full feature parity with the MVP — text and voice encounter creation, hybrid search, GPT-4o natural-language responses, TTS playback, Whisper transcription — but defended by three independent layers of cost-and-abuse safeguards (per-request input caps, per-user monthly OpenAI counters, per-IP rate limit) with the user's monthly usage visible to them. Replace the broken iOS audio codec, ship a real PWA shell, and bake in a small set of Capacitor-readiness constraints so the eventual native iOS/Android wrap is a one-week project rather than a refactor. Add Sentry + structured logging. Write real tests for the security-critical deep modules (auth, cost-caps, privacy export/delete) plus one Playwright end-to-end smoke test. Register a domain before public-facing launch.
 
 ## User Stories
 
@@ -42,8 +42,7 @@ Ship v1 as a strictly-private, invite-only PWA on Render free tier, backed by Su
 26. As the operator, I want auth, cost-caps, and privacy flows covered by real unit tests so that the code paths most expensive to get wrong are protected.
 27. As the operator, I want the app deployed to a real URL with TLS so that I can hand it to a friend without footnotes.
 28. As the operator, I want Capacitor-ready code so that wrapping native iOS/Android later is a one-week project, not a refactor of auth, routing, or the API client.
-29. As the operator, I want defensive evidence preserved before the rename so that any future IP dispute over the original name is straightforward to address.
-30. As the operator, I want the new name registered as both `.com` and `.app` (or equivalent) before public-facing launch so that the brand is defensible.
+29. As the operator, I want the domain registered before public-facing launch so that the brand is defensible.
 31. As the operator, I want this entire stack to cost zero infrastructure dollars at the start, scaling only with real usage, so that I can run the friends-and-family phase indefinitely without cost pressure.
 
 ## Implementation Decisions
@@ -149,15 +148,6 @@ Manual QA matrix: iPhone Safari (PWA install + voice record + voice search), And
 - **Admin panel.** Whitelist edits and per-user cap overrides are SQL-from-the-Supabase-dashboard for v1.
 
 ## Further Notes
-
-### IP background — why the rename is mandatory
-The original co-founder ghosted (no entity formed, no written agreement, no money exchanged, no code authored by them), then approximately one month later an app launched under the exact same name "Who That!?" — almost certainly built by the ex-co-founder. There is no formal claim against this user, but the namespace is now actively contested. Continuing to use the current name post-launch invites trademark exposure regardless of who used it first. Rename is mandatory, not optional.
-
-### Defensive evidence — preserve before rename
-- Do **not** rewrite git history during the rename — the existing commit log is contemporaneous evidence.
-- Export the original Replit project if access remains.
-- Take dated screenshots of the current MVP on a fresh device.
-- Save any messages, emails, or commits establishing prior conception of the product and name.
 
 ### Suggested phasing
 Each phase is independently testable; the sequencing minimizes rework.

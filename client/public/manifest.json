@@ -1,6 +1,6 @@
 {
-  "name": "Who That!?",
-  "short_name": "Who That",
+  "name": "DejaWho",
+  "short_name": "DejaWho",
   "description": "AI-powered memory app for recording and searching encounters with people",
   "start_url": "/",
   "display": "standalone",

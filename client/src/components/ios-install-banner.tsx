@@ -3,7 +3,7 @@ import { X, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shouldShowInstallBanner } from "@/lib/ios-detect";
 
-const STORAGE_KEY = "who-that-ios-install-dismissed";
+const STORAGE_KEY = "dejawho-ios-install-dismissed";
 
 export function IosInstallBanner() {
   const [visible, setVisible] = useState(false);
@@ -29,7 +29,7 @@ export function IosInstallBanner() {
       <div className="mx-auto max-w-md rounded-xl border bg-card p-4 shadow-lg">
         <div className="flex items-start gap-3">
           <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium">Install Who That!?</p>
+            <p className="text-sm font-medium">Install DejaWho</p>
             <p className="text-xs text-muted-foreground">
               Tap <Share className="inline h-3.5 w-3.5 -mt-0.5" /> then{" "}
               <span className="font-medium">"Add to Home Screen"</span>

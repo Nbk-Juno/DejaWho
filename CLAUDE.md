@@ -1,4 +1,4 @@
-# Who That!? — guide for Claude Code
+# DejaWho — guide for Claude Code
 
 AI-powered memory app: record encounters with people, search them with natural language and voice.
 

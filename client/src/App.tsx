@@ -132,7 +132,7 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" storageKey="who-that-theme">
+      <ThemeProvider defaultTheme="system" storageKey="dejawho-theme">
         <TooltipProvider>
           <AuthProvider>
             <AppContent />
