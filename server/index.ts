@@ -1,4 +1,7 @@
 import "dotenv/config";
+import { initSentry, Sentry } from "./sentry";
+initSentry();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
@@ -18,8 +21,8 @@ app.use(apiRequestLogger);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    Sentry.captureException(err);
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
