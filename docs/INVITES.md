@@ -1,6 +1,6 @@
 # Invite Operations
 
-Who That!? is invite-only for the friends-and-family phase. There is deliberately no admin UI in v1; invite access is managed through the `whitelisted_emails` table.
+DejaWho is invite-only for the friends-and-family phase. There is deliberately no admin UI in v1; invite access is managed through the `whitelisted_emails` table.
 
 Run these snippets from the Supabase SQL editor against the production project. Replace placeholder values before running.
 
@@ -79,7 +79,7 @@ order by e.datetime desc;
 
 ## Handle a Subject-Deletion Request
 
-A subject-deletion request comes from someone whose name appears in another user's encounter, even if the subject is not a Who That!? user. Friends-and-family v1 handles this manually.
+A subject-deletion request comes from someone whose name appears in another user's encounter, even if the subject is not a DejaWho user. Friends-and-family v1 handles this manually.
 
 First, search for likely matching records. Use the subject's name plus any known location/context to narrow matches.
 

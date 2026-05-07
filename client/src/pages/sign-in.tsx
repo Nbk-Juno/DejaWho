@@ -38,7 +38,7 @@ export default function SignIn() {
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium text-primary">AI-Powered Memory</span>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight">Who That!?</h1>
+          <h1 className="text-4xl font-bold tracking-tight">DejaWho</h1>
           <p className="text-muted-foreground">
             Sign in with a magic link sent to your email.
           </p>
@@ -97,7 +97,7 @@ export default function SignIn() {
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
-              Who That!? is invite-only during early access. If your email isn't on
+              DejaWho is invite-only during early access. If your email isn't on
               the allow-list, sign-in will fail with instructions to request access.
             </p>
           </form>

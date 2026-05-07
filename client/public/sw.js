@@ -1,4 +1,4 @@
-const CACHE_NAME = "who-that-v1";
+const CACHE_NAME = "dejawho-v1";
 
 const PRECACHE_URLS = ["/", "/index.html"];
 

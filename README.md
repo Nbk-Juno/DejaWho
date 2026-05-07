@@ -1,9 +1,9 @@
-# Who That!?
+# DejaWho
 
 > An AI-powered memory app that helps you remember the people you've met — by name, by place, by context, or even just by a vague half-memory.
 
 **"Who was that girl I met at the coffee shop in February?"**
-Ask Who That!? out loud and it answers back: *"Her name was Sarah Johnson."*
+Ask DejaWho out loud and it answers back: *"Her name was Sarah Johnson."*
 
 ---
 
@@ -11,7 +11,7 @@ Ask Who That!? out loud and it answers back: *"Her name was Sarah Johnson."*
 
 Everyone forgets names. We meet someone interesting at a conference, a coffee shop, a friend's wedding — and a week later only fragments remain. *Tall guy. Worked in finance? Maybe Brooklyn?*
 
-Who That!? is a personal memory layer for those moments. Record a quick voice note when you meet someone, then later ask the app a natural-language question and let semantic search piece the answer back together. It's the project I built to explore how vector embeddings, LLM reasoning, and a fast modern web stack can come together into something that actually feels useful.
+DejaWho is a personal memory layer for those moments. Record a quick voice note when you meet someone, then later ask the app a natural-language question and let semantic search piece the answer back together. It's the project I built to explore how vector embeddings, LLM reasoning, and a fast modern web stack can come together into something that actually feels useful.
 
 ## What it does
 
