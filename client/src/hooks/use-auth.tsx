@@ -7,6 +7,8 @@ type AuthState = {
   session: Session | null;
   loading: boolean;
   signInWithEmail: (email: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUpWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -39,6 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }
 
+  async function signInWithPassword(email: string, password: string): Promise<void> {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  }
+
+  async function signUpWithPassword(email: string, password: string): Promise<void> {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (error) throw error;
+  }
+
   async function signOut(): Promise<void> {
     await supabase.auth.signOut();
   }
@@ -48,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     loading,
     signInWithEmail,
+    signInWithPassword,
+    signUpWithPassword,
     signOut,
   };
 
