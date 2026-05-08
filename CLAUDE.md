@@ -62,7 +62,7 @@ docker exec who-that-postgres psql -U who_that -d postgres -c "CREATE DATABASE w
 
 ## Auth
 
-Supabase magic-link auth, JWT bearer tokens (no cookies). The server-side middleware `requireAuth` (in `server/auth.ts`) verifies `Authorization: Bearer <token>` against `SUPABASE_JWT_SECRET` (HS256) and attaches `req.user = { id, email }`. Apply it to any route that touches user data or calls OpenAI. `/api/health` is the single carve-out (Render healthcheck).
+Supabase magic-link auth, JWT bearer tokens (no cookies). The server-side middleware `requireAuth` (in `server/auth.ts`) calls `supabase.auth.getUser(token)` to verify the bearer token and attaches `req.user = { id, email }`. Apply it to any route that touches user data or calls OpenAI. `/api/health` is the single carve-out (Render healthcheck).
 
 `/api/me` checks the email against `whitelisted_emails` and returns 403 (`error: "invite_only"`) for non-allow-listed users. The client calls it on first sign-in and shows an "invite-only" screen on 403. Allow-list is currently checked only on `/api/me`, not on every request — revoking access requires invalidating Supabase sessions until a stricter middleware is wired up.
 
@@ -71,20 +71,22 @@ To seed an allow-list email locally:
 docker exec -i who-that-postgres psql -U who_that -d who_that -c \
   "INSERT INTO whitelisted_emails (email) VALUES ('you@example.com') ON CONFLICT DO NOTHING;"
 ```
-For Supabase, run the same `INSERT` in the SQL editor.
+For production, use the Supabase MCP tools (configured in `.mcp.json`) or run the `INSERT` in the Supabase SQL editor. See `docs/INVITES.md` for full invite operations runbook.
 
 ## Environment
 
 See `.env.example`. Required: `OPENAI_API_KEY`, `DATABASE_URL`, the four `SUPABASE_*` keys (server), and the two `VITE_SUPABASE_*` keys (client). `TEST_DATABASE_URL` falls back to `DATABASE_URL` if unset. Never hardcode keys — always `process.env.X` (server) or `import.meta.env.VITE_X` (client). The server entrypoint loads `.env` via `dotenv/config`, so values populate at startup. Vite reads the same `.env` file but only exposes `VITE_*` prefixed values to the client bundle.
+
+**Important:** Local `.env` points to the dev Supabase project and local Docker Postgres. Production (Render) has separate env vars pointing to the prod Supabase project. `VITE_*` vars are baked in at Vite build time — changing them on Render requires a rebuild. Server-side vars (`SUPABASE_URL`, `DATABASE_URL`, etc.) are read at runtime.
 
 ## Conventions / gotchas
 
 - **Shared types over duplication.** If a type or validator exists in `shared/schema.ts`, import it on both sides. Don't redefine.
 - **Server validates with Zod even when the client also does.** Don't skip server-side validation just because the form already validates.
 - **OpenAI calls have retry with exponential backoff** (see `generateEmbedding`). Match this pattern for any new AI calls.
-- **Logging in `server/index.ts:22` captures full API JSON responses** to stdout. This currently includes encounter contents — fine for dev, scrub before production.
 - **All `/api/*` routes except `/api/health` require `requireAuth`.** New routes that touch user data or OpenAI must apply it; populate user scope from `req.user.id`, never from the request body.
-- **No rate limiting on AI endpoints.** Adding it is a near-term TODO — endpoints that call OpenAI are a wallet-drain vector if exposed publicly.
+- **Per-user monthly AI usage caps** are enforced in `server/routes.ts` via `usage_counters` table. Caps are configurable via env vars (see `.env.example`). Per-IP rate limiting (60 req/min) is applied to all `/api/*` routes.
+- **Sentry** is wired up on both client (`client/src/lib/sentry.ts`) and server (`server/sentry.ts`). Both no-op gracefully when DSN env vars are unset. Source maps are uploaded at build time via `@sentry/vite-plugin` when `SENTRY_AUTH_TOKEN` is set.
 
 ## Style
 
@@ -93,6 +95,20 @@ See `.env.example`. Required: `OPENAI_API_KEY`, `DATABASE_URL`, the four `SUPABA
 - shadcn/ui components live in `client/src/components/ui/` — prefer composing existing ones over adding new dependencies.
 - Tailwind for styling. Avoid inline styles unless dynamic.
 - Default to no comments. The README and this file carry the "why"; code should explain the "what" through naming.
+
+## Hosting
+
+Production runs on **Render** free tier (auto-deploy from `main`), backed by **Supabase** (Auth + Postgres + RLS). Custom SMTP via **Resend** for magic-link emails (configured in Supabase Auth settings, not in app code). Live at `https://dejawho.onrender.com`.
+
+Build command on Render: `npm install --include=dev; npm run build` (devDeps needed for Vite/esbuild at build time). `DATABASE_URL` on Render must use the Supabase **transaction pooler** connection string (port 6543), not the direct connection.
+
+## PWA
+
+Manifest at `client/public/manifest.json`, service worker at `client/public/sw.js` (cache name `dejawho-v1`). Cache-first for app shell, network-first for `/api/*`. iOS install hint banner in `client/src/components/ios-install-banner.tsx` — shows on iPhone Safari when not in standalone mode, dismissible via localStorage (`dejawho-ios-install-dismissed`). Detection logic in `client/src/lib/ios-detect.ts`.
+
+## Supabase MCP
+
+Configured in `.mcp.json` — connects to the prod Supabase project. Provides direct SQL execution, migration management, and admin operations. Useful for allow-list management and user debugging. Requires authentication via `claude /mcp` on first use.
 
 ## What not to touch without asking
 
