@@ -62,7 +62,9 @@ docker exec who-that-postgres psql -U who_that -d postgres -c "CREATE DATABASE w
 
 ## Auth
 
-Supabase magic-link auth, JWT bearer tokens (no cookies). The server-side middleware `requireAuth` (in `server/auth.ts`) calls `supabase.auth.getUser(token)` to verify the bearer token and attaches `req.user = { id, email }`. Apply it to any route that touches user data or calls OpenAI. `/api/health` is the single carve-out (Render healthcheck).
+Supabase auth with three methods: **email/password** (primary — solves iOS PWA session isolation), **magic-link** (secondary), and **password reset**. All issue JWTs verified identically by `requireAuth`. JWT bearer tokens (no cookies). The server-side middleware `requireAuth` (in `server/auth.ts`) calls `supabase.auth.getUser(token)` to verify the bearer token and attaches `req.user = { id, email }`. Apply it to any route that touches user data or calls OpenAI. `/api/health` is the single carve-out (Render healthcheck).
+
+The sign-in page (`client/src/pages/sign-in.tsx`) has Password and Magic Link tabs, with a "Forgot password?" flow built into the password tab. Password reset calls `supabase.auth.resetPasswordForEmail()` with a redirect to `/reset-password`. The reset-password page (`client/src/pages/reset-password.tsx`) handles the Supabase callback (recovery token in URL hash, parsed by `detectSessionInUrl: true`) and calls `supabase.auth.updateUser({ password })`. The `/reset-password` route renders outside the auth gate in `App.tsx` so recovery sessions work. Auth methods (`resetPassword`, `updatePassword`) live in `use-auth.tsx`.
 
 `/api/me` checks the email against `whitelisted_emails` and returns 403 (`error: "invite_only"`) for non-allow-listed users. The client calls it on first sign-in and shows an "invite-only" screen on 403. Allow-list is currently checked only on `/api/me`, not on every request — revoking access requires invalidating Supabase sessions until a stricter middleware is wired up.
 
