@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 
 type AuthTab = "password" | "magic-link";
-type AuthMode = "sign-in" | "sign-up";
+type AuthMode = "sign-in" | "sign-up" | "forgot-password";
 
 type Status =
   | { kind: "idle" }
@@ -14,7 +14,7 @@ type Status =
   | { kind: "error"; message: string };
 
 export default function SignIn() {
-  const { signInWithEmail, signInWithPassword, signUpWithPassword } = useAuth();
+  const { signInWithEmail, signInWithPassword, signUpWithPassword, resetPassword } = useAuth();
   const [tab, setTab] = useState<AuthTab>("password");
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
@@ -35,6 +35,21 @@ export default function SignIn() {
       setStatus({
         kind: "error",
         message: err instanceof Error ? err.message : "Authentication failed",
+      });
+    }
+  }
+
+  async function handleForgotPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus({ kind: "sending" });
+    try {
+      await resetPassword(email.trim());
+      setStatus({ kind: "sent", email: email.trim() });
+    } catch (err) {
+      setStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Failed to send reset email",
       });
     }
   }
@@ -69,15 +84,17 @@ export default function SignIn() {
           </div>
           <h1 className="text-4xl font-bold tracking-tight">DejaWho</h1>
           <p className="text-muted-foreground">
-            {tab === "password"
-              ? mode === "sign-up"
-                ? "Create your account to get started."
-                : "Sign in to your account."
-              : "Sign in with a magic link sent to your email."}
+            {mode === "forgot-password"
+              ? "Reset your password."
+              : tab === "password"
+                ? mode === "sign-up"
+                  ? "Create your account to get started."
+                  : "Sign in to your account."
+                : "Sign in with a magic link sent to your email."}
           </p>
         </div>
 
-        <div className="flex rounded-lg border bg-muted p-1">
+        {mode !== "forgot-password" && <div className="flex rounded-lg border bg-muted p-1">
           <button
             type="button"
             data-testid="tab-password"
@@ -102,7 +119,7 @@ export default function SignIn() {
           >
             Magic Link
           </button>
-        </div>
+        </div>}
 
         {status.kind === "error" && (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
@@ -111,7 +128,7 @@ export default function SignIn() {
           </div>
         )}
 
-        {tab === "password" && (
+        {tab === "password" && mode !== "forgot-password" && (
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium">
@@ -187,11 +204,84 @@ export default function SignIn() {
               )}
             </p>
 
+            {mode === "sign-in" && (
+              <p className="text-sm text-center">
+                <button
+                  type="button"
+                  className="text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={() => { setMode("forgot-password"); setStatus({ kind: "idle" }); }}
+                  data-testid="link-forgot-password"
+                >
+                  Forgot password?
+                </button>
+              </p>
+            )}
+
             <p className="text-xs text-center text-muted-foreground">
               DejaWho is invite-only during early access. If your email isn't on
               the allow-list, sign-in will fail with instructions to request access.
             </p>
           </form>
+        )}
+
+        {mode === "forgot-password" && (
+          status.kind === "sent" ? (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 text-center space-y-3">
+              <Mail className="h-8 w-8 mx-auto text-primary" />
+              <h2 className="text-lg font-semibold">Check your email</h2>
+              <p className="text-sm text-muted-foreground" data-testid="reset-confirmation">
+                We sent a password reset link to <strong>{status.email}</strong>.
+              </p>
+              <button
+                type="button"
+                className="text-sm text-primary underline-offset-4 hover:underline"
+                onClick={() => { setMode("sign-in"); setStatus({ kind: "idle" }); }}
+                data-testid="link-back-to-sign-in"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="reset-email" className="text-sm font-medium">
+                  Email
+                </label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={status.kind === "sending"}
+                  data-testid="input-reset-email"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={status.kind === "sending"}
+                data-testid="button-send-reset"
+              >
+                {status.kind === "sending" ? "Sending..." : "Send reset link"}
+              </Button>
+
+              <p className="text-sm text-center">
+                <button
+                  type="button"
+                  className="text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={() => { setMode("sign-in"); setStatus({ kind: "idle" }); }}
+                  data-testid="link-back-to-sign-in"
+                >
+                  Back to sign in
+                </button>
+              </p>
+            </form>
+          )
         )}
 
         {tab === "magic-link" && (
