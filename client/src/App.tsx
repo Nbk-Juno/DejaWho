@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -14,6 +14,7 @@ import Home from "@/pages/home";
 import Record from "@/pages/record";
 import SearchPage from "@/pages/search";
 import SignIn from "@/pages/sign-in";
+import ResetPassword from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -106,6 +107,18 @@ function AuthenticatedShell() {
 
 function AppContent() {
   const { session, loading } = useAuth();
+  const [location] = useLocation();
+
+  if (location === "/reset-password") {
+    return (
+      <div className="relative min-h-screen">
+        <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50">
+          <ThemeToggle />
+        </div>
+        <ResetPassword />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

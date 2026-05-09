@@ -9,6 +9,8 @@ type AuthState = {
   signInWithEmail: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signUpWithPassword: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -55,6 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }
 
+  async function resetPassword(email: string): Promise<void> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
+  }
+
+  async function updatePassword(password: string): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+  }
+
   async function signOut(): Promise<void> {
     await supabase.auth.signOut();
   }
@@ -66,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithEmail,
     signInWithPassword,
     signUpWithPassword,
+    resetPassword,
+    updatePassword,
     signOut,
   };
 
