@@ -1,73 +1,79 @@
+import pino from "pino";
+import pinoHttp from "pino-http";
 import type { NextFunction, Request, Response } from "express";
 
 type LogFields = Record<string, unknown>;
 
-function writeLog(level: "info" | "warn" | "error", event: string, fields: LogFields = {}) {
-  const entry = {
-    time: new Date().toISOString(),
-    level,
-    event,
-    ...fields,
-  };
+const defaultOptions: pino.LoggerOptions = {
+  level: process.env.LOG_LEVEL || "info",
+  redact: {
+    paths: ["req.body", "req.headers.authorization", "res.headers"],
+    remove: true,
+  },
+  ...(process.env.NODE_ENV !== "production" && {
+    transport: { target: "pino-pretty", options: { colorize: true } },
+  }),
+};
 
-  const line = JSON.stringify(entry);
-  if (level === "error") {
-    console.error(line);
-  } else if (level === "warn") {
-    console.warn(line);
-  } else {
-    console.log(line);
+export function createLogger(destination?: pino.DestinationStream, level?: string): pino.Logger {
+  const opts = { ...defaultOptions, ...(level && { level }) };
+  if (destination) {
+    return pino({ ...opts, transport: undefined }, destination);
   }
+  return pino(opts);
+}
+
+export function createRequestLogger(logger: pino.Logger) {
+  const httpLogger = pinoHttp({
+    logger,
+    autoLogging: {
+      ignore(req) {
+        return !req.url?.startsWith("/api");
+      },
+    },
+    customProps(req) {
+      return { userId: (req as Request & { user?: { id: string } }).user?.id };
+    },
+    serializers: {
+      req(req) {
+        return { method: req.method, url: req.url };
+      },
+      res(res) {
+        return { statusCode: res.statusCode };
+      },
+    },
+  });
+  return httpLogger;
+}
+
+const logger = createLogger();
+
+export function logInfo(event: string, fields?: LogFields) {
+  logger.info({ event, ...fields });
+}
+
+export function logWarn(event: string, fields?: LogFields) {
+  logger.warn({ event, ...fields });
+}
+
+export function logError(event: string, error: unknown, fields: LogFields = {}) {
+  const errFields = serializeError(error);
+  logger.error({ event, ...fields, ...errFields });
 }
 
 function serializeError(error: unknown): LogFields {
   if (!(error instanceof Error)) {
     return { errorType: typeof error };
   }
-
-  const errorWithCode = error as Error & {
-    code?: unknown;
-    status?: unknown;
-    statusCode?: unknown;
-  };
-
+  const e = error as Error & { code?: unknown; status?: unknown; statusCode?: unknown };
   return {
     errorName: error.name,
     errorMessage: error.message,
-    errorCode: errorWithCode.code,
-    errorStatus: errorWithCode.status ?? errorWithCode.statusCode,
+    errorCode: e.code,
+    errorStatus: e.status ?? e.statusCode,
   };
 }
 
-export function logInfo(event: string, fields?: LogFields) {
-  writeLog("info", event, fields);
-}
+export const apiRequestLogger = createRequestLogger(logger);
 
-export function logWarn(event: string, fields?: LogFields) {
-  writeLog("warn", event, fields);
-}
-
-export function logError(event: string, error: unknown, fields: LogFields = {}) {
-  writeLog("error", event, {
-    ...fields,
-    ...serializeError(error),
-  });
-}
-
-export function apiRequestLogger(req: Request, res: Response, next: NextFunction): void {
-  const start = Date.now();
-
-  res.on("finish", () => {
-    if (!req.path.startsWith("/api")) return;
-
-    logInfo("api_request", {
-      method: req.method,
-      path: req.path,
-      statusCode: res.statusCode,
-      durationMs: Date.now() - start,
-      userId: req.user?.id,
-    });
-  });
-
-  next();
-}
+export { logger };
