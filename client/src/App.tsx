@@ -15,6 +15,7 @@ import Record from "@/pages/record";
 import SearchPage from "@/pages/search";
 import SignIn from "@/pages/sign-in";
 import ResetPassword from "@/pages/reset-password";
+import Privacy from "@/pages/privacy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -116,6 +117,17 @@ function AppContent() {
           <ThemeToggle />
         </div>
         <ResetPassword />
+      </div>
+    );
+  }
+
+  if (location === "/privacy") {
+    return (
+      <div className="relative min-h-screen">
+        <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50">
+          <ThemeToggle />
+        </div>
+        <Privacy />
       </div>
     );
   }

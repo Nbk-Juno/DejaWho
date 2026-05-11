@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Sparkles, Mail, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -337,6 +338,12 @@ export default function SignIn() {
             </form>
           )
         )}
+
+        <p className="text-xs text-center text-muted-foreground">
+          <Link href="/privacy" className="underline-offset-4 hover:underline">
+            Privacy Policy &amp; Terms
+          </Link>
+        </p>
       </div>
     </div>
   );

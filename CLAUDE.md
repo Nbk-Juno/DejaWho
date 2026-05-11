@@ -34,7 +34,7 @@ This repo uses a single-context domain layout with root `CONTEXT.md` and root `d
 
 Monorepo with three roots:
 
-- **`client/`** — React 18 + Vite + TypeScript. Tailwind + shadcn/ui (Radix). Wouter for routing, TanStack Query for server state, React Hook Form + Zod for forms. Pages: `home.tsx`, `record.tsx`, `search.tsx`.
+- **`client/`** — React 18 + Vite + TypeScript. Tailwind + shadcn/ui (Radix). Wouter for routing, TanStack Query for server state, React Hook Form + Zod for forms. Pages: `home.tsx`, `record.tsx`, `search.tsx`, `privacy.tsx`. The `/privacy` and `/reset-password` routes render outside the auth gate in `App.tsx`.
 - **`server/`** — Express. Entry: `server/index.ts`. Routes: `server/routes.ts`. AI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing): `server/openai.ts`. Date/location query parsing + scoring: `server/search-utils.ts`. Storage abstraction: `server/storage.ts`.
 - **`shared/schema.ts`** — single source of truth. Drizzle tables + Zod schemas used by **both** client and server. If you change a model, change it here.
 

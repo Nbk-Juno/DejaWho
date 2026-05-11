@@ -1,20 +1,24 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import postgres from "postgres";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
+const DATABASE_URL = process.env.DATABASE_URL || "";
 const TEST_EMAIL = "e2e-smoke@test.local";
 const TEST_PASSWORD = "e2e-test-password-1234!";
 
-let accessToken = "";
 let testUserId = "";
+let sql: ReturnType<typeof postgres>;
 
 test.beforeAll(async () => {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !DATABASE_URL) {
     test.skip();
     return;
   }
+
+  sql = postgres(DATABASE_URL);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -34,51 +38,33 @@ test.beforeAll(async () => {
   if (createErr) throw createErr;
   testUserId = created.user.id;
 
-  // Whitelist the test email
-  const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  await db.from("whitelisted_emails").upsert({ email: TEST_EMAIL });
-
-  // Sign in to get an access token
-  const userClient = createClient(SUPABASE_URL, ANON_KEY);
-  const { data: session, error: signInErr } = await userClient.auth.signInWithPassword({
-    email: TEST_EMAIL,
-    password: TEST_PASSWORD,
-  });
-  if (signInErr) throw signInErr;
-  accessToken = session.session!.access_token;
+  await sql`INSERT INTO whitelisted_emails (email) VALUES (${TEST_EMAIL}) ON CONFLICT DO NOTHING`;
 });
 
 test.afterAll(async () => {
-  if (!testUserId || !SUPABASE_URL || !SERVICE_ROLE_KEY) return;
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return;
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  await admin.auth.admin.deleteUser(testUserId);
+  if (testUserId) await admin.auth.admin.deleteUser(testUserId);
+  if (sql) {
+    await sql`DELETE FROM whitelisted_emails WHERE email = ${TEST_EMAIL}`;
+    await sql.end();
+  }
 });
 
 test("create encounter and find via search", async ({ page }) => {
-  if (!accessToken) {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !DATABASE_URL) {
     test.skip();
     return;
   }
 
-  const storageKey = `sb-${new URL(SUPABASE_URL).hostname.split(".")[0]}-auth-token`;
-  const sessionPayload = JSON.stringify({
-    access_token: accessToken,
-    token_type: "bearer",
-    expires_in: 3600,
-    refresh_token: "fake-refresh",
-    user: { id: testUserId, email: TEST_EMAIL },
-  });
-
+  // Sign in via UI (same pattern as auth-password.test.ts)
   await page.goto("/");
-  await page.evaluate(
-    ([key, val]) => localStorage.setItem(key, val),
-    [storageKey, sessionPayload],
-  );
-  await page.reload();
+  await page.getByTestId("input-email").fill(TEST_EMAIL);
+  await page.getByTestId("input-password").fill(TEST_PASSWORD);
+  await page.getByTestId("button-sign-in").click();
 
-  // Wait for authenticated state
   await expect(page.getByTestId("button-sign-out")).toBeVisible({ timeout: 10_000 });
 
   // Navigate to record page
