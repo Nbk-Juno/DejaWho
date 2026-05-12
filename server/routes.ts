@@ -1,7 +1,7 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertEncounterSchema } from "@shared/schema";
+import { encounterEmbeddingText, insertEncounterSchema } from "@shared/schema";
 import {
   generateEmbedding,
   generateNaturalLanguageResponse,
@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/encounters", requireAuth, async (req, res) => {
     try {
       const validated = insertEncounterSchema.parse(req.body);
-      const embeddingText = `${validated.name} ${validated.location} ${validated.context || ""}`;
+      const embeddingText = encounterEmbeddingText(validated);
       assertAiTextWithinLimit(embeddingText, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
       const embedding = await generateEmbedding(embeddingText);
       const encounter = await storage.createEncounter({

@@ -94,19 +94,6 @@ vi.mock("../server/openai", async () => {
   return {
     generateEmbedding: vi.fn(async (text: string) => deterministicEmbedding(text)),
     generateNaturalLanguageResponse: vi.fn(async () => "stubbed response"),
-    cosineSimilarity: (a: number[], b: number[]) => {
-      let dot = 0,
-        normA = 0,
-        normB = 0;
-      for (let i = 0; i < a.length; i++) {
-        dot += a[i] * b[i];
-        normA += a[i] * a[i];
-        normB += b[i] * b[i];
-      }
-      return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-    },
-    enhancedKeywordMatch: () => ({ overallScore: 0, nameScore: 0, locationScore: 0, contextScore: 0 }),
-    keywordMatch: () => 0,
     transcribeAudio: vi.fn(),
     textToSpeech: vi.fn(),
     parseEncounterFromSpeech: vi.fn(),

@@ -64,6 +64,10 @@ export const insertEncounterSchema = createInsertSchema(encounters).omit({
 export type InsertEncounter = z.infer<typeof insertEncounterSchema>;
 export type Encounter = typeof encounters.$inferSelect;
 
+export function encounterEmbeddingText(e: { name: string; location: string; context?: string | null }): string {
+  return `${e.name} ${e.location} ${e.context || ""}`.trim();
+}
+
 export const searchResultSchema = z.object({
   encounter: z.custom<Encounter>(),
   score: z.number(),
