@@ -35,19 +35,20 @@ This repo uses a single-context domain layout with root `CONTEXT.md` and root `d
 Monorepo with three roots:
 
 - **`client/`** — React 18 + Vite + TypeScript. Tailwind + shadcn/ui (Radix). Wouter for routing, TanStack Query for server state, React Hook Form + Zod for forms. Pages: `home.tsx`, `record.tsx`, `search.tsx`, `privacy.tsx`. The `/privacy` and `/reset-password` routes render outside the auth gate in `App.tsx`.
-- **`server/`** — Express. Entry: `server/index.ts`. Routes: `server/routes.ts`. AI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing): `server/openai.ts`. Date/location query parsing + scoring: `server/search-utils.ts`. Storage abstraction: `server/storage.ts`.
+- **`server/`** — Express. Entry: `server/index.ts`. Routes: `server/routes.ts`. AI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing): `server/openai.ts`. Hybrid search (ranking, scoring, date/location extraction): `server/encounter-search.ts`. Storage abstraction: `server/storage.ts`.
 - **`shared/schema.ts`** — single source of truth. Drizzle tables + Zod schemas used by **both** client and server. If you change a model, change it here.
 
 The Vite dev server is mounted *inside* Express in development (see `server/vite.ts`), so the whole app runs on one port.
 
 ## How search actually works
 
-`POST /api/search` blends multiple signals with adaptive weights — see `server/routes.ts:108`. Don't replace this with naïve cosine similarity; the hybrid scoring is intentional and documented in `replit.md` and the README. Key pieces:
+`POST /api/search` blends multiple signals with adaptive weights. Don't replace this with naïve cosine similarity; the hybrid scoring is intentional. All search logic lives in `server/encounter-search.ts`:
 
-- `cosineSimilarity` and `enhancedKeywordMatch` live in `server/openai.ts`.
-- `extractDateFromQuery`, `calculateDateSimilarity`, `extractLocationTerms`, `calculateLocationScore`, `isDateQuery`, `isLocationQuery` live in `server/search-utils.ts`.
+- Vector scoring (`cosineSimilarity`), keyword matching (`enhancedKeywordMatch`), date extraction/scoring, and location extraction/scoring are all internal to this module.
+- The public interface is `rankEncounters(query, queryEmbedding, encounters) → RankedEncounter[]`.
 - Weights shift based on whether the query has a date, a location, both, or neither. There's a synergy boost when both date and location score high.
 - A 50% confidence threshold controls whether GPT-4o answers by name confidently or hedges. See `generateNaturalLanguageResponse` in `server/openai.ts`.
+- Encounter embedding text is constructed by `encounterEmbeddingText()` in `shared/schema.ts` — the single source of truth for how encounters are embedded.
 
 ## Storage
 
@@ -114,5 +115,5 @@ Configured in `.mcp.json` — connects to the prod Supabase project. Provides di
 
 ## What not to touch without asking
 
-- The hybrid search scoring weights in `server/routes.ts` and the helpers in `server/search-utils.ts` — they were tuned against real queries. Changing them silently regresses search quality.
+- The hybrid search scoring weights and helpers in `server/encounter-search.ts` — they were tuned against real queries. Changing them silently regresses search quality.
 - The `IStorage` interface shape — it's the seam for the eventual Postgres swap.
