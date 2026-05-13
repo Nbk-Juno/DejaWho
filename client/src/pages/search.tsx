@@ -1,110 +1,29 @@
-import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Search, Sparkles, AlertCircle, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Loader2, Mic, MicOff, Search, Sparkles, AlertCircle, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { EncounterCard } from "@/components/encounter-card";
-import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
-import type { Encounter } from "@shared/schema";
-
-interface SearchResponse {
-  results: Array<{
-    encounter: Encounter;
-    score: number;
-  }>;
-  naturalLanguageResponse: string;
-}
+import { useVoiceSearch } from "@/hooks/use-voice-search";
 
 export default function SearchPage() {
   const [, setLocation] = useLocation();
-  const [query, setQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
-  const [isVoiceQuery, setIsVoiceQuery] = useState(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const searchMutation = useMutation<SearchResponse, Error, string>({
-    mutationFn: async (searchQuery: string) => {
-      const response = await apiRequest("POST", "/api/search", { query: searchQuery });
-      return await response.json() as SearchResponse;
-    },
-    onSuccess: (data) => {
-      setSearchResults(data);
-    },
-  });
-
-  useEffect(() => {
-    if (searchResults?.naturalLanguageResponse && isVoiceQuery) {
-      playVoiceResponse(searchResults.naturalLanguageResponse);
-    }
-  }, [searchResults, isVoiceQuery]);
-
-  const playVoiceResponse = async (text: string) => {
-    try {
-      setIsPlayingAudio(true);
-      
-      const response = await apiRequest("POST", "/api/text-to-speech", { text });
-      const blob = await response.blob();
-      const audioUrl = URL.createObjectURL(blob);
-      
-      if (audioRef.current) {
-        audioRef.current.pause();
-        if (audioRef.current.src) {
-          URL.revokeObjectURL(audioRef.current.src);
-        }
-        audioRef.current = null;
-      }
-      
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      
-      audio.onended = () => {
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      audio.onerror = () => {
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      await audio.play();
-    } catch (error) {
-      console.error("Error playing voice response:", error);
-      setIsPlayingAudio(false);
-    }
-  };
-
-  const stopAudio = () => {
-    if (audioRef.current) {
-      if (audioRef.current.src) {
-        URL.revokeObjectURL(audioRef.current.src);
-      }
-      audioRef.current.pause();
-      audioRef.current = null;
-      setIsPlayingAudio(false);
-    }
-  };
-
-  const handleSearch = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (query.trim()) {
-      searchMutation.mutate(query);
-    }
-  };
-
-  const handleVoiceTranscription = (text: string) => {
-    setQuery(text);
-    setIsVoiceQuery(true);
-    setTimeout(() => {
-      if (text.trim()) {
-        searchMutation.mutate(text);
-      }
-    }, 100);
-  };
+  const {
+    query,
+    setQuery,
+    isSearching,
+    isError,
+    searchError,
+    searchResults,
+    isVoiceMode,
+    isPlayingAudio,
+    isRecording,
+    isTranscribing,
+    startRecording,
+    stopRecording,
+    stopAudio,
+    replayAudio,
+    handleSearch,
+  } = useVoiceSearch();
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,27 +48,38 @@ export default function SearchPage() {
                 type="search"
                 placeholder="Ask me anything... e.g., 'Who did I meet at Starbucks last Tuesday?'"
                 value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setIsVoiceQuery(false);
-                }}
+                onChange={(e) => setQuery(e.target.value)}
                 className="flex-1 px-3 bg-transparent text-lg outline-none placeholder:text-muted-foreground"
                 data-testid="input-search"
               />
-              <VoiceRecorder 
-                onTranscriptionComplete={handleVoiceTranscription}
-                buttonSize="icon"
-                buttonVariant="ghost"
-                className="flex-shrink-0"
-              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="flex-shrink-0 relative"
+                disabled={isTranscribing}
+                onClick={() => (isRecording ? stopRecording() : startRecording())}
+                data-testid="button-voice-record"
+              >
+                {isTranscribing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : isRecording ? (
+                  <>
+                    <MicOff className="h-5 w-5" />
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
+                  </>
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
+              </Button>
               <Button
                 type="submit"
                 size="default"
                 className="flex-shrink-0 ml-2"
-                disabled={searchMutation.isPending || !query.trim()}
+                disabled={isSearching || !query.trim()}
                 data-testid="button-search"
               >
-                {searchMutation.isPending ? (
+                {isSearching ? (
                   <>
                     <Sparkles className="h-4 w-4 mr-2 animate-pulse" />
                     Searching...
@@ -164,7 +94,7 @@ export default function SearchPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {searchMutation.isPending && (
+        {isSearching && (
           <div className="space-y-6">
             <div className="flex items-center gap-3 text-primary">
               <Sparkles className="h-6 w-6 animate-pulse" />
@@ -182,7 +112,7 @@ export default function SearchPage() {
           </div>
         )}
 
-        {searchMutation.isError && (
+        {isError && (
           <Card className="border-destructive/50 bg-destructive/5">
             <CardContent className="py-8">
               <div className="flex items-start gap-4">
@@ -190,7 +120,7 @@ export default function SearchPage() {
                 <div className="space-y-1">
                   <h3 className="font-semibold text-destructive">Search Failed</h3>
                   <p className="text-sm text-muted-foreground">
-                    {(searchMutation.error as Error)?.message || 
+                    {searchError?.message ||
                       "We couldn't complete your search. Please try again or rephrase your query."}
                   </p>
                 </div>
@@ -199,7 +129,7 @@ export default function SearchPage() {
           </Card>
         )}
 
-        {searchResults && !searchMutation.isPending && (
+        {searchResults && !isSearching && (
           <div className="space-y-8 animate-in fade-in duration-500">
             {searchResults.naturalLanguageResponse && (
               <Card className="bg-gradient-to-br from-primary/5 to-chart-2/5 border-primary/20">
@@ -209,7 +139,7 @@ export default function SearchPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold text-foreground">AI Response</h3>
-                        {isVoiceQuery && isPlayingAudio && (
+                        {isVoiceMode && isPlayingAudio && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -221,11 +151,11 @@ export default function SearchPage() {
                             <span className="text-xs">Stop</span>
                           </Button>
                         )}
-                        {isVoiceQuery && !isPlayingAudio && (
+                        {isVoiceMode && !isPlayingAudio && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => playVoiceResponse(searchResults.naturalLanguageResponse)}
+                            onClick={replayAudio}
                             className="h-6 px-2"
                             data-testid="button-replay-audio"
                           >
@@ -246,8 +176,8 @@ export default function SearchPage() {
             {searchResults.results && searchResults.results.length > 0 ? (
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-foreground">
-                  {searchResults.results.length === 1 
-                    ? "1 Match Found" 
+                  {searchResults.results.length === 1
+                    ? "1 Match Found"
                     : `${searchResults.results.length} Matches Found`}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -273,15 +203,13 @@ export default function SearchPage() {
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">No Matches Found</h3>
                   <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                    We couldn't find anyone matching your search. Try different terms or check if the encounter has been recorded.
+                    We couldn't find anyone matching your search. Try different terms or check if the
+                    encounter has been recorded.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        setQuery("");
-                        setSearchResults(null);
-                      }}
+                      onClick={() => setQuery("")}
                       data-testid="button-try-again"
                     >
                       Try Different Terms
@@ -299,7 +227,7 @@ export default function SearchPage() {
           </div>
         )}
 
-        {!searchResults && !searchMutation.isPending && !searchMutation.isError && (
+        {!searchResults && !isSearching && !isError && (
           <div className="text-center py-16 space-y-4">
             <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-chart-2/20 flex items-center justify-center">
               <Sparkles className="h-10 w-10 text-primary" />
@@ -307,7 +235,8 @@ export default function SearchPage() {
             <div className="space-y-2">
               <h3 className="text-xl font-semibold text-foreground">AI-Powered Search</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Ask natural questions like "Who did I meet at the conference?" or "Who was that person from the coffee shop?"
+                Ask natural questions like "Who did I meet at the conference?" or "Who was that person
+                from the coffee shop?"
               </p>
             </div>
             <div className="pt-4 space-y-2 max-w-md mx-auto">

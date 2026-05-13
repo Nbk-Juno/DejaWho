@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { MapPin, Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
-import type { Encounter } from "@shared/schema";
+import type { ApiEncounter } from "@shared/schema";
 
 interface EncounterCardProps {
-  encounter: Encounter;
+  encounter: ApiEncounter;
   onClick?: () => void;
 }
 

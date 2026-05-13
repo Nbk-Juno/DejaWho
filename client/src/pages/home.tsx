@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Plus, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EncounterCard } from "@/components/encounter-card";
-import type { Encounter } from "@shared/schema";
+import type { ApiEncounter } from "@shared/schema";
 
 type UsageMetric = {
   count: number;
@@ -50,7 +50,7 @@ function UsageLine({
 }
 
 export default function Home() {
-  const { data: encounters, isLoading } = useQuery<Encounter[]>({
+  const { data: encounters, isLoading } = useQuery<ApiEncounter[]>({
     queryKey: ["/api/encounters"],
   });
   const {

@@ -22,6 +22,13 @@
       "when": 1777757634000,
       "tag": "0002_usage_counters",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1747086600000,
+      "tag": "0003_encounter_embeddings_counter",
+      "breakpoints": true
     }
   ]
 }

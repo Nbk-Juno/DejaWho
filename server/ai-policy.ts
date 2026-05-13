@@ -23,6 +23,11 @@ export function assertAiTextWithinLimit(value: string, maxChars: number, label: 
   }
 }
 
-export function resetAiPolicyForTests(): void {
-  // Kept for existing tests; AI policy is now stateless.
+export function handleAiPolicyError(error: unknown, res: import("express").Response): boolean {
+  if (error instanceof AiPolicyError) {
+    res.status(error.statusCode).json({ error: error.message, code: error.code });
+    return true;
+  }
+  return false;
 }
+

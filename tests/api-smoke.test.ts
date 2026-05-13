@@ -6,7 +6,6 @@ import { sql } from "drizzle-orm";
 import { EMBEDDING_DIMENSIONS } from "@shared/schema";
 import { db } from "../server/db";
 import * as openai from "../server/openai";
-import { resetAiPolicyForTests } from "../server/ai-policy";
 import { resetApiRateLimitForTests } from "../server/rate-limit";
 
 const TEST_SECRET = "test-jwt-secret-for-vitest-only-do-not-use-in-prod";
@@ -31,6 +30,16 @@ async function ttsCallsFor(userId: string, yearMonth = currentYearMonth()): Prom
       AND year_month = ${yearMonth}
   `);
   return Number((rows as Array<{ tts_calls: number }>)[0]?.tts_calls ?? 0);
+}
+
+async function encounterEmbeddingsFor(userId: string, yearMonth = currentYearMonth()): Promise<number> {
+  const rows = await db.execute(sql`
+    SELECT encounter_embeddings
+    FROM usage_counters
+    WHERE user_id = ${userId}
+      AND year_month = ${yearMonth}
+  `);
+  return Number((rows as Array<{ encounter_embeddings: number }>)[0]?.encounter_embeddings ?? 0);
 }
 
 function tokenFor(userId: string, email: string): string {
@@ -113,11 +122,11 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  resetAiPolicyForTests();
   delete process.env.AI_MONTHLY_TTS_LIMIT;
   delete process.env.AI_MONTHLY_SEARCH_LIMIT;
   delete process.env.AI_MONTHLY_PARSE_LIMIT;
   delete process.env.AI_MONTHLY_VOICE_TRANSCRIPTION_LIMIT;
+  delete process.env.AI_MONTHLY_ENCOUNTER_EMBEDDINGS_LIMIT;
   delete process.env.API_RATE_LIMIT_REQUESTS_PER_MINUTE;
   resetApiRateLimitForTests();
 });
@@ -139,7 +148,8 @@ describe("API smoke", () => {
     expect(create.status).toBe(201);
     expect(create.body.name).toBe("Sarah Chen");
     expect(create.body.id).toBeTruthy();
-    expect(create.body.userId).toBe(USER_A);
+    expect(create.body).not.toHaveProperty("userId");
+    expect(create.body).not.toHaveProperty("embedding");
 
     const search = await request(app)
       .post("/api/search")
@@ -376,6 +386,7 @@ describe("API smoke", () => {
 
   it("ignores userId in the request body and trusts the JWT", async () => {
     const authA = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+    const authB = `Bearer ${tokenFor(USER_B, "bob@example.com")}`;
 
     const create = await request(app)
       .post("/api/encounters")
@@ -388,7 +399,14 @@ describe("API smoke", () => {
       });
 
     expect(create.status).toBe(201);
-    expect(create.body.userId).toBe(USER_A);
+
+    const bList = await request(app).get("/api/encounters").set("Authorization", authB);
+    const bNames = bList.body.map((e: any) => e.name);
+    expect(bNames).not.toContain("Spoof attempt");
+
+    const aList = await request(app).get("/api/encounters").set("Authorization", authA);
+    const aNames = aList.body.map((e: any) => e.name);
+    expect(aNames).toContain("Spoof attempt");
   });
 
   it("/api/health is reachable without auth", async () => {
@@ -534,6 +552,7 @@ describe("API smoke", () => {
     await db.execute(sql`
       INSERT INTO usage_counters (user_id, year_month, voice_transcriptions)
       VALUES (${USER_A}, ${currentYearMonth()}, 5)
+      ON CONFLICT (user_id, year_month) DO UPDATE SET voice_transcriptions = 5
     `);
 
     mockDeleteUser.mockResolvedValueOnce({ data: null, error: null });
@@ -600,5 +619,88 @@ describe("API smoke", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.encounters).toHaveLength(0);
+  });
+
+  it("GET /api/encounters strips embedding and userId, serializes datetime as ISO string", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    await request(app)
+      .post("/api/encounters")
+      .set("Authorization", auth)
+      .send({ name: "Wire Test", location: "Cafe", datetime: "2026-05-01T10:00:00Z" });
+
+    const res = await request(app).get("/api/encounters").set("Authorization", auth);
+
+    expect(res.status).toBe(200);
+    const enc = res.body.find((e: any) => e.name === "Wire Test");
+    expect(enc).toBeDefined();
+    expect(typeof enc.datetime).toBe("string");
+    expect(typeof enc.createdAt).toBe("string");
+    expect(enc).not.toHaveProperty("embedding");
+    expect(enc).not.toHaveProperty("userId");
+  });
+
+  it("POST /api/search results strip embedding and serialize datetime as ISO string", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    await request(app)
+      .post("/api/encounters")
+      .set("Authorization", auth)
+      .send({ name: "Search Wire Test", location: "Library", datetime: "2026-05-01T11:00:00Z", context: "search wire test context" });
+
+    const res = await request(app)
+      .post("/api/search")
+      .set("Authorization", auth)
+      .send({ query: "Search Wire Test Library" });
+
+    expect(res.status).toBe(200);
+    const result = res.body.results.find((r: any) => r.encounter.name === "Search Wire Test");
+    expect(result).toBeDefined();
+    expect(typeof result.encounter.datetime).toBe("string");
+    expect(result.encounter).not.toHaveProperty("embedding");
+    expect(result.encounter).not.toHaveProperty("userId");
+  });
+
+  it("returns 429 without calling generateEmbedding when user is at the encounter_embeddings cap", async () => {
+    process.env.AI_MONTHLY_ENCOUNTER_EMBEDDINGS_LIMIT = "1";
+    await db.execute(sql`
+      INSERT INTO usage_counters (user_id, year_month, encounter_embeddings)
+      VALUES (${USER_A}, ${currentYearMonth()}, 1)
+    `);
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/encounters")
+      .set("Authorization", auth)
+      .send({ name: "Capped", location: "Office", datetime: "2026-04-22T09:15:00Z" });
+
+    expect(res.status).toBe(429);
+    expect(res.body.code).toBe("ai_monthly_limit_reached");
+    expect(openai.generateEmbedding).not.toHaveBeenCalled();
+  });
+
+  it("increments the monthly encounter_embeddings counter after a successful encounter creation", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const res = await request(app)
+      .post("/api/encounters")
+      .set("Authorization", auth)
+      .send({ name: "Counted", location: "Cafe", datetime: "2026-04-22T09:15:00Z" });
+
+    expect(res.status).toBe(201);
+    expect(await encounterEmbeddingsFor(USER_A)).toBe(1);
+  });
+
+  it("does not consume encounter_embeddings quota when generateEmbedding fails", async () => {
+    vi.mocked(openai.generateEmbedding).mockRejectedValueOnce(new Error("OpenAI down"));
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const failed = await request(app)
+      .post("/api/encounters")
+      .set("Authorization", auth)
+      .send({ name: "Rollback", location: "Library", datetime: "2026-04-22T09:15:00Z" });
+
+    expect(failed.status).not.toBe(201);
+    expect(await encounterEmbeddingsFor(USER_A)).toBe(0);
   });
 });

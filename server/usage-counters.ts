@@ -3,13 +3,14 @@ import { usageCounters, type UsageCounter } from "@shared/schema";
 import { db } from "./db";
 import { AiPolicyError } from "./ai-policy";
 
-export type MonthlyAiOperation = "voice_transcriptions" | "tts_calls" | "parse_calls" | "search_calls";
+export type MonthlyAiOperation = "voice_transcriptions" | "tts_calls" | "parse_calls" | "search_calls" | "encounter_embeddings";
 
 export const AI_MONTHLY_LIMITS: Record<MonthlyAiOperation, number> = {
   voice_transcriptions: monthlyLimitFromEnv("AI_MONTHLY_VOICE_TRANSCRIPTION_LIMIT", 100),
   tts_calls: monthlyLimitFromEnv("AI_MONTHLY_TTS_LIMIT", 200),
   parse_calls: monthlyLimitFromEnv("AI_MONTHLY_PARSE_LIMIT", 200),
   search_calls: monthlyLimitFromEnv("AI_MONTHLY_SEARCH_LIMIT", 500),
+  encounter_embeddings: monthlyLimitFromEnv("AI_MONTHLY_ENCOUNTER_EMBEDDINGS_LIMIT", 1000),
 };
 
 export type MonthlyUsageSummary = {
@@ -19,6 +20,7 @@ export type MonthlyUsageSummary = {
   ttsCalls: { count: number; cap: number };
   parseCalls: { count: number; cap: number };
   searchCalls: { count: number; cap: number };
+  encounterEmbeddings: { count: number; cap: number };
 };
 
 const OPERATION_COLUMNS = {
@@ -26,6 +28,7 @@ const OPERATION_COLUMNS = {
   tts_calls: sql.raw("tts_calls"),
   parse_calls: sql.raw("parse_calls"),
   search_calls: sql.raw("search_calls"),
+  encounter_embeddings: sql.raw("encounter_embeddings"),
 } as const;
 
 function monthlyLimitFromEnv(name: string, fallback: number): number {
@@ -42,6 +45,9 @@ export function monthlyLimitFor(operation: MonthlyAiOperation): number {
   }
   if (operation === "parse_calls") {
     return monthlyLimitFromEnv("AI_MONTHLY_PARSE_LIMIT", AI_MONTHLY_LIMITS.parse_calls);
+  }
+  if (operation === "encounter_embeddings") {
+    return monthlyLimitFromEnv("AI_MONTHLY_ENCOUNTER_EMBEDDINGS_LIMIT", AI_MONTHLY_LIMITS.encounter_embeddings);
   }
   return monthlyLimitFromEnv("AI_MONTHLY_SEARCH_LIMIT", AI_MONTHLY_LIMITS.search_calls);
 }
@@ -91,6 +97,10 @@ export async function getMonthlyUsageSummary(userId: string): Promise<MonthlyUsa
       count: usage?.searchCalls ?? 0,
       cap: monthlyLimitFor("search_calls"),
     },
+    encounterEmbeddings: {
+      count: usage?.encounterEmbeddings ?? 0,
+      cap: monthlyLimitFor("encounter_embeddings"),
+    },
   };
 }
 
@@ -135,4 +145,18 @@ export async function rollbackMonthlyAiCall(
     WHERE user_id = ${userId}
       AND year_month = ${yearMonth}
   `);
+}
+
+export async function billableAiCall<T>(
+  userId: string,
+  operation: MonthlyAiOperation,
+  call: () => Promise<T>,
+): Promise<T> {
+  await reserveMonthlyAiCall(userId, operation);
+  try {
+    return await call();
+  } catch (error) {
+    await rollbackMonthlyAiCall(userId, operation);
+    throw error;
+  }
 }

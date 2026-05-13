@@ -7,6 +7,13 @@ declare module "express-serve-static-core" {
   }
 }
 
+export function userIdFrom(req: Request): string {
+  if (!req.user?.id) {
+    throw new Error("requireAuth middleware did not attach req.user — route is misconfigured");
+  }
+  return req.user.id;
+}
+
 export async function requireAuth(
   req: Request,
   res: Response,

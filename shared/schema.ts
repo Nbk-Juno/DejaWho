@@ -39,6 +39,7 @@ export const usageCounters = pgTable(
     ttsCalls: integer("tts_calls").notNull().default(0),
     parseCalls: integer("parse_calls").notNull().default(0),
     searchCalls: integer("search_calls").notNull().default(0),
+    encounterEmbeddings: integer("encounter_embeddings").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),
   },
@@ -75,3 +76,27 @@ export const searchResultSchema = z.object({
 });
 
 export type SearchResult = z.infer<typeof searchResultSchema>;
+
+export type ApiEncounter = Omit<Encounter, "embedding" | "userId" | "datetime" | "createdAt"> & {
+  datetime: string;
+  createdAt: string;
+};
+
+export function toApiEncounter(e: Encounter): ApiEncounter {
+  const { embedding: _embedding, userId: _userId, ...rest } = e;
+  return {
+    ...rest,
+    datetime: e.datetime.toISOString(),
+    createdAt: e.createdAt.toISOString(),
+  };
+}
+
+export type ApiSearchResult = {
+  encounter: ApiEncounter;
+  score: number;
+};
+
+export type ApiSearchResponse = {
+  results: ApiSearchResult[];
+  naturalLanguageResponse: string;
+};
