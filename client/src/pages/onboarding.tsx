@@ -139,7 +139,7 @@ function WelcomeScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () => v
         <div className="space-y-2">
           <h1 className="text-4xl font-bold text-white tracking-tight">DejaWho</h1>
           <p className="text-white/55 text-base leading-relaxed max-w-xs">
-            Remember everyone you've met
+            You remember the face. We'll remember the name.
           </p>
         </div>
       </div>
