@@ -134,14 +134,12 @@ function WelcomeScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () => v
       <div className="flex justify-end pt-2">
         <SkipButton onSkip={onSkip} />
       </div>
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center">
-        <img src="/horizontal-lockup.png" alt="DejaWho" className="h-[70px] w-auto object-contain" />
-        <div className="space-y-3">
-          <h1 className="text-3xl font-bold text-white leading-tight">
-            Everyone worth remembering
-          </h1>
-          <p className="text-white/60 text-base leading-relaxed max-w-xs">
-            Record encounters with your voice. Find anyone with a question.
+      <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center">
+        <img src="/hero-mark.png" alt="" className="h-28 w-auto object-contain" />
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold text-white tracking-tight">DejaWho</h1>
+          <p className="text-white/55 text-base leading-relaxed max-w-xs">
+            Remember everyone you've met
           </p>
         </div>
       </div>
