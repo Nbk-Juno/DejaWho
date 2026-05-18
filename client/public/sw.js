@@ -1,4 +1,4 @@
-const CACHE_NAME = "dejawho-v1";
+const CACHE_NAME = "dejawho-__CACHE_VERSION__";
 
 const PRECACHE_URLS = ["/", "/index.html"];
 
