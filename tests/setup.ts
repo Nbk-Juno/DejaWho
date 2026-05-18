@@ -22,7 +22,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await migrationDb.execute(
-    sql`TRUNCATE TABLE encounters, whitelisted_emails, usage_counters RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE encounters, persons, whitelisted_emails, usage_counters RESTART IDENTITY CASCADE`,
   );
 });
 
