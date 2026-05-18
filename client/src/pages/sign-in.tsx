@@ -115,7 +115,7 @@ export default function SignIn() {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
-          <img src="/horizontal-lockup.png" alt="DejaWho" className="h-14 w-auto object-contain" />
+          <img src="/horizontal-lockup.png" alt="DejaWho" className="h-[70px] w-auto object-contain" />
           <p className="text-white/50 text-sm text-center">
             {mode === "forgot-password"
               ? "We'll send a reset link to your email."
