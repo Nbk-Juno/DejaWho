@@ -179,39 +179,47 @@ interface ParsedEncounter {
   context: string;
 }
 
-export async function parseEncounterFromSpeech(text: string): Promise<ParsedEncounter> {
-  try {
-    const prompt = buildParseEncounterPrompt(text);
+export async function parseEncounterFromSpeech(text: string, retries = 2): Promise<ParsedEncounter> {
+  const prompt = buildParseEncounterPrompt(text);
 
-    const response = await openai().chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful assistant that extracts structured information from spoken text about encounters. Return only valid JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 200,
-    });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await openai().chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant that extracts structured information from spoken text about encounters. Return only valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 200,
+      });
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error("No response from OpenAI");
+      const content = response.choices[0].message.content;
+      if (!content) throw new Error("No response from OpenAI");
+
+      const parsed = JSON.parse(content);
+      return {
+        name: parsed.name || "Unknown",
+        location: parsed.location || "Unknown location",
+        context: parsed.context || "",
+      };
+    } catch (error) {
+      logError("openai_parse_encounter_failed", error, {
+        attempt: attempt + 1,
+        maxAttempts: retries + 1,
+      });
+
+      if (attempt === retries) throw new Error("Failed to parse encounter details");
+
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
     }
-
-    const parsed = JSON.parse(content);
-    return {
-      name: parsed.name || "Unknown",
-      location: parsed.location || "Unknown location",
-      context: parsed.context || "",
-    };
-  } catch (error) {
-    logError("openai_parse_encounter_failed", error);
-    throw new Error("Failed to parse encounter details");
   }
+
+  throw new Error("Failed to parse encounter details");
 }
