@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -25,8 +25,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/record" component={Record} />
-      <Route path="/search" component={SearchPage} />
+      <Route path="/record"><Redirect to="/" /></Route>
+      <Route path="/search"><Redirect to="/" /></Route>
       <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>
