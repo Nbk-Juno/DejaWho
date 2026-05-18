@@ -5,14 +5,15 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { LogOut, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { IosInstallBanner } from "@/components/ios-install-banner";
+import { BottomNav } from "@/components/bottom-nav";
 import Home from "@/pages/home";
 import Record from "@/pages/record";
 import SearchPage from "@/pages/search";
+import Profile from "@/pages/profile";
 import SignIn from "@/pages/sign-in";
 import ResetPassword from "@/pages/reset-password";
 import Privacy from "@/pages/privacy";
@@ -24,25 +25,12 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/record" component={Record} />
       <Route path="/search" component={SearchPage} />
+      <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-function SignOutButton() {
-  const { signOut } = useAuth();
-  return (
-    <Button
-      size="icon"
-      variant="ghost"
-      onClick={() => signOut()}
-      data-testid="button-sign-out"
-      title="Sign out"
-    >
-      <LogOut className="h-5 w-5" />
-    </Button>
-  );
-}
 
 function InviteOnlyScreen() {
   const { signOut, user } = useAuth();
@@ -95,12 +83,9 @@ function AuthenticatedShell() {
   }
 
   return (
-    <div className="relative min-h-screen">
-      <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50 flex items-center gap-2">
-        <ThemeToggle />
-        <SignOutButton />
-      </div>
+    <div className="relative min-h-screen pb-20">
       <Router />
+      <BottomNav />
       <IosInstallBanner />
     </div>
   );
@@ -111,25 +96,11 @@ function AppContent() {
   const [location] = useLocation();
 
   if (location === "/reset-password") {
-    return (
-      <div className="relative min-h-screen">
-        <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50">
-          <ThemeToggle />
-        </div>
-        <ResetPassword />
-      </div>
-    );
+    return <ResetPassword />;
   }
 
   if (location === "/privacy") {
-    return (
-      <div className="relative min-h-screen">
-        <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50">
-          <ThemeToggle />
-        </div>
-        <Privacy />
-      </div>
-    );
+    return <Privacy />;
   }
 
   if (loading) {
@@ -141,14 +112,7 @@ function AppContent() {
   }
 
   if (!session) {
-    return (
-      <div className="relative min-h-screen">
-        <div className="fixed top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-50">
-          <ThemeToggle />
-        </div>
-        <SignIn />
-      </div>
-    );
+    return <SignIn />;
   }
 
   return <AuthenticatedShell />;
@@ -157,7 +121,7 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" storageKey="dejawho-theme">
+      <ThemeProvider>
         <TooltipProvider>
           <AuthProvider>
             <AppContent />

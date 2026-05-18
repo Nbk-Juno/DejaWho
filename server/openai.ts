@@ -146,6 +146,33 @@ export async function textToSpeech(text: string): Promise<Buffer> {
   }
 }
 
+export async function generatePersonSummary(
+  personName: string,
+  encounterList: { location: string; datetime: Date; context?: string | null }[],
+): Promise<string> {
+  try {
+    const lines = encounterList.map((e, i) => {
+      const date = e.datetime.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      return `${i + 1}. ${date} at ${e.location}${e.context ? ` — ${e.context}` : ""}`;
+    });
+    const prompt = `Summarize the user's encounters with ${personName} in 1–2 conversational sentences. Focus on where they've met and any recurring themes.\n\nEncounters:\n${lines.join("\n")}`;
+
+    const response = await openai().chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You write concise memory summaries about people the user has met. Be warm and specific." },
+        { role: "user", content: prompt },
+      ],
+      max_completion_tokens: 150,
+    });
+
+    return response.choices[0].message.content?.trim() || `You've met ${personName} ${encounterList.length} time${encounterList.length === 1 ? "" : "s"}.`;
+  } catch (error) {
+    logError("openai_person_summary_failed", error);
+    return `You've met ${personName} ${encounterList.length} time${encounterList.length === 1 ? "" : "s"}.`;
+  }
+}
+
 interface ParsedEncounter {
   name: string;
   location: string;

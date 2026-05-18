@@ -50,6 +50,7 @@ export function attachAccountRoutes(app: Express): void {
     try {
       const userId = userIdFrom(req);
       await storage.deleteAllEncountersForUser(userId);
+      await storage.deletePersonsForUser(userId);
       await storage.deleteUsageCountersForUser(userId);
 
       const { error: deleteError } = await supabaseAdmin().auth.admin.deleteUser(userId);

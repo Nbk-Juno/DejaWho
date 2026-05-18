@@ -1,11 +1,14 @@
 import {
   type Encounter,
   type InsertEncounter,
+  type Person,
   encounters,
+  persons,
   usageCounters,
   whitelistedEmails,
+  normalizePersonName,
 } from "@shared/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./db";
 
 export type CreateEncounterInput = Omit<InsertEncounter, "context"> & {
@@ -22,6 +25,12 @@ export interface IStorage {
   deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
   addAllowedEmail(email: string, invitedBy?: string | null): Promise<void>;
+  getPersonsForUser(userId: string): Promise<Person[]>;
+  getPersonForUser(id: string, userId: string): Promise<Person | undefined>;
+  getEncountersForPerson(userId: string, normalizedName: string): Promise<Encounter[]>;
+  upsertPersonFromEncounter(userId: string, name: string): Promise<Person>;
+  updatePersonSummary(id: string, userId: string, summary: string): Promise<void>;
+  deletePersonsForUser(userId: string): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -89,6 +98,64 @@ export class DbStorage implements IStorage {
       .insert(whitelistedEmails)
       .values({ email: normalized, invitedBy })
       .onConflictDoNothing();
+  }
+
+  async getPersonsForUser(userId: string): Promise<Person[]> {
+    return db
+      .select()
+      .from(persons)
+      .where(eq(persons.userId, userId))
+      .orderBy(desc(persons.updatedAt));
+  }
+
+  async getPersonForUser(id: string, userId: string): Promise<Person | undefined> {
+    const [row] = await db
+      .select()
+      .from(persons)
+      .where(and(eq(persons.id, id), eq(persons.userId, userId)))
+      .limit(1);
+    return row;
+  }
+
+  async getEncountersForPerson(userId: string, normalizedName: string): Promise<Encounter[]> {
+    const all = await db
+      .select()
+      .from(encounters)
+      .where(eq(encounters.userId, userId))
+      .orderBy(desc(encounters.datetime));
+    return all.filter(e => normalizePersonName(e.name) === normalizedName);
+  }
+
+  async upsertPersonFromEncounter(userId: string, name: string): Promise<Person> {
+    const normalizedName = normalizePersonName(name);
+    const [row] = await db
+      .insert(persons)
+      .values({ userId, normalizedName, encounterCount: 1, summary: null })
+      .onConflictDoUpdate({
+        target: [persons.userId, persons.normalizedName],
+        set: {
+          encounterCount: sql`${persons.encounterCount} + 1`,
+          summary: null,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async updatePersonSummary(id: string, userId: string, summary: string): Promise<void> {
+    await db
+      .update(persons)
+      .set({ summary, updatedAt: new Date() })
+      .where(and(eq(persons.id, id), eq(persons.userId, userId)));
+  }
+
+  async deletePersonsForUser(userId: string): Promise<number> {
+    const deleted = await db
+      .delete(persons)
+      .where(eq(persons.userId, userId))
+      .returning({ id: persons.id });
+    return deleted.length;
   }
 }
 

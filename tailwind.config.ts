@@ -6,11 +6,25 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        sm: "0.5rem",   /* 8px  rSm */
+        md: "0.75rem",  /* 12px rMd */
+        lg: "1rem",     /* 16px rLg */
+        xl: "1.5rem",   /* 24px rXl */
       },
       colors: {
+        dw: {
+          amethyst:   "var(--dw-amethyst)",
+          card:       "var(--dw-card)",
+          elevated:   "var(--dw-elevated)",
+          overlay:    "var(--dw-overlay)",
+          indigo:     "var(--dw-indigo)",
+          "indigo-dim": "var(--dw-indigo-dim)",
+          "indigo-sub": "var(--dw-indigo-sub)",
+          cream:      "var(--dw-cream)",
+          "cream-glow": "var(--dw-cream-glow)",
+          success:    "var(--dw-success)",
+          error:      "var(--dw-error)",
+        },
         // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
@@ -96,10 +110,42 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "dw-pulse-ring": {
+          "0%":   { transform: "scale(0.95)", opacity: "0.6" },
+          "100%": { transform: "scale(1.6)",  opacity: "0" },
+        },
+        "dw-pulse-soft": {
+          "0%, 100%": { transform: "scale(1)",    opacity: "0.6" },
+          "50%":      { transform: "scale(1.08)", opacity: "1" },
+        },
+        "dw-wave": {
+          "0%, 100%": { transform: "scaleY(0.3)" },
+          "50%":      { transform: "scaleY(1)" },
+        },
+        "dw-spin": {
+          to: { transform: "rotate(360deg)" },
+        },
+        "dw-fade-up": {
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
+        "dw-draw": {
+          to: { strokeDashoffset: "0" },
+        },
+        "dw-glow-breathe": {
+          "0%, 100%": { opacity: "0.45", transform: "scale(1)" },
+          "50%":      { opacity: "0.7",  transform: "scale(1.05)" },
+        },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "accordion-down":  "accordion-down 0.2s ease-out",
+        "accordion-up":    "accordion-up 0.2s ease-out",
+        "dw-pulse-ring":   "dw-pulse-ring 2.4s ease-out infinite",
+        "dw-pulse-soft":   "dw-pulse-soft 2.4s ease-in-out infinite",
+        "dw-wave":         "dw-wave 0.9s ease-in-out infinite",
+        "dw-spin":         "dw-spin 0.7s linear infinite",
+        "dw-fade-up":      "dw-fade-up 0.4s cubic-bezier(.2,.7,.3,1)",
+        "dw-glow-breathe": "dw-glow-breathe 4s ease-in-out infinite",
       },
     },
   },

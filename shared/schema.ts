@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, pgTable, text, uuid, timestamp, vector, index, primaryKey } from "drizzle-orm/pg-core";
+import { integer, pgTable, text, uuid, timestamp, vector, index, primaryKey, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -21,6 +21,43 @@ export const encounters = pgTable(
     userIdIdx: index("encounters_user_id_idx").on(table.userId),
   }),
 );
+
+export const persons = pgTable(
+  "persons",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    encounterCount: integer("encounter_count").notNull().default(0),
+    summary: text("summary"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),
+  },
+  (table) => ({
+    personsUserIdIdx: index("persons_user_id_idx").on(table.userId),
+    personsUniqueUserName: uniqueIndex("persons_user_id_name_key").on(table.userId, table.normalizedName),
+  }),
+);
+
+export type Person = typeof persons.$inferSelect;
+
+export type ApiPerson = Omit<Person, "userId" | "createdAt" | "updatedAt"> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function toApiPerson(p: Person): ApiPerson {
+  const { userId: _userId, ...rest } = p;
+  return {
+    ...rest,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
+export function normalizePersonName(name: string): string {
+  return name.trim().toLowerCase();
+}
 
 export const whitelistedEmails = pgTable("whitelisted_emails", {
   email: text("email").primaryKey(),

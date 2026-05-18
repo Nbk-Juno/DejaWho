@@ -104,6 +104,7 @@ export function attachEncounterRoutes(app: Express): void {
         generateEmbedding(embeddingText),
       );
       const encounter = await storage.createEncounter({ ...validated, embedding, userId });
+      storage.upsertPersonFromEncounter(userId, validated.name).catch(() => {});
       res.status(201).json(toApiEncounter(encounter));
     } catch (error: any) {
       if (handleAiPolicyError(error, res)) return;
