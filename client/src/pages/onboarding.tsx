@@ -135,7 +135,7 @@ function WelcomeScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () => v
         <SkipButton onSkip={onSkip} />
       </div>
       <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center">
-        <img src="/horizontal-lockup.png" alt="DejaWho" className="h-10 w-auto object-contain" />
+        <img src="/horizontal-lockup.png" alt="DejaWho" className="h-[70px] w-auto object-contain" />
         <div className="space-y-3">
           <h1 className="text-3xl font-bold text-white leading-tight">
             Everyone worth remembering
