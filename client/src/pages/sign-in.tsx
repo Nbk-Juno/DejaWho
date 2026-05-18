@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Mail, AlertCircle } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 
 type AuthTab = "password" | "magic-link";
@@ -42,9 +41,10 @@ function DwButton({
 
 function DwInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <Input
+    <input
       {...props}
-      className="bg-white/8 border-white/15 text-white placeholder:text-white/35 focus-visible:ring-dw-indigo/50 h-12"
+      className="w-full h-12 rounded-lg px-3 text-base text-white placeholder:text-white/35 border border-white/15 outline-none appearance-none focus:ring-2 focus:ring-dw-indigo/50 focus:border-transparent disabled:opacity-50"
+      style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
     />
   );
 }
@@ -115,7 +115,7 @@ export default function SignIn() {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
-          <img src="/horizontal-lockup.png" alt="DejaWho" className="h-9 w-auto object-contain" />
+          <img src="/horizontal-lockup.png" alt="DejaWho" className="h-14 w-auto object-contain" />
           <p className="text-white/50 text-sm text-center">
             {mode === "forgot-password"
               ? "We'll send a reset link to your email."

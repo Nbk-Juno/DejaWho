@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AlertCircle, Check } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 
 type Status =
@@ -71,7 +70,7 @@ export default function ResetPassword() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-5">
       <div className="w-full max-w-sm space-y-8">
         <div className="flex flex-col items-center gap-3">
-          <img src="/horizontal-lockup.png" alt="DejaWho" className="h-9 w-auto object-contain" />
+          <img src="/horizontal-lockup.png" alt="DejaWho" className="h-14 w-auto object-contain" />
           <p className="text-white/50 text-sm">Set your new password below.</p>
         </div>
 
@@ -88,7 +87,7 @@ export default function ResetPassword() {
               <label htmlFor="new-password" className="text-sm font-medium text-white/70">
                 New password
               </label>
-              <Input
+              <input
                 id="new-password"
                 type="password"
                 required
@@ -98,7 +97,8 @@ export default function ResetPassword() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={status.kind === "submitting"}
                 data-testid="input-new-password"
-                className="bg-white/8 border-white/15 text-white placeholder:text-white/35 focus-visible:ring-dw-indigo/50 h-12"
+                className="w-full h-12 rounded-lg px-3 text-base text-white placeholder:text-white/35 border border-white/15 outline-none appearance-none focus:ring-2 focus:ring-dw-indigo/50 focus:border-transparent disabled:opacity-50"
+                style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
               />
             </div>
 
@@ -106,7 +106,7 @@ export default function ResetPassword() {
               <label htmlFor="confirm-password" className="text-sm font-medium text-white/70">
                 Confirm password
               </label>
-              <Input
+              <input
                 id="confirm-password"
                 type="password"
                 required
@@ -116,7 +116,8 @@ export default function ResetPassword() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={status.kind === "submitting"}
                 data-testid="input-confirm-password"
-                className="bg-white/8 border-white/15 text-white placeholder:text-white/35 focus-visible:ring-dw-indigo/50 h-12"
+                className="w-full h-12 rounded-lg px-3 text-base text-white placeholder:text-white/35 border border-white/15 outline-none appearance-none focus:ring-2 focus:ring-dw-indigo/50 focus:border-transparent disabled:opacity-50"
+                style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
               />
             </div>
 
