@@ -1,161 +1,180 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Plus, Search, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { EncounterCard } from "@/components/encounter-card";
-import type { ApiEncounter } from "@shared/schema";
+import { format } from "date-fns";
+import { MapPin, Calendar } from "lucide-react";
+import { VoiceButton } from "@/components/voice-button/voice-button";
+import { PersonCard } from "@/components/person-card";
+import { AllEncountersSheet } from "@/components/all-encounters-sheet";
+import { useHomeVoice } from "@/hooks/use-home-voice";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import type { ApiPerson, ApiSearchResponse } from "@shared/schema";
 
-type UsageMetric = {
-  count: number;
-  cap: number;
-};
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
-type UsageSummary = {
-  resetDate: string;
-  voiceTranscriptions: UsageMetric;
-  ttsCalls: UsageMetric;
-  searchCalls: UsageMetric;
-};
-
-function formatResetDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric" }).format(
-    new Date(`${value}T00:00:00Z`),
+function SearchResultSheet({
+  results,
+  onClose,
+}: {
+  results: ApiSearchResponse;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-[#120A5C] border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
+        <SheetHeader className="mb-4">
+          <SheetTitle className="text-white text-left text-lg font-semibold">Result</SheetTitle>
+          <SheetDescription className="text-white/70 text-left text-sm leading-relaxed">
+            {results.naturalLanguageResponse}
+          </SheetDescription>
+        </SheetHeader>
+        {results.results.length > 0 && (
+          <div className="space-y-3">
+            {results.results.slice(0, 3).map(({ encounter }) => (
+              <div
+                key={encounter.id}
+                className="rounded-xl bg-white/8 border border-white/10 p-4 space-y-2"
+              >
+                <p className="text-white font-semibold text-sm">{encounter.name}</p>
+                <div className="flex items-center gap-2 text-white/50 text-xs">
+                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{encounter.location}</span>
+                </div>
+                <div className="flex items-center gap-2 text-white/50 text-xs">
+                  <Calendar className="w-3 h-3 flex-shrink-0" />
+                  <span>{format(new Date(encounter.datetime), "MMM d, yyyy · h:mm a")}</span>
+                </div>
+                {encounter.context && (
+                  <p className="text-white/60 text-xs leading-relaxed line-clamp-2">{encounter.context}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }
 
-function UsageLine({
-  usage,
-  isLoading,
-  isError,
-}: {
-  usage?: UsageSummary;
-  isLoading: boolean;
-  isError: boolean;
-}) {
-  if (isLoading) {
-    return <p className="text-xs text-muted-foreground">Loading monthly usage...</p>;
-  }
-
-  if (isError || !usage) {
-    return <p className="text-xs text-muted-foreground">Monthly usage unavailable</p>;
-  }
-
+function PersonChip({ person, onClick }: { person: ApiPerson; onClick: () => void }) {
   return (
-    <p className="text-xs sm:text-sm text-muted-foreground">
-      voice {usage.voiceTranscriptions.count}/{usage.voiceTranscriptions.cap} <span aria-hidden="true">•</span>{" "}
-      TTS {usage.ttsCalls.count}/{usage.ttsCalls.cap} <span aria-hidden="true">•</span> search{" "}
-      {usage.searchCalls.count}/{usage.searchCalls.cap} (resets {formatResetDate(usage.resetDate)})
-    </p>
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex-shrink-0 px-4 py-2 rounded-full bg-white/8 border border-white/12 text-white/80 text-sm font-medium whitespace-nowrap hover:bg-white/12 transition-colors"
+    >
+      {titleCase(person.normalizedName)}
+    </button>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
+      <p className="text-white/40 text-sm">No encounters yet</p>
+      <p className="text-white/25 text-xs max-w-[200px] leading-relaxed">
+        Tap the button above to record your first encounter
+      </p>
+    </div>
   );
 }
 
 export default function Home() {
-  const { data: encounters, isLoading } = useQuery<ApiEncounter[]>({
-    queryKey: ["/api/encounters"],
-  });
-  const {
-    data: usage,
-    isLoading: usageLoading,
-    isError: usageError,
-  } = useQuery<UsageSummary>({
-    queryKey: ["/api/me/usage"],
+  const { buttonState, mode, setMode, onTap, onDoneTimeout, searchResults, clearSearchResults } =
+    useHomeVoice();
+
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const { data: persons = [] } = useQuery<ApiPerson[]>({
+    queryKey: ["/api/persons"],
   });
 
-  const recentEncounters = encounters?.slice(0, 5) || [];
+  const recentPersons = persons
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-chart-2/10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent"></div>
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">AI-Powered Memory</span>
-            </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground tracking-tight">
-              DejaWho
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Never forget a face or a name again. Remember everyone you've met with intelligent AI search.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Link href="/record">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto gap-2"
-                  data-testid="button-record-encounter"
-                >
-                  <Plus className="h-5 w-5" />
-                  Record New Encounter
-                </Button>
-              </Link>
-              <Link href="/search">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto gap-2"
-                  data-testid="button-find-someone"
-                >
-                  <Search className="h-5 w-5" />
-                  Find Someone
-                </Button>
-              </Link>
-            </div>
-            <UsageLine usage={usage} isLoading={usageLoading} isError={usageError} />
-          </div>
+    <div className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]">
+      {/* Header */}
+      <header className="px-5 pt-[max(env(safe-area-inset-top),16px)] pb-4 flex items-center">
+        <img
+          src="/horizontal-lockup.png"
+          alt="DejaWho"
+          className="h-7 w-auto object-contain"
+        />
+      </header>
+
+      {/* Main: centered voice button */}
+      <main className="flex-1 flex flex-col items-center justify-center px-5 gap-6 min-h-[320px]">
+        <div className="w-full max-w-xs">
+          <VoiceButton
+            buttonState={buttonState}
+            mode={mode}
+            onTap={onTap}
+            onModeChange={(m) => {
+              if (buttonState !== "recording") setMode(m);
+            }}
+            onDoneTimeout={onDoneTimeout}
+            showModePill
+          />
         </div>
-      </div>
+      </main>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-foreground">Recent Encounters</h2>
-            {encounters && encounters.length > 5 && (
-              <Link href="/search">
-                <Button variant="ghost" size="sm" data-testid="button-view-all">
-                  View All
-                </Button>
-              </Link>
-            )}
-          </div>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-48 rounded-xl bg-card animate-pulse"
-                  data-testid={`skeleton-encounter-${i}`}
-                ></div>
+      {/* Recent people */}
+      <section className="px-5 pb-4">
+        {recentPersons.length > 0 ? (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest">
+                Recent
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="text-xs text-dw-indigo font-medium"
+              >
+                See all
+              </button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-none">
+              {recentPersons.map((p) => (
+                <PersonChip
+                  key={p.id}
+                  person={p}
+                  onClick={() => setSelectedPersonId(p.id)}
+                />
               ))}
             </div>
-          ) : recentEncounters.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recentEncounters.map((encounter) => (
-                <EncounterCard key={encounter.id} encounter={encounter} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
-                <Plus className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-foreground">No encounters yet</h3>
-                <p className="text-muted-foreground max-w-sm mx-auto">
-                  Start building your memory by recording your first encounter
-                </p>
-              </div>
-              <Link href="/record">
-                <Button className="mt-4" data-testid="button-first-encounter">
-                  Record Your First Encounter
-                </Button>
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
+          </>
+        ) : (
+          <EmptyState />
+        )}
+      </section>
+
+      {/* Sheets */}
+      {searchResults && (
+        <SearchResultSheet results={searchResults} onClose={clearSearchResults} />
+      )}
+
+      {selectedPersonId && (
+        <PersonCard
+          personId={selectedPersonId}
+          onClose={() => setSelectedPersonId(null)}
+        />
+      )}
+
+      {showAll && (
+        <AllEncountersSheet onClose={() => setShowAll(false)} />
+      )}
     </div>
   );
 }

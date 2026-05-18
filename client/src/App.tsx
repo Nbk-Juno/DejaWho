@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -10,6 +11,7 @@ import { AlertCircle } from "lucide-react";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { IosInstallBanner } from "@/components/ios-install-banner";
 import { BottomNav } from "@/components/bottom-nav";
+import { Onboarding } from "@/pages/onboarding";
 import Home from "@/pages/home";
 import Record from "@/pages/record";
 import SearchPage from "@/pages/search";
@@ -54,6 +56,11 @@ function InviteOnlyScreen() {
 }
 
 function AuthenticatedShell() {
+  const { user } = useAuth();
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => Boolean(user?.user_metadata?.onboarding_completed_at),
+  );
+
   const { data, isLoading, error } = useQuery<{ id: string; email: string }>({
     queryKey: ["/api/me"],
     retry: false,
@@ -80,6 +87,10 @@ function AuthenticatedShell() {
         </div>
       </div>
     );
+  }
+
+  if (!onboardingDone) {
+    return <Onboarding onComplete={() => setOnboardingDone(true)} />;
   }
 
   return (
