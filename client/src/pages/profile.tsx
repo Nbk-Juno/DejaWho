@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { LogOut, Download, Trash2, Shield, ChevronRight } from "lucide-react";
+import { LogOut, Download, Trash2, Shield, ChevronRight, PlayCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { supabase } from "@/lib/supabase";
 
 type UsageMetric = { count: number; cap: number };
 type UsageSummary = {
@@ -135,6 +136,17 @@ export default function Profile() {
     },
   });
 
+  const replayOnboardingMutation = useMutation({
+    mutationFn: () =>
+      supabase.auth.updateUser({ data: { onboarding_completed_at: null } }),
+    onSuccess: () => {
+      window.location.href = "/";
+    },
+    onError: () => {
+      toast({ title: "Couldn't reset onboarding", variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", "/api/me"),
     onSuccess: () => {
@@ -179,6 +191,12 @@ export default function Profile() {
           </p>
           <SectionCard>
             <Row label={user?.email ?? "—"} />
+            <Divider />
+            <Row
+              icon={PlayCircle}
+              label="Replay onboarding"
+              onClick={() => replayOnboardingMutation.mutate()}
+            />
             <Divider />
             <Row icon={LogOut} label="Sign out" onClick={signOut} />
           </SectionCard>
