@@ -20,7 +20,7 @@ Tests run against a real Postgres (Docker locally, GitHub Actions service in CI)
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues for `Nbk-Juno/Who-That`. See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues for `Nbk-Juno/DejaWho`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -34,9 +34,18 @@ This repo uses a single-context domain layout with root `CONTEXT.md` and root `d
 
 Monorepo with three roots:
 
-- **`client/`** — React 18 + Vite + TypeScript. Tailwind + shadcn/ui (Radix). Wouter for routing, TanStack Query for server state, React Hook Form + Zod for forms. Pages: `home.tsx`, `record.tsx`, `search.tsx`, `privacy.tsx`. The `/privacy` and `/reset-password` routes render outside the auth gate in `App.tsx`.
-- **`server/`** — Express. Entry: `server/index.ts`. Routes: `server/routes.ts`. AI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing): `server/openai.ts`. Hybrid search (ranking, scoring, date/location extraction): `server/encounter-search.ts`. Storage abstraction: `server/storage.ts`.
-- **`shared/schema.ts`** — single source of truth. Drizzle tables + Zod schemas used by **both** client and server. If you change a model, change it here.
+- **`client/`** — React 18 + Vite + TypeScript. Tailwind + shadcn/ui (Radix). Wouter for routing, TanStack Query for server state, React Hook Form + Zod for forms. Pages: `home.tsx`, `record.tsx`, `search.tsx`, `privacy.tsx`. The `/privacy` and `/reset-password` routes render outside the auth gate in `App.tsx`. Voice search end-to-end (record → transcribe → search → TTS playback) lives in `client/src/hooks/use-voice-search.ts`.
+- **`server/`** — Express. Entry: `server/index.ts`. `server/routes.ts` is a thin wiring layer (18 lines) that delegates to three domain modules:
+  - `server/account-operations.ts` — `/api/me`, `/api/me/usage`, `/api/me/export`, `DELETE /api/me`
+  - `server/encounter-operations.ts` — encounter CRUD + `/api/transcribe` + `/api/parse-encounter`
+  - `server/search-operations.ts` — `/api/search` + `/api/text-to-speech`
+  - `server/openai.ts` — all OpenAI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing)
+  - `server/encounter-search.ts` — hybrid search ranking, scoring, date/location extraction
+  - `server/storage.ts` — `IStorage` interface + `DbStorage` implementation
+  - `server/auth.ts` — `requireAuth` middleware + `userIdFrom(req)` helper
+  - `server/ai-policy.ts` — input size limits, `AiPolicyError`, `handleAiPolicyError`
+  - `server/usage-counters.ts` — `billableAiCall` lifecycle + monthly quota enforcement
+- **`shared/schema.ts`** — single source of truth. Drizzle tables + Zod schemas used by **both** client and server. Wire types for API responses (`ApiEncounter`, `ApiSearchResponse`, `toApiEncounter`) live here too. If you change a model, change it here.
 
 The Vite dev server is mounted *inside* Express in development (see `server/vite.ts`), so the whole app runs on one port.
 
@@ -63,7 +72,7 @@ docker exec who-that-postgres psql -U who_that -d postgres -c "CREATE DATABASE w
 
 ## Auth
 
-Supabase auth with three methods: **email/password** (primary — solves iOS PWA session isolation), **magic-link** (secondary), and **password reset**. All issue JWTs verified identically by `requireAuth`. JWT bearer tokens (no cookies). The server-side middleware `requireAuth` (in `server/auth.ts`) calls `supabase.auth.getUser(token)` to verify the bearer token and attaches `req.user = { id, email }`. Apply it to any route that touches user data or calls OpenAI. `/api/health` is the single carve-out (Render healthcheck).
+Supabase auth with three methods: **email/password** (primary — solves iOS PWA session isolation), **magic-link** (secondary), and **password reset**. All issue JWTs verified identically by `requireAuth`. JWT bearer tokens (no cookies). The server-side middleware `requireAuth` (in `server/auth.ts`) calls `supabase.auth.getUser(token)` to verify the bearer token and attaches `req.user = { id, email }`. Use `userIdFrom(req)` (also in `server/auth.ts`) to extract the verified user id inside handlers. Apply `requireAuth` to any route that touches user data or calls OpenAI. `/api/health` is the single carve-out (Render healthcheck).
 
 The sign-in page (`client/src/pages/sign-in.tsx`) has Password and Magic Link tabs, with a "Forgot password?" flow built into the password tab. Password reset calls `supabase.auth.resetPasswordForEmail()` with a redirect to `/reset-password`. The reset-password page (`client/src/pages/reset-password.tsx`) handles the Supabase callback (recovery token in URL hash, parsed by `detectSessionInUrl: true`) and calls `supabase.auth.updateUser({ password })`. The `/reset-password` route renders outside the auth gate in `App.tsx` so recovery sessions work. Auth methods (`resetPassword`, `updatePassword`) live in `use-auth.tsx`.
 
@@ -87,8 +96,9 @@ See `.env.example`. Required: `OPENAI_API_KEY`, `DATABASE_URL`, the four `SUPABA
 - **Shared types over duplication.** If a type or validator exists in `shared/schema.ts`, import it on both sides. Don't redefine.
 - **Server validates with Zod even when the client also does.** Don't skip server-side validation just because the form already validates.
 - **OpenAI calls have retry with exponential backoff** (see `generateEmbedding`). Match this pattern for any new AI calls.
-- **All `/api/*` routes except `/api/health` require `requireAuth`.** New routes that touch user data or OpenAI must apply it; populate user scope from `req.user.id`, never from the request body.
-- **Per-user monthly AI usage caps** are enforced in `server/routes.ts` via `usage_counters` table. Caps are configurable via env vars (see `.env.example`). Per-IP rate limiting (60 req/min) is applied to all `/api/*` routes.
+- **All `/api/*` routes except `/api/health` require `requireAuth`.** New routes that touch user data or OpenAI must apply it; extract the user id with `userIdFrom(req)` from `server/auth.ts`, never from the request body.
+- **Per-user monthly AI usage caps** are enforced via `billableAiCall(userId, operation, fn)` in `server/usage-counters.ts`. Wrap every OpenAI call with it — it reserves quota before the call and rolls back on failure. Caps are configurable via env vars (see `.env.example`). Per-IP rate limiting (60 req/min) is applied to all `/api/*` routes.
+- **API responses use wire types**, not raw DB types. `toApiEncounter()` strips `embedding` and `userId` and serializes `datetime`/`createdAt` as ISO strings. Always use it before `res.json()` for encounter data.
 - **Sentry** is wired up on both client (`client/src/lib/sentry.ts`) and server (`server/sentry.ts`). Both no-op gracefully when DSN env vars are unset. Source maps are uploaded at build time via `@sentry/vite-plugin` when `SENTRY_AUTH_TOKEN` is set.
 
 ## Style

@@ -1,6 +1,6 @@
 # Issue Tracker
 
-This repo tracks work in GitHub Issues for `Nbk-Juno/Who-That`.
+This repo tracks work in GitHub Issues for `Nbk-Juno/DejaWho`.
 
 Agent skills that create or update work items should use the GitHub CLI (`gh`) against the repository remote:
 

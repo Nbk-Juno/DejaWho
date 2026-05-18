@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DejaWho — Hi-fi Design</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; font-family: 'Inter', system-ui, sans-serif; }
+    #root { height: 100vh; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Order matters: tokens → logo → components → screens → app -->
+  <script type="text/babel" src="tokens.jsx"></script>
+  <script type="text/babel" src="logo.jsx"></script>
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="ios-frame.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="screens-onboarding.jsx"></script>
+  <script type="text/babel" src="screens-app.jsx"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // iPhone frame size — close to the spec's 375 but tuned for the
+    // starter's status-bar/dynamic-island geometry.
+    const W = 390, H = 844;
+
+    function Frame({ children }) {
+      return (
+        <IOSDevice width={W} height={H} dark={true}>
+          {children}
+        </IOSDevice>
+      );
+    }
+
+    function App() {
+      return (
+        <DesignCanvas
+          title="DejaWho"
+          subtitle="Voice-first memory app — premium, calm, restrained. 9 screens across onboarding, home, and the new graph view."
+        >
+          <DCSection
+            id="brand"
+            title="01 · Brand"
+            subtitle="Official marks. The yellow '?' carries a person silhouette in negative space, with an indigo dot anchored by a banana-cream keyline. Dark Amethyst is the canonical ground."
+          >
+            <DCArtboard id="logo-primary" label="Primary mark" width={480} height={560}>
+              <PrimaryMarkSheet />
+            </DCArtboard>
+            <DCArtboard id="logo-lockup" label="Horizontal lockup" width={680} height={560}>
+              <LockupSheet />
+            </DCArtboard>
+            <DCArtboard id="logo-appicon" label="App icon · on home screen" width={560} height={560}>
+              <AppIconSheet />
+            </DCArtboard>
+            <DCArtboard id="logo-sizes" label="Mark at scale" width={460} height={560}>
+              <LogoScaleSheet />
+            </DCArtboard>
+            <DCArtboard id="palette" label="Color system" width={460} height={560}>
+              <PaletteSheet />
+            </DCArtboard>
+            <DCArtboard id="voice-states-brand" label="Voice button · four states" width={560} height={560}>
+              <VoiceStatesSheet />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection
+            id="onboarding"
+            title="02 · Onboarding"
+            subtitle="Five screens. Each fades in (300ms), no slide transitions. The voice button is the focal point of screens 3 & 4."
+          >
+            <DCArtboard id="ob-welcome" label="01 — Welcome" width={W} height={H}>
+              <Frame><ScreenWelcome /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ob-how" label="02 — How it works" width={W} height={H}>
+              <Frame><ScreenHowItWorks /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ob-record-default" label="03 — Try (Record, default)" width={W} height={H}>
+              <Frame><ScreenTryIt step="record" micState="default" /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ob-record-rec" label="03 — Try (Record, listening)" width={W} height={H}>
+              <Frame><ScreenTryIt step="record" micState="recording" /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ob-record-done" label="03 — Try (Record, done)" width={W} height={H}>
+              <Frame><ScreenTryIt step="record" micState="done" /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ob-search-default" label="04 — Try (Ask, default)" width={W} height={H}>
+              <Frame><ScreenTryIt step="search" micState="default" /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ob-search-result" label="04 — Try (Ask, result)" width={W} height={H}>
+              <Frame><ScreenTryIt step="search" micState="done" showResult={true} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ob-complete" label="05 — Complete" width={W} height={H}>
+              <Frame><ScreenComplete /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection
+            id="app"
+            title="03 · Main app"
+            subtitle="Home is voice-first — one hero button. Network is the visual payoff of remembering, the screen users will screenshot and share."
+          >
+            <DCArtboard id="home-default" label="06 — Home (default)" width={W} height={H}>
+              <Frame><ScreenHome /></Frame>
+            </DCArtboard>
+            <DCArtboard id="home-recording" label="06 — Home (listening)" width={W} height={H}>
+              <Frame><ScreenHome micState="recording" /></Frame>
+            </DCArtboard>
+            <DCArtboard id="graph-populated" label="09 — Network (populated)" width={W} height={H}>
+              <Frame><ScreenNetwork /></Frame>
+            </DCArtboard>
+            <DCArtboard id="graph-empty" label="09 — Network (empty)" width={W} height={H}>
+              <Frame><ScreenNetwork empty={true} /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection
+            id="system"
+            title="04 · System"
+            subtitle="One component drives the whole experience."
+          >
+            <DCArtboard id="voice-states" label="Voice button — all states" width={W} height={H}>
+              <Frame><VoiceStatesShowcase /></Frame>
+            </DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Brand sheets — official PNG assets
+    // ─────────────────────────────────────────────────────────────
+
+    const ART = {
+      heroMark: 'brand/hero-mark.png',
+      appIcon:  'brand/app-icon.png',
+      lockup:   'brand/horizontal-lockup.png',
+    };
+
+    function SheetHeader({ kicker, eyebrow }) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSecondary, letterSpacing: 1.4, textTransform: 'uppercase' }}>{kicker}</div>
+          {eyebrow && (
+            <div style={{
+              fontSize: 10, fontWeight: 600, color: T.highlight,
+              letterSpacing: 0.8, textTransform: 'uppercase',
+              padding: '3px 9px', borderRadius: 99,
+              border: `1px solid ${T.highlight}55`,
+            }}>{eyebrow}</div>
+          )}
+        </div>
+      );
+    }
+
+    // Big hero of the primary mark — official PNG, with anatomy callouts.
+    function PrimaryMarkSheet() {
+      return (
+        <div className="dw" style={{
+          width: '100%', height: '100%', background: T.bg, padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 20,
+        }}>
+          <SheetHeader kicker="Primary mark" eyebrow="Official" />
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'radial-gradient(circle at 50% 45%, rgba(65,45,240,0.32) 0%, rgba(9,4,58,0) 62%)',
+            borderRadius: 20, border: `1px solid ${T.borderSubtle}`,
+            position: 'relative',
+          }}>
+            <img src={ART.heroMark} alt="DejaWho hero mark" style={{ height: 300, width: 'auto', display: 'block' }} />
+            <Callout x={28}  y={70}  label="person silhouette" align="left" />
+            <Callout x={300} y={210} label="angled foot" align="right" />
+            <Callout x={28}  y={400} label="indigo dot · yellow keyline" align="left" />
+          </div>
+          <div style={{
+            display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end',
+            padding: '18px 12px', background: T.surface, borderRadius: 14,
+            border: `1px solid ${T.borderSubtle}`,
+          }}>
+            {[112, 72, 48, 28].map((sz) => (
+              <div key={sz} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <img src={ART.heroMark} alt="" style={{ height: sz, width: 'auto' }} />
+                <div style={{
+                  fontSize: 10, color: T.textSecondary, fontWeight: 600, letterSpacing: 0.6,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                }}>{sz}px</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Horizontal lockup — hero presentation + light/dark + accent reverses.
+    function LockupSheet() {
+      return (
+        <div className="dw" style={{
+          width: '100%', height: '100%', background: T.bg, padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 18,
+        }}>
+          <SheetHeader kicker="Horizontal lockup" />
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'radial-gradient(circle at 50% 50%, rgba(65,45,240,0.22) 0%, rgba(9,4,58,0) 65%)',
+            borderRadius: 20, border: `1px solid ${T.borderSubtle}`, padding: 36,
+          }}>
+            <img src={ART.lockup} alt="DejaWho lockup" style={{ width: '85%', maxHeight: 160, objectFit: 'contain' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <LockupTile label="On Amethyst" bg={T.bg} />
+            <LockupTile label="On Indigo"   bg={T.accent} />
+            <LockupTile label="On Surface"  bg={T.surface} />
+          </div>
+        </div>
+      );
+    }
+
+    function LockupTile({ label, bg }) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{
+            background: bg, borderRadius: 14, height: 92, padding: 14,
+            border: `1px solid ${T.borderSubtle}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <img src={ART.lockup} alt="" style={{ width: '100%', maxHeight: 56, objectFit: 'contain' }} />
+          </div>
+          <div style={{ fontSize: 10, color: T.textSecondary, letterSpacing: 0.6, textTransform: 'uppercase', fontWeight: 600 }}>
+            {label}
+          </div>
+        </div>
+      );
+    }
+
+    function Callout({ x, y, label, align = 'left' }) {
+      return (
+        <div style={{
+          position: 'absolute', left: x, top: y,
+          display: 'flex', alignItems: 'center', gap: 8,
+          flexDirection: align === 'left' ? 'row' : 'row-reverse',
+        }}>
+          <div style={{ width: 24, height: 1, background: T.borderStrong }}></div>
+          <div style={{
+            fontSize: 10, color: T.textSecondary, fontWeight: 500,
+            letterSpacing: 0.6, textTransform: 'uppercase',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          }}>{label}</div>
+        </div>
+      );
+    }
+
+    // App icon — hero tile + on a home screen + favicon line.
+    // App icon — hero tile + home screen mock + favicon line
+    function AppIconSheet() {
+      return (
+        <div className="dw" style={{
+          width: '100%', height: '100%', background: T.bg, padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 18,
+        }}>
+          <SheetHeader kicker="App icon" />
+
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '24px 0',
+            background: 'radial-gradient(circle at 50% 45%, rgba(65,45,240,0.20) 0%, rgba(9,4,58,0) 65%)',
+            borderRadius: 20, border: `1px solid ${T.borderSubtle}`,
+          }}>
+            <img src={ART.appIcon} alt="App icon" style={{
+              width: 156, height: 156, borderRadius: 36,
+              boxShadow: '0 18px 40px rgba(0,0,0,0.55), 0 2px 6px rgba(65,45,240,0.35)',
+              display: 'block',
+            }} />
+          </div>
+
+          {/* Home screen mock */}
+          <div style={{
+            background: 'linear-gradient(180deg, #1a1559 0%, #0a0440 100%)',
+            border: `1px solid ${T.borderSubtle}`,
+            borderRadius: 18, padding: 18,
+            display: 'flex', flexDirection: 'column', gap: 14,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(240,239,248,0.6)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              On a home screen
+            </div>
+            <div style={{ display: 'flex', gap: 18, justifyContent: 'space-around' }}>
+              {[
+                { kind: 'dw', name: 'DejaWho' },
+                { kind: 'plain', bg: '#4A8BF5', letter: 'M', name: 'Maps' },
+                { kind: 'plain', bg: '#0A0A0A', letter: 'X', name: 'X' },
+                { kind: 'plain', bg: '#D63B3B', letter: 'C', name: 'Calendar' },
+              ].map((it, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  {it.kind === 'dw' ? (
+                    <img src={ART.appIcon} alt="" style={{
+                      width: 56, height: 56, borderRadius: 13,
+                      boxShadow: '0 6px 14px rgba(0,0,0,0.4)',
+                    }} />
+                  ) : (
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 13,
+                      background: it.bg, color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 22, fontWeight: 700,
+                      boxShadow: '0 6px 14px rgba(0,0,0,0.4)',
+                    }}>{it.letter}</div>
+                  )}
+                  <div style={{ fontSize: 10, color: 'rgba(240,239,248,0.85)', fontWeight: 500 }}>{it.name}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Favicon line */}
+          <div style={{
+            background: T.surface, borderRadius: 12, padding: 12,
+            border: `1px solid ${T.borderSubtle}`,
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <img src={ART.appIcon} alt="" style={{ width: 18, height: 18, borderRadius: 4 }} />
+            <div style={{ fontSize: 13, color: T.textPrimary, fontWeight: 500 }}>
+              DejaWho — Remember everyone you've met
+            </div>
+            <div style={{ flex: 1 }}></div>
+            <Icon name="x" size={14} color={T.textSecondary} />
+          </div>
+        </div>
+      );
+    }
+
+    // Mark at scale — hero PNG at multiple sizes on different surfaces
+    function LogoScaleSheet() {
+      return (
+        <div className="dw" style={{
+          width: '100%', height: '100%', background: T.bg, padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 18,
+        }}>
+          <SheetHeader kicker="Mark at scale" />
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {[
+              { size: 24,  label: 'Tab bar · 24px',   bg: T.surface },
+              { size: 40,  label: 'Inline · 40px',    bg: T.bg },
+              { size: 72,  label: 'Header · 72px',    bg: T.surface },
+              { size: 132, label: 'Splash · 132px',   bg: T.bg },
+            ].map((s, i) => (
+              <div key={i} style={{
+                background: s.bg, border: `1px solid ${T.borderSubtle}`,
+                borderRadius: 16, padding: 16, minHeight: 156,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
+              }}>
+                <img src={ART.heroMark} alt="" style={{ height: s.size, width: 'auto' }} />
+                <div style={{
+                  fontSize: 10, color: T.textSecondary, fontWeight: 600, letterSpacing: 0.6,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            background: T.surface, border: `1px solid ${T.borderSubtle}`,
+            borderRadius: 16, padding: 14,
+          }}>
+            <img src={ART.appIcon} alt="" style={{
+              width: 60, height: 60, borderRadius: 14,
+              boxShadow: '0 8px 18px rgba(0,0,0,0.45)',
+            }} />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>iOS app icon</div>
+              <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>
+                Indigo ground · yellow ? — always full-bleed
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Color system — official palette, in 3 groups
+    function PaletteSheet() {
+      const groups = [
+        { label: 'Foundation', items: [
+          { name: 'Dark Amethyst',  hex: T.bg,            role: 'background' },
+          { name: 'Card surface',   hex: T.surface,       role: 'cards' },
+          { name: 'Elevated',       hex: T.elevated,      role: 'modals' },
+        ]},
+        { label: 'Brand',     items: [
+          { name: 'Bright Indigo',  hex: T.accent,        role: 'primary' },
+          { name: 'Banana Cream',   hex: T.highlight,     role: 'highlight · sparingly' },
+        ]},
+        { label: 'Text',      items: [
+          { name: 'Text primary',   hex: T.textPrimary,   role: 'headings · body' },
+          { name: 'Text secondary', hex: T.textSecondary, role: 'meta · labels' },
+        ]},
+        { label: 'Semantic',  items: [
+          { name: 'Success',        hex: T.success,       role: 'confirm states' },
+          { name: 'Warning',        hex: T.warning,       role: 'attention' },
+          { name: 'Error',          hex: T.error,         role: 'destructive' },
+        ]},
+      ];
+      return (
+        <div className="dw" style={{
+          width: '100%', height: '100%', background: T.bg, padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto',
+        }}>
+          <SheetHeader kicker="Color system" />
+          {groups.map((g, i) => (
+            <div key={i}>
+              <div style={{
+                fontSize: 10, fontWeight: 600, color: T.textSecondary,
+                letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8,
+              }}>{g.label}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {g.items.map((it, j) => (
+                  <div key={j} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: 10, borderRadius: 10,
+                    background: T.surface, border: `1px solid ${T.borderSubtle}`,
+                  }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8,
+                      background: it.hex,
+                      border: `1px solid ${T.borderSubtle}`,
+                      flexShrink: 0,
+                    }}></div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, letterSpacing: -0.1 }}>{it.name}</div>
+                      <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 1 }}>{it.role}</div>
+                    </div>
+                    <div style={{
+                      fontSize: 10, color: T.textSecondary, fontWeight: 600,
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    }}>{it.hex}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Voice button — all four states stacked, for the brand section
+    function VoiceStatesSheet() {
+      const states = [
+        { state: 'default',    note: 'Resting · Bright Indigo' },
+        { state: 'recording',  note: 'Recording · Banana Cream (only time)' },
+        { state: 'processing', note: 'Processing · Bright Indigo' },
+        { state: 'done',       note: 'Done · Success green' },
+      ];
+      return (
+        <div className="dw" style={{
+          width: '100%', height: '100%', background: T.bg, padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 14,
+        }}>
+          <SheetHeader kicker="Voice button · system" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, justifyContent: 'center' }}>
+            {states.map((s, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <VoiceButton state={s.state} />
+                <div style={{
+                  fontSize: 10, color: T.textSecondary, fontWeight: 500,
+                  letterSpacing: 0.6, paddingLeft: 4,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                }}>{s.note}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
