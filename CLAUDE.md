@@ -61,7 +61,9 @@ The Vite dev server is mounted *inside* Express in development (see `server/vite
 
 ## Storage
 
-`DbStorage` against Postgres (Supabase in production, Docker locally) behind the `IStorage` interface in `server/storage.ts`. Embeddings live in a pgvector `vector(1536)` column — search code reads them directly as `number[]` (no `JSON.parse` step). The Drizzle schema in `shared/schema.ts` is the single source of truth; migrations live in `./migrations`.
+`DbStorage` against Postgres (Supabase in production, Docker locally) behind the `IStorage` interface in `server/storage.ts`. Embeddings live in a pgvector `vector(1536)` column — search code reads them directly as `number[]` (no `JSON.parse` step). The Drizzle schema in `shared/schema.ts` is the single source of truth; migrations live in `./migrations`. **Every hand-written migration SQL file must also have a corresponding entry in `migrations/meta/_journal.json`** — Drizzle's migrator reads the journal to decide what to run, so a SQL file without a journal entry is silently skipped and the table will not exist in CI. Use `drizzle-kit generate` when possible; if writing SQL by hand, append a `{ idx, version, when, tag, breakpoints }` entry to the `entries` array immediately (same commit).
+
+When adding a new table, also add it to the `TRUNCATE` list in `tests/setup.ts` — omitting it causes stale rows to bleed across test cases and can produce misleading failures.
 
 Local development uses `docker compose up -d` to start a `pgvector/pgvector:pg16` container on port 54322. The compose init mounts `docker/init/` so the container creates two databases on first boot: `who_that` (dev) and `who_that_test` (tests). `DATABASE_URL` points to the dev DB, `TEST_DATABASE_URL` to the test DB — keep them separate so the test suite (which truncates every table between runs) can't wipe your dev seed data. If you have an existing volume from before the split, create the test DB manually:
 ```bash
