@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
@@ -11,6 +11,43 @@ export function useHomeVoice() {
   const [mode, setMode] = useState<VoiceButtonMode>("record");
   const [isDone, setIsDone] = useState(false);
   const [searchResults, setSearchResults] = useState<ApiSearchResponse | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      if (audioRef.current.src) URL.revokeObjectURL(audioRef.current.src);
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlayingAudio(false);
+    }
+  }, []);
+
+  const playVoiceResponse = useCallback(
+    async (text: string) => {
+      stopAudio();
+      try {
+        setIsPlayingAudio(true);
+        const response = await apiRequest("POST", "/api/text-to-speech", { text });
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        await audio.play();
+      } catch {
+        setIsPlayingAudio(false);
+      }
+    },
+    [stopAudio],
+  );
 
   const searchMutation = useMutation<ApiSearchResponse, Error, string>({
     mutationFn: async (q: string) => {
@@ -20,11 +57,22 @@ export function useHomeVoice() {
     onSuccess: (data) => {
       setSearchResults(data);
       setIsDone(true);
+      if (data.naturalLanguageResponse) {
+        playVoiceResponse(data.naturalLanguageResponse);
+      }
     },
     onError: () => {
       toast({ title: "Search failed — try again", variant: "destructive" });
     },
   });
+
+  const replayAudio = useCallback(() => {
+    if (searchResults?.naturalLanguageResponse) {
+      playVoiceResponse(searchResults.naturalLanguageResponse);
+    }
+  }, [searchResults, playVoiceResponse]);
+
+  useEffect(() => () => stopAudio(), [stopAudio]);
 
   const saveMutation = useMutation<void, Error, string>({
     mutationFn: async (transcript: string) => {
@@ -91,8 +139,11 @@ export function useHomeVoice() {
   }, []);
 
   useEffect(() => {
-    if (isRecording) setIsDone(false);
-  }, [isRecording]);
+    if (isRecording) {
+      setIsDone(false);
+      stopAudio();
+    }
+  }, [isRecording, stopAudio]);
 
   return {
     buttonState,
@@ -101,6 +152,12 @@ export function useHomeVoice() {
     onTap,
     onDoneTimeout,
     searchResults,
-    clearSearchResults: () => setSearchResults(null),
+    clearSearchResults: () => {
+      stopAudio();
+      setSearchResults(null);
+    },
+    isPlayingAudio,
+    replayAudio,
+    stopAudio,
   };
 }

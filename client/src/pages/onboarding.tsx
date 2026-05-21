@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Check, Mic, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { VoiceButton } from "@/components/voice-button/voice-button";
+import { SearchResultSheet } from "@/components/search-result-sheet";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { VoiceButtonMode, VoiceButtonState } from "@/components/voice-button/state";
+import type { VoiceButtonState } from "@/components/voice-button/state";
+import type { ApiSearchResponse } from "@shared/schema";
 
 async function markOnboardingComplete() {
   await supabase.auth.updateUser({ data: { onboarding_completed_at: new Date().toISOString() } });
 }
 
-// Minimal voice-button state for onboarding "try it" screens
-function useOnboardingVoice(mode: VoiceButtonMode, onSuccess: () => void) {
+function useOnboardingRecord(onSuccess: () => void) {
   const { toast } = useToast();
   const [isDone, setIsDone] = useState(false);
 
@@ -37,28 +38,10 @@ function useOnboardingVoice(mode: VoiceButtonMode, onSuccess: () => void) {
     },
   });
 
-  const searchMutation = useMutation<void, Error, string>({
-    mutationFn: async (query: string) => {
-      await apiRequest("POST", "/api/search", { query });
-    },
-    onSuccess: () => {
-      setIsDone(true);
-    },
-    onError: () => {
-      toast({ title: "Search failed — try again", variant: "destructive" });
-    },
-  });
-
   const { isRecording, isProcessing: isTranscribing, startRecording, stopRecording } =
     useVoiceTranscription({
       maxDuration: 60000,
-      onTranscriptionComplete: (text) => {
-        if (mode === "record") {
-          recordMutation.mutate(text);
-        } else {
-          searchMutation.mutate(text);
-        }
-      },
+      onTranscriptionComplete: (text) => recordMutation.mutate(text),
       onTranscriptionError: () => {
         toast({ title: "Couldn't hear that — try again", variant: "destructive" });
       },
@@ -71,8 +54,7 @@ function useOnboardingVoice(mode: VoiceButtonMode, onSuccess: () => void) {
       },
     });
 
-  const isProcessing =
-    isTranscribing || recordMutation.isPending || searchMutation.isPending;
+  const isProcessing = isTranscribing || recordMutation.isPending;
 
   const buttonState: VoiceButtonState = isRecording
     ? "recording"
@@ -96,6 +78,116 @@ function useOnboardingVoice(mode: VoiceButtonMode, onSuccess: () => void) {
   }, [onSuccess]);
 
   return { buttonState, onTap, onDoneTimeout };
+}
+
+function useOnboardingSearch() {
+  const { toast } = useToast();
+  const [searchResults, setSearchResults] = useState<ApiSearchResponse | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      if (audioRef.current.src) URL.revokeObjectURL(audioRef.current.src);
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlayingAudio(false);
+    }
+  }, []);
+
+  const playVoiceResponse = useCallback(
+    async (text: string) => {
+      stopAudio();
+      try {
+        setIsPlayingAudio(true);
+        const response = await apiRequest("POST", "/api/text-to-speech", { text });
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        await audio.play();
+      } catch {
+        setIsPlayingAudio(false);
+      }
+    },
+    [stopAudio],
+  );
+
+  const searchMutation = useMutation<ApiSearchResponse, Error, string>({
+    mutationFn: async (query: string) => {
+      const res = await apiRequest("POST", "/api/search", { query });
+      return (await res.json()) as ApiSearchResponse;
+    },
+    onSuccess: (data) => {
+      setSearchResults(data);
+      if (data.naturalLanguageResponse) {
+        playVoiceResponse(data.naturalLanguageResponse);
+      }
+    },
+    onError: () => {
+      toast({ title: "Search failed — try again", variant: "destructive" });
+    },
+  });
+
+  const replayAudio = useCallback(() => {
+    if (searchResults?.naturalLanguageResponse) {
+      playVoiceResponse(searchResults.naturalLanguageResponse);
+    }
+  }, [searchResults, playVoiceResponse]);
+
+  const { isRecording, isProcessing: isTranscribing, startRecording, stopRecording } =
+    useVoiceTranscription({
+      maxDuration: 60000,
+      onTranscriptionComplete: (text) => searchMutation.mutate(text),
+      onTranscriptionError: () => {
+        toast({ title: "Couldn't hear that — try again", variant: "destructive" });
+      },
+      onMicrophoneError: () => {
+        toast({
+          title: "Microphone access denied",
+          description: "Enable mic in browser settings",
+          variant: "destructive",
+        });
+      },
+    });
+
+  const isProcessing = isTranscribing || searchMutation.isPending;
+  const hasResults = searchResults !== null;
+
+  const buttonState: VoiceButtonState = isRecording
+    ? "recording"
+    : isProcessing
+    ? "processing"
+    : hasResults
+    ? "done"
+    : "default";
+
+  const onTap = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else if (!isProcessing && !hasResults) {
+      startRecording();
+    }
+  }, [isRecording, isProcessing, hasResults, startRecording, stopRecording]);
+
+  useEffect(() => () => stopAudio(), [stopAudio]);
+
+  return {
+    buttonState,
+    onTap,
+    searchResults,
+    isPlayingAudio,
+    replayAudio,
+    stopAudio,
+  };
 }
 
 // --- Screens ---
@@ -202,7 +294,7 @@ function HowItWorksScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () =
 }
 
 function TryRecordScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
-  const { buttonState, onTap, onDoneTimeout } = useOnboardingVoice("record", onNext);
+  const { buttonState, onTap, onDoneTimeout } = useOnboardingRecord(onNext);
 
   return (
     <div className="flex flex-col h-full px-8">
@@ -246,7 +338,13 @@ function TryRecordScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () =>
 }
 
 function TrySearchScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
-  const { buttonState, onTap, onDoneTimeout } = useOnboardingVoice("search", onNext);
+  const { buttonState, onTap, searchResults, isPlayingAudio, replayAudio, stopAudio } =
+    useOnboardingSearch();
+
+  const advance = useCallback(() => {
+    stopAudio();
+    onNext();
+  }, [stopAudio, onNext]);
 
   return (
     <div className="flex flex-col h-full px-8">
@@ -267,13 +365,10 @@ function TrySearchScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () =>
             mode="search"
             onTap={onTap}
             onModeChange={() => {}}
-            onDoneTimeout={onDoneTimeout}
+            onDoneTimeout={() => {}}
             showModePill={false}
           />
         </div>
-        {buttonState === "done" && (
-          <p className="text-white/60 text-sm animate-dw-fade-up">Got it! Let's go…</p>
-        )}
       </div>
       <div className="pb-8 flex flex-col items-center gap-4">
         <ProgressDots count={5} current={3} />
@@ -285,6 +380,16 @@ function TrySearchScreen({ onNext, onSkip }: { onNext: () => void; onSkip: () =>
           Skip this step
         </button>
       </div>
+      {searchResults && (
+        <SearchResultSheet
+          results={searchResults}
+          onClose={advance}
+          isPlayingAudio={isPlayingAudio}
+          onReplay={replayAudio}
+          maxResults={1}
+          primaryAction={{ label: "Continue", onClick: advance }}
+        />
+      )}
     </div>
   );
 }
