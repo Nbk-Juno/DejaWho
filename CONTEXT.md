@@ -12,11 +12,11 @@ A deduplicated entity inferred from multiple [[Encounter]]s sharing the same nor
 
 ### Person Card
 
-Slide-up sheet showing a [[Person]]'s evolving summary plus the list of underlying [[Encounter]]s. Reached by tapping a [[Recent Chip]] or a [[Voice Search]] result. Replaces single-encounter detail view as the primary "who is this?" surface.
+Slide-up sheet showing a [[Person]]'s evolving summary plus the list of underlying [[Encounter]]s. Reached by tapping a [[Recent Card]] or a [[Voice Search]] result. Replaces single-encounter detail view as the primary "who is this?" surface.
 
-### Recent Chip
+### Recent Card
 
-A small horizontal-scrollable tile on the home screen showing one of the user's 5 most recently seen [[Person]]s (avatar + name + last location). Tap opens the [[Person Card]].
+A small horizontal-scrollable tile on the home screen showing one of the user's 5 most recently seen [[Person]]s — name, the latest [[Encounter]]'s location (with map-pin icon), and a relative date ("Today", "3d ago", "May 18"). No avatar. Tap opens the [[Person Card]]. Lives in `client/src/components/recent-card.tsx`; latest-encounter lookup is a client-side join of `/api/persons` and `/api/encounters`.
 
 ### Voice Button
 

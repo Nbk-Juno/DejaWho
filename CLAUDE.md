@@ -34,7 +34,7 @@ This repo uses a single-context domain layout with root `CONTEXT.md` and root `d
 
 Monorepo with three roots:
 
-- **`client/`** — React 18 + Vite + TypeScript. Tailwind + shadcn/ui (Radix). Wouter for routing, TanStack Query for server state, React Hook Form + Zod for forms. Pages: `home.tsx`, `record.tsx`, `search.tsx`, `privacy.tsx`. The `/privacy` and `/reset-password` routes render outside the auth gate in `App.tsx`. Voice search end-to-end (record → transcribe → search → TTS playback) lives in `client/src/hooks/use-voice-search.ts`.
+- **`client/`** — React 18 + Vite + TypeScript. Tailwind + shadcn/ui (Radix). Wouter for routing, TanStack Query for server state, React Hook Form + Zod for forms. Pages: `home.tsx` (the central surface — voice button + recent cards + slide-up sheets), `onboarding.tsx`, `profile.tsx`, `sign-in.tsx`, `reset-password.tsx`, `privacy.tsx`, `not-found.tsx`, plus an unwired `search.tsx` (the legacy `/record` and `/search` routes still redirect to `/` in `App.tsx`). The `/privacy` and `/reset-password` routes render outside the auth gate. Voice end-to-end on home (record → transcribe → either save-encounter or search → TTS playback) lives in `client/src/hooks/use-home-voice.ts`; the shared result UI is `client/src/components/search-result-sheet.tsx`.
 - **`server/`** — Express. Entry: `server/index.ts`. `server/routes.ts` is a thin wiring layer (18 lines) that delegates to three domain modules:
   - `server/account-operations.ts` — `/api/me`, `/api/me/usage`, `/api/me/export`, `DELETE /api/me`
   - `server/encounter-operations.ts` — encounter CRUD + `/api/transcribe` + `/api/parse-encounter`
