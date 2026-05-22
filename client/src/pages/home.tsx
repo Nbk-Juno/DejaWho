@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { MapPin, Calendar } from "lucide-react";
 import { VoiceButton } from "@/components/voice-button/voice-button";
 import { PersonCard } from "@/components/person-card";
 import { AllEncountersSheet } from "@/components/all-encounters-sheet";
+import { RecentCard } from "@/components/recent-card";
 import { useHomeVoice } from "@/hooks/use-home-voice";
 import {
   Sheet,
@@ -13,11 +14,12 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import type { ApiPerson, ApiSearchResponse } from "@shared/schema";
-
-function titleCase(s: string): string {
-  return s.replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import {
+  normalizePersonName,
+  type ApiEncounter,
+  type ApiPerson,
+  type ApiSearchResponse,
+} from "@shared/schema";
 
 function SearchResultSheet({
   results,
@@ -63,18 +65,6 @@ function SearchResultSheet({
   );
 }
 
-function PersonChip({ person, onClick }: { person: ApiPerson; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex-shrink-0 px-4 py-2 rounded-full bg-white/8 border border-white/12 text-white/80 text-sm font-medium whitespace-nowrap hover:bg-white/12 transition-colors"
-    >
-      {titleCase(person.normalizedName)}
-    </button>
-  );
-}
-
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
@@ -97,10 +87,30 @@ export default function Home() {
     queryKey: ["/api/persons"],
   });
 
-  const recentPersons = persons
-    .slice()
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 5);
+  const { data: encounters = [] } = useQuery<ApiEncounter[]>({
+    queryKey: ["/api/encounters"],
+  });
+
+  const recentPersons = useMemo(
+    () =>
+      persons
+        .slice()
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 5),
+    [persons],
+  );
+
+  const latestByName = useMemo(() => {
+    const map = new Map<string, ApiEncounter>();
+    for (const e of encounters) {
+      const key = normalizePersonName(e.name);
+      const existing = map.get(key);
+      if (!existing || new Date(e.datetime) > new Date(existing.datetime)) {
+        map.set(key, e);
+      }
+    }
+    return map;
+  }, [encounters]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]">
@@ -145,14 +155,19 @@ export default function Home() {
                 See all
               </button>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-none">
-              {recentPersons.map((p) => (
-                <PersonChip
-                  key={p.id}
-                  person={p}
-                  onClick={() => setSelectedPersonId(p.id)}
-                />
-              ))}
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-none">
+              {recentPersons.map((p) => {
+                const latest = latestByName.get(p.normalizedName);
+                return (
+                  <RecentCard
+                    key={p.id}
+                    name={p.normalizedName}
+                    location={latest?.location}
+                    date={latest?.datetime}
+                    onClick={() => setSelectedPersonId(p.id)}
+                  />
+                );
+              })}
             </div>
           </>
         ) : (
