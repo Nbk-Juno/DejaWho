@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Network, User } from "lucide-react";
+import { Home, Search, Network, User } from "lucide-react";
 
 type NavItem = {
   href: string;
@@ -9,6 +9,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", icon: Home, label: "Home" },
+  { href: "/search", icon: Search, label: "Search" },
   { href: "/network", icon: Network, label: "Network" },
   { href: "/profile", icon: User, label: "Profile" },
 ];

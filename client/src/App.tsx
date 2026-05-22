@@ -13,6 +13,7 @@ import { IosInstallBanner } from "@/components/ios-install-banner";
 import { BottomNav } from "@/components/bottom-nav";
 import { Onboarding } from "@/pages/onboarding";
 import Home from "@/pages/home";
+import SearchPage from "@/pages/search";
 import Profile from "@/pages/profile";
 import SignIn from "@/pages/sign-in";
 import ResetPassword from "@/pages/reset-password";
@@ -24,7 +25,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/record"><Redirect to="/" /></Route>
-      <Route path="/search"><Redirect to="/" /></Route>
+      <Route path="/search" component={SearchPage} />
       <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>
