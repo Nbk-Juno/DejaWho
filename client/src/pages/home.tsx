@@ -1,69 +1,16 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { MapPin, Calendar } from "lucide-react";
 import { VoiceButton } from "@/components/voice-button/voice-button";
 import { PersonCard } from "@/components/person-card";
 import { AllEncountersSheet } from "@/components/all-encounters-sheet";
 import { RecentCard } from "@/components/recent-card";
+import { SearchResultSheet } from "@/components/search-result-sheet";
 import { useHomeVoice } from "@/hooks/use-home-voice";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 import {
   normalizePersonName,
   type ApiEncounter,
   type ApiPerson,
-  type ApiSearchResponse,
 } from "@shared/schema";
-
-function SearchResultSheet({
-  results,
-  onClose,
-}: {
-  results: ApiSearchResponse;
-  onClose: () => void;
-}) {
-  return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-[#120A5C] border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
-        <SheetHeader className="mb-4">
-          <SheetTitle className="text-white text-left text-lg font-semibold">Result</SheetTitle>
-          <SheetDescription className="text-white/70 text-left text-sm leading-relaxed">
-            {results.naturalLanguageResponse}
-          </SheetDescription>
-        </SheetHeader>
-        {results.results.length > 0 && (
-          <div className="space-y-3">
-            {results.results.slice(0, 3).map(({ encounter }) => (
-              <div
-                key={encounter.id}
-                className="rounded-xl bg-white/8 border border-white/10 p-4 space-y-2"
-              >
-                <p className="text-white font-semibold text-sm">{encounter.name}</p>
-                <div className="flex items-center gap-2 text-white/50 text-xs">
-                  <MapPin className="w-3 h-3 flex-shrink-0" />
-                  <span className="truncate">{encounter.location}</span>
-                </div>
-                <div className="flex items-center gap-2 text-white/50 text-xs">
-                  <Calendar className="w-3 h-3 flex-shrink-0" />
-                  <span>{format(new Date(encounter.datetime), "MMM d, yyyy · h:mm a")}</span>
-                </div>
-                {encounter.context && (
-                  <p className="text-white/60 text-xs leading-relaxed line-clamp-2">{encounter.context}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
 
 function EmptyState() {
   return (
@@ -77,8 +24,17 @@ function EmptyState() {
 }
 
 export default function Home() {
-  const { buttonState, mode, setMode, onTap, onDoneTimeout, searchResults, clearSearchResults } =
-    useHomeVoice();
+  const {
+    buttonState,
+    mode,
+    setMode,
+    onTap,
+    onDoneTimeout,
+    searchResults,
+    clearSearchResults,
+    isPlayingAudio,
+    replayAudio,
+  } = useHomeVoice();
 
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -177,7 +133,12 @@ export default function Home() {
 
       {/* Sheets */}
       {searchResults && (
-        <SearchResultSheet results={searchResults} onClose={clearSearchResults} />
+        <SearchResultSheet
+          results={searchResults}
+          onClose={clearSearchResults}
+          isPlayingAudio={isPlayingAudio}
+          onReplay={replayAudio}
+        />
       )}
 
       {selectedPersonId && (
