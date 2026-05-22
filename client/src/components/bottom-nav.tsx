@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Search, Network, User } from "lucide-react";
+import { Home, Search, User } from "lucide-react";
 
 type NavItem = {
   href: string;
@@ -7,10 +7,11 @@ type NavItem = {
   label: string;
 };
 
+// Network Graph (see design dock, screens-app.jsx Screen 9) is a planned
+// destination but is hidden until after the first round of user feedback.
 const NAV_ITEMS: NavItem[] = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/search", icon: Search, label: "Search" },
-  { href: "/network", icon: Network, label: "Network" },
   { href: "/profile", icon: User, label: "Profile" },
 ];
 
