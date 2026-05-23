@@ -141,14 +141,14 @@
   50%       { opacity: 0.7;  transform: scale(1.05); }
 }
 
-@keyframes dw-wipe-in-right {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0%); }
+@keyframes dw-wipe-out-right {
+  from { transform: translateX(0%); }
+  to   { transform: translateX(100%); }
 }
 
-@keyframes dw-wipe-in-left {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(0%); }
+@keyframes dw-wipe-out-left {
+  from { transform: translateX(0%); }
+  to   { transform: translateX(-100%); }
 }
 
 @layer base {

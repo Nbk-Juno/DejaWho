@@ -37,6 +37,8 @@ E2E tests in `./e2e/` use stable `data-testid` attributes as their contract with
 
 Test users are created via Supabase admin API with `user_metadata.onboarding_completed_at` pre-set so they skip the onboarding flow. If you change how onboarding completion is tracked, update the e2e test setup or the tests will land on onboarding instead of home.
 
+**Current scope is a front-door smoke test.** It validates auth wiring, sign-in/out, and that the shell + `/search` route render. It does NOT exercise the core product loop (voice record → transcribe → save, search results, delete encounter). Future work — not a priority yet: mock `MediaRecorder` and intercept `/api/transcribe` to return a fixed string so the suite can assert an encounter card appears, graduating coverage from "shell loads" to "feature works."
+
 ## Agent skills
 
 ### Issue tracker

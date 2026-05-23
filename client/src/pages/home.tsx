@@ -71,19 +71,15 @@ export default function Home() {
   return (
     <div
       data-testid="home-loaded"
-      className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]"
+      className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))] pt-[max(env(safe-area-inset-top),16px)]"
     >
-      {/* Header */}
-      <header className="px-5 pt-[max(env(safe-area-inset-top),16px)] pb-4 flex items-center">
+      {/* Main: hero mark, voice button, mode toggle */}
+      <main className="flex-1 flex flex-col items-center justify-center px-5 gap-5 min-h-[320px]">
         <img
-          src="/horizontal-lockup.png"
+          src="/hero-mark-nobg.png"
           alt="DejaWho"
-          className="h-7 w-auto object-contain"
+          className="h-12 w-12 object-contain opacity-90"
         />
-      </header>
-
-      {/* Main: centered voice button */}
-      <main className="flex-1 flex flex-col items-center justify-center px-5 gap-6 min-h-[320px]">
         <div className="w-full max-w-xs">
           <VoiceButton
             buttonState={buttonState}

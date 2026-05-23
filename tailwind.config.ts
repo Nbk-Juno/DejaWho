@@ -138,13 +138,13 @@ export default {
           "0%, 100%": { opacity: "0.45", transform: "scale(1)" },
           "50%":      { opacity: "0.7",  transform: "scale(1.05)" },
         },
-        "dw-wipe-in-right": {
-          from: { transform: "translateX(100%)" },
-          to:   { transform: "translateX(0%)" },
+        "dw-wipe-out-right": {
+          from: { transform: "translateX(0%)" },
+          to:   { transform: "translateX(100%)" },
         },
-        "dw-wipe-in-left": {
-          from: { transform: "translateX(-100%)" },
-          to:   { transform: "translateX(0%)" },
+        "dw-wipe-out-left": {
+          from: { transform: "translateX(0%)" },
+          to:   { transform: "translateX(-100%)" },
         },
       },
       animation: {
@@ -156,8 +156,8 @@ export default {
         "dw-spin":          "dw-spin 0.7s linear infinite",
         "dw-fade-up":       "dw-fade-up 0.4s cubic-bezier(.2,.7,.3,1)",
         "dw-glow-breathe":  "dw-glow-breathe 4s ease-in-out infinite",
-        "dw-wipe-in-right": "dw-wipe-in-right 0.34s cubic-bezier(.2,.7,.3,1)",
-        "dw-wipe-in-left":  "dw-wipe-in-left 0.34s cubic-bezier(.2,.7,.3,1)",
+        "dw-wipe-out-right": "dw-wipe-out-right 0.34s cubic-bezier(.2,.7,.3,1)",
+        "dw-wipe-out-left":  "dw-wipe-out-left 0.34s cubic-bezier(.2,.7,.3,1)",
       },
     },
   },

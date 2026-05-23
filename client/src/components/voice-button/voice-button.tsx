@@ -86,7 +86,7 @@ function ModeToggle({
       onClick={() => onModeChange(isRecord ? "search" : "record")}
       aria-label={`Switch to ${isRecord ? "ask" : "record"} mode`}
       aria-pressed={!isRecord}
-      className="relative mb-3 mx-auto w-[52px] h-[30px] rounded-full transition-colors duration-300"
+      className="relative w-[52px] h-[30px] rounded-full transition-colors duration-300"
       style={{
         backgroundColor: trackBg,
         boxShadow: "inset 0 1px 2px rgba(0,0,0,0.25)",
@@ -119,26 +119,24 @@ export function VoiceButton({
 
   const isDefault = buttonState === "default";
 
-  // Wipe state — keeps the previous mode painted underneath until the overlay finishes sliding in.
-  const [displayedMode, setDisplayedMode] = useState<VoiceButtonMode>(mode);
-  const [wipeDir, setWipeDir] = useState<"left" | "right" | null>(null);
+  // Wipe = OLD color sliding off TOP of the (already-new) button bg. Sliding off avoids the
+  // bg-transition tail flash that an "old bg + new color sliding in" model produces.
+  const prevModeRef = useRef<VoiceButtonMode>(mode);
+  const [wipeOverlay, setWipeOverlay] = useState<{ color: string; dir: "left" | "right" } | null>(null);
 
   useEffect(() => {
-    if (mode === displayedMode) return;
-    if (!isDefault) {
-      // Skip the wipe entirely when not in default state (recording/processing/done).
-      setDisplayedMode(mode);
-      setWipeDir(null);
-      return;
+    if (mode === prevModeRef.current) return;
+    if (isDefault) {
+      // Slide the old color off in the direction OPPOSITE the swipe (record→search slides
+      // old-indigo off to the left; search→record slides old-paper off to the right).
+      const dir: "left" | "right" = mode === "search" ? "left" : "right";
+      setWipeOverlay({ color: MODE_COLOR[prevModeRef.current].bg, dir });
     }
-    if (wipeDir === null) {
-      setWipeDir(mode === "search" ? "right" : "left");
-    }
-  }, [mode, displayedMode, wipeDir, isDefault]);
+    prevModeRef.current = mode;
+  }, [mode, isDefault]);
 
   function endWipe() {
-    setDisplayedMode(mode);
-    setWipeDir(null);
+    setWipeOverlay(null);
   }
 
   useEffect(() => {
@@ -174,17 +172,18 @@ export function VoiceButton({
   const isProcessing = buttonState === "processing";
   const isDone = buttonState === "done";
 
-  // bg + glow track the underlying displayedMode; the wipe overlay paints the new mode on top.
+  // bg + glow track the current mode; the wipe overlay (old color) covers the bg-color
+  // transition while it slides off, so the user never sees the interpolated mid-state.
   const baseBg = isRecording
     ? "var(--dw-cream)"
     : isDone
     ? "var(--dw-success)"
-    : MODE_COLOR[displayedMode].bg;
+    : MODE_COLOR[mode].bg;
   const baseShadow = isRecording
     ? "0 8px 24px rgba(251,236,93,0.30)"
     : isDone
     ? "0 8px 24px rgba(61,214,140,0.30)"
-    : MODE_COLOR[displayedMode].shadow;
+    : MODE_COLOR[mode].shadow;
   const glowColor = isRecording
     ? "rgba(251,236,93,0.50)"
     : isDone
@@ -251,15 +250,15 @@ export function VoiceButton({
           style={{ backgroundColor: baseBg, boxShadow: baseShadow }}
           aria-label={label}
         >
-          {wipeDir && isDefault && (
+          {wipeOverlay && isDefault && (
             <span
               aria-hidden
               onAnimationEnd={endWipe}
               className={[
                 "absolute inset-0 rounded-full pointer-events-none",
-                wipeDir === "right" ? "animate-dw-wipe-in-right" : "animate-dw-wipe-in-left",
+                wipeOverlay.dir === "right" ? "animate-dw-wipe-out-right" : "animate-dw-wipe-out-left",
               ].join(" ")}
-              style={{ backgroundColor: MODE_COLOR[mode].bg }}
+              style={{ backgroundColor: wipeOverlay.color }}
             />
           )}
           <span className="relative z-10">{glyph}</span>
@@ -269,10 +268,7 @@ export function VoiceButton({
   }
 
   return (
-    <div className="flex flex-col items-center w-full">
-      {showModePill && isDefault && (
-        <ModeToggle mode={mode} onModeChange={onModeChange} />
-      )}
+    <div className="flex flex-col items-center w-full gap-3">
       <div className="relative w-full">
         {isDefault && (
           <span
@@ -294,15 +290,15 @@ export function VoiceButton({
           style={{ backgroundColor: baseBg, boxShadow: baseShadow }}
           aria-label={label}
         >
-          {wipeDir && isDefault && (
+          {wipeOverlay && isDefault && (
             <span
               aria-hidden
               onAnimationEnd={endWipe}
               className={[
                 "absolute inset-0 rounded-full pointer-events-none",
-                wipeDir === "right" ? "animate-dw-wipe-in-right" : "animate-dw-wipe-in-left",
+                wipeOverlay.dir === "right" ? "animate-dw-wipe-out-right" : "animate-dw-wipe-out-left",
               ].join(" ")}
-              style={{ backgroundColor: MODE_COLOR[mode].bg }}
+              style={{ backgroundColor: wipeOverlay.color }}
             />
           )}
           <GlyphCircle accent={glyphCircleAccent}>{glyph}</GlyphCircle>
@@ -324,6 +320,9 @@ export function VoiceButton({
           )}
         </button>
       </div>
+      {showModePill && isDefault && (
+        <ModeToggle mode={mode} onModeChange={onModeChange} />
+      )}
     </div>
   );
 }
