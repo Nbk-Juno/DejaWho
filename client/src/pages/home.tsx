@@ -75,11 +75,18 @@ export default function Home() {
     >
       {/* Main: hero mark, voice button, mode toggle */}
       <main className="flex-1 flex flex-col items-center justify-center px-5 gap-5 min-h-[320px]">
-        <img
-          src="/hero-mark-nobg.png"
-          alt="DejaWho"
-          className="h-12 w-12 object-contain opacity-90"
-        />
+        <div className="relative -translate-y-[10vh]">
+          <span
+            aria-hidden
+            className="absolute inset-[-24px] rounded-full blur-2xl animate-dw-glow-breathe pointer-events-none"
+            style={{ backgroundColor: "rgba(251,236,93,0.45)" }}
+          />
+          <img
+            src="/hero-mark-nobg.png"
+            alt="DejaWho"
+            className="relative h-[115px] w-[115px] object-contain opacity-90"
+          />
+        </div>
         <div className="w-full max-w-xs">
           <VoiceButton
             buttonState={buttonState}

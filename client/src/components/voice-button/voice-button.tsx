@@ -70,6 +70,45 @@ function GlyphCircle({ accent, children }: { accent: string; children: React.Rea
   );
 }
 
+// Renders the default-state foreground (glyph + label + helper) for a given mode.
+// Used both as the base layer of the pill and inside the wipe overlay so the OLD content
+// slides off WITH its overlay rather than the label color snapping mid-wipe.
+function DefaultPillContent({ mode }: { mode: VoiceButtonMode }) {
+  const c = MODE_COLOR[mode];
+  const helperColor = mode === "record" ? "rgba(255,255,255,0.60)" : "rgba(65,45,240,0.55)";
+  return (
+    <>
+      <GlyphCircle accent={c.accent}>
+        {mode === "record" ? (
+          <Mic className="w-[22px] h-[22px]" style={{ color: c.fg }} strokeWidth={2} />
+        ) : (
+          <Search className="w-[22px] h-[22px]" style={{ color: c.fg }} strokeWidth={2} />
+        )}
+      </GlyphCircle>
+      <div className="flex flex-col items-start">
+        <span
+          className="text-[17px] font-semibold leading-tight tracking-[-0.2px]"
+          style={{ color: c.fg }}
+        >
+          {mode === "record" ? "Tap to speak" : "Tap to ask"}
+        </span>
+        <span className="text-[13px] mt-0.5" style={{ color: helperColor }}>
+          {mode === "record" ? "Record an encounter" : "Find someone"} · swipe to switch
+        </span>
+      </div>
+    </>
+  );
+}
+
+function DefaultCircleGlyph({ mode }: { mode: VoiceButtonMode }) {
+  const c = MODE_COLOR[mode];
+  return mode === "record" ? (
+    <Mic className="w-[22px] h-[22px]" style={{ color: c.fg }} strokeWidth={2} />
+  ) : (
+    <Search className="w-[22px] h-[22px]" style={{ color: c.fg }} strokeWidth={2} />
+  );
+}
+
 function ModeToggle({
   mode,
   onModeChange,
@@ -119,18 +158,19 @@ export function VoiceButton({
 
   const isDefault = buttonState === "default";
 
-  // Wipe = OLD color sliding off TOP of the (already-new) button bg. Sliding off avoids the
-  // bg-transition tail flash that an "old bg + new color sliding in" model produces.
+  // Wipe = OLD mode's full face (bg + glyph + label) sliding off TOP of the (already-new)
+  // button content. Both bg and fg slide off together, so the label color never has to
+  // snap mid-wipe and there's no bg-transition tail flash.
   const prevModeRef = useRef<VoiceButtonMode>(mode);
-  const [wipeOverlay, setWipeOverlay] = useState<{ color: string; dir: "left" | "right" } | null>(null);
+  const [wipeOverlay, setWipeOverlay] = useState<{ fromMode: VoiceButtonMode; dir: "left" | "right" } | null>(null);
 
   useEffect(() => {
     if (mode === prevModeRef.current) return;
     if (isDefault) {
-      // Slide the old color off in the direction OPPOSITE the swipe (record→search slides
+      // Slide the old face off in the direction OPPOSITE the swipe (record→search slides
       // old-indigo off to the left; search→record slides old-paper off to the right).
       const dir: "left" | "right" = mode === "search" ? "left" : "right";
-      setWipeOverlay({ color: MODE_COLOR[prevModeRef.current].bg, dir });
+      setWipeOverlay({ fromMode: prevModeRef.current, dir });
     }
     prevModeRef.current = mode;
   }, [mode, isDefault]);
@@ -190,42 +230,26 @@ export function VoiceButton({
     ? "rgba(61,214,140,0.50)"
     : MODE_COLOR[mode].glow;
 
-  const label = isRecording
+  // Non-default state labels + glyphs. Default-state content is rendered via DefaultPillContent.
+  const nonDefaultLabel = isRecording
     ? "Listening…"
     : isProcessing
     ? mode === "record" ? "Saving…" : "Searching…"
     : isDone
     ? "Got it!"
-    : mode === "record"
-    ? "Tap to speak"
-    : "Tap to ask";
-
-  // In default/idle state the foreground tracks the active mode (white on indigo for Speak,
-  // indigo on paper-white for Ask). Recording/processing/done have their own bg+fg pairings.
-  const modeFg = MODE_COLOR[mode].fg;
-  const modeAccent = MODE_COLOR[mode].accent;
-  const glyph = isRecording ? (
+    : "";
+  const nonDefaultGlyph = isRecording ? (
     <WaveformBars />
   ) : isProcessing ? (
     <Spinner />
   ) : isDone ? (
     <Check className="w-6 h-6 text-white" strokeWidth={2.5} />
-  ) : mode === "record" ? (
-    <Mic className="w-[22px] h-[22px]" style={{ color: modeFg }} strokeWidth={2} />
-  ) : (
-    <Search className="w-[22px] h-[22px]" style={{ color: modeFg }} strokeWidth={2} />
-  );
-  const glyphCircleAccent = isRecording
-    ? "rgba(9,4,58,0.12)"
-    : isProcessing || isDone
-    ? "rgba(255,255,255,0.15)"
-    : modeAccent;
-  const labelColor = isRecording
-    ? "var(--dw-amethyst)"
-    : isProcessing || isDone
-    ? "#FFFFFF"
-    : modeFg;
-  const helperColor = mode === "record" ? "rgba(255,255,255,0.60)" : "rgba(65,45,240,0.55)";
+  ) : null;
+  const nonDefaultLabelColor = isRecording ? "var(--dw-amethyst)" : "#FFFFFF";
+  const nonDefaultGlyphAccent = isRecording ? "rgba(9,4,58,0.12)" : "rgba(255,255,255,0.15)";
+  const ariaLabel = isDefault
+    ? mode === "record" ? "Tap to speak" : "Tap to ask"
+    : nonDefaultLabel;
 
   if (shape === "circle") {
     return (
@@ -248,20 +272,24 @@ export function VoiceButton({
             "touch-none transition-colors duration-200",
           ].join(" ")}
           style={{ backgroundColor: baseBg, boxShadow: baseShadow }}
-          aria-label={label}
+          aria-label={ariaLabel}
         >
+          <span className="relative z-10">
+            {isDefault ? <DefaultCircleGlyph mode={mode} /> : nonDefaultGlyph}
+          </span>
           {wipeOverlay && isDefault && (
-            <span
+            <div
               aria-hidden
               onAnimationEnd={endWipe}
               className={[
-                "absolute inset-0 rounded-full pointer-events-none",
+                "absolute inset-0 rounded-full pointer-events-none flex items-center justify-center",
                 wipeOverlay.dir === "right" ? "animate-dw-wipe-out-right" : "animate-dw-wipe-out-left",
               ].join(" ")}
-              style={{ backgroundColor: wipeOverlay.color }}
-            />
+              style={{ backgroundColor: MODE_COLOR[wipeOverlay.fromMode].bg }}
+            >
+              <DefaultCircleGlyph mode={wipeOverlay.fromMode} />
+            </div>
           )}
-          <span className="relative z-10">{glyph}</span>
         </button>
       </div>
     );
@@ -288,35 +316,40 @@ export function VoiceButton({
             "touch-none transition-colors duration-200",
           ].join(" ")}
           style={{ backgroundColor: baseBg, boxShadow: baseShadow }}
-          aria-label={label}
+          aria-label={ariaLabel}
         >
+          {isDefault ? (
+            <div className="relative z-10 flex items-center gap-3 w-full">
+              <DefaultPillContent mode={mode} />
+            </div>
+          ) : (
+            <>
+              <GlyphCircle accent={nonDefaultGlyphAccent}>{nonDefaultGlyph}</GlyphCircle>
+              <div className="relative z-10 flex flex-col items-start">
+                <span
+                  className="text-[17px] font-semibold leading-tight tracking-[-0.2px]"
+                  style={{ color: nonDefaultLabelColor }}
+                >
+                  {nonDefaultLabel}
+                </span>
+              </div>
+              {isDone && (
+                <Volume2 className="relative z-10 ml-auto mr-2 w-5 h-5 text-white/70" strokeWidth={2} />
+              )}
+            </>
+          )}
           {wipeOverlay && isDefault && (
-            <span
+            <div
               aria-hidden
               onAnimationEnd={endWipe}
               className={[
-                "absolute inset-0 rounded-full pointer-events-none",
+                "absolute inset-0 rounded-full pointer-events-none flex items-center px-4 gap-3 overflow-hidden",
                 wipeOverlay.dir === "right" ? "animate-dw-wipe-out-right" : "animate-dw-wipe-out-left",
               ].join(" ")}
-              style={{ backgroundColor: wipeOverlay.color }}
-            />
-          )}
-          <GlyphCircle accent={glyphCircleAccent}>{glyph}</GlyphCircle>
-          <div className="relative z-10 flex flex-col items-start">
-            <span
-              className="text-[17px] font-semibold leading-tight tracking-[-0.2px]"
-              style={{ color: labelColor }}
+              style={{ backgroundColor: MODE_COLOR[wipeOverlay.fromMode].bg }}
             >
-              {label}
-            </span>
-            {isDefault && (
-              <span className="text-[13px] mt-0.5" style={{ color: helperColor }}>
-                {mode === "record" ? "Record an encounter" : "Find someone"} · swipe to switch
-              </span>
-            )}
-          </div>
-          {isDone && (
-            <Volume2 className="relative z-10 ml-auto mr-2 w-5 h-5 text-white/70" strokeWidth={2} />
+              <DefaultPillContent mode={wipeOverlay.fromMode} />
+            </div>
           )}
         </button>
       </div>

@@ -20,38 +20,45 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around"
-      style={{
-        height: 80,
-        backgroundColor: "var(--dw-card)",
-        borderTop: "1px solid var(--dw-border-sub)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
+      className="fixed bottom-0 inset-x-0 z-40 flex justify-center px-4 pt-2 pointer-events-none"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
     >
-      {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-        const isActive = href === "/" ? location === "/" : location.startsWith(href);
-        return (
-          <Link key={href} href={href}>
-            <button
-              type="button"
-              className="flex flex-col items-center gap-1 px-6 py-2 group"
-              aria-current={isActive ? "page" : undefined}
-            >
-              <Icon
-                className="w-[22px] h-[22px] transition-colors duration-150"
-                strokeWidth={isActive ? 2.5 : 2}
-                style={{ color: isActive ? "var(--dw-indigo)" : "var(--dw-text-sec)" }}
-              />
-              <span
-                className="text-[10px] font-semibold uppercase tracking-[0.6px] transition-colors duration-150"
-                style={{ color: isActive ? "var(--dw-indigo)" : "var(--dw-text-sec)" }}
+      <div
+        className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full"
+        style={{
+          backgroundColor: "var(--dw-elevated)",
+          boxShadow:
+            "0 8px 28px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06) inset",
+        }}
+      >
+        {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+          const isActive = href === "/" ? location === "/" : location.startsWith(href);
+          return (
+            <Link key={href} href={href}>
+              <button
+                type="button"
+                aria-current={isActive ? "page" : undefined}
+                className="flex flex-col items-center justify-center gap-0.5 px-4 py-2 rounded-full transition-colors duration-200 min-w-[72px]"
+                style={{
+                  backgroundColor: isActive ? "rgba(65,45,240,0.20)" : "transparent",
+                }}
               >
-                {label}
-              </span>
-            </button>
-          </Link>
-        );
-      })}
+                <Icon
+                  className="w-[22px] h-[22px]"
+                  strokeWidth={isActive ? 2.5 : 2}
+                  style={{ color: isActive ? "var(--dw-indigo)" : "rgba(255,255,255,0.55)" }}
+                />
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-[0.6px]"
+                  style={{ color: isActive ? "var(--dw-indigo)" : "rgba(255,255,255,0.55)" }}
+                >
+                  {label}
+                </span>
+              </button>
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
