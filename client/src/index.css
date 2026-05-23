@@ -14,6 +14,8 @@
   --dw-indigo-sub:  #1B1370;
   --dw-cream:       #FBEC5D;
   --dw-cream-glow:  rgba(251,236,93,0.14);
+  --dw-cyan:        #22D3EE;
+  --dw-cyan-dim:    #0EA5BF;
   --dw-success:     #3DD68C;
   --dw-error:       #F05252;
   --dw-border-sub:  rgba(255,255,255,0.06);
@@ -137,6 +139,16 @@
 @keyframes dw-glow-breathe {
   0%, 100% { opacity: 0.45; transform: scale(1); }
   50%       { opacity: 0.7;  transform: scale(1.05); }
+}
+
+@keyframes dw-wipe-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0%); }
+}
+
+@keyframes dw-wipe-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0%); }
 }
 
 @layer base {

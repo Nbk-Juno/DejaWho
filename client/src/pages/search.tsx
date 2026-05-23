@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Search as SearchIcon, Mic, Loader2, MapPin, Calendar, X } from "lucide-react";
+import { Search as SearchIcon, Mic, Loader2, MapPin, Calendar, X, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -11,6 +11,16 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
@@ -18,9 +28,17 @@ import type { ApiEncounter, ApiSearchResponse } from "@shared/schema";
 
 const DEFAULT_LIST_LIMIT = 10;
 
-function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
+function EncounterRow({
+  encounter,
+  onDelete,
+  isDeleting,
+}: {
+  encounter: ApiEncounter;
+  onDelete: (encounter: ApiEncounter) => void;
+  isDeleting?: boolean;
+}) {
   return (
-    <div className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2">
+    <div className="relative rounded-xl bg-white/6 border border-white/10 p-4 pr-10 space-y-2">
       <p className="text-white font-medium text-sm">{encounter.name}</p>
       <div className="flex items-center gap-2 text-white/50 text-xs">
         <MapPin className="w-3 h-3 flex-shrink-0" />
@@ -33,6 +51,16 @@ function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
       {encounter.context && (
         <p className="text-white/60 text-xs leading-relaxed line-clamp-3">{encounter.context}</p>
       )}
+      <button
+        type="button"
+        onClick={() => onDelete(encounter)}
+        disabled={isDeleting}
+        aria-label={`Delete encounter with ${encounter.name}`}
+        data-testid={`button-delete-encounter-${encounter.id}`}
+        className="absolute top-2 right-2 p-2 rounded-md text-white/35 hover:text-dw-error hover:bg-white/8 transition-colors disabled:opacity-40"
+      >
+        {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+      </button>
     </div>
   );
 }
@@ -40,9 +68,13 @@ function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
 function SearchResultSheet({
   results,
   onClose,
+  onDelete,
+  deletingId,
 }: {
   results: ApiSearchResponse;
   onClose: () => void;
+  onDelete: (encounter: ApiEncounter) => void;
+  deletingId: string | null;
 }) {
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -59,7 +91,12 @@ function SearchResultSheet({
         {results.results.length > 0 && (
           <div className="space-y-3">
             {results.results.slice(0, 3).map(({ encounter }) => (
-              <EncounterRow key={encounter.id} encounter={encounter} />
+              <EncounterRow
+                key={encounter.id}
+                encounter={encounter}
+                onDelete={onDelete}
+                isDeleting={deletingId === encounter.id}
+              />
             ))}
           </div>
         )}
@@ -70,8 +107,10 @@ function SearchResultSheet({
 
 export default function SearchPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ApiSearchResponse | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ApiEncounter | null>(null);
 
   const { data: encounters = [], isLoading } = useQuery<ApiEncounter[]>({
     queryKey: ["/api/encounters"],
@@ -86,6 +125,24 @@ export default function SearchPage() {
     onError: () => {
       toast({ title: "Search failed — try again", variant: "destructive" });
     },
+  });
+
+  const deleteMutation = useMutation<void, Error, string>({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/encounters/${id}`);
+    },
+    onSuccess: (_void, id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
+      if (searchResults) {
+        const remaining = searchResults.results.filter(({ encounter }) => encounter.id !== id);
+        setSearchResults(remaining.length > 0 ? { ...searchResults, results: remaining } : null);
+      }
+      toast({ title: "Encounter deleted" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete — try again", variant: "destructive" });
+    },
+    onSettled: () => setPendingDelete(null),
   });
 
   const { isRecording, isProcessing: isTranscribing, startRecording, stopRecording } =
@@ -140,6 +197,7 @@ export default function SearchPage() {
   };
 
   const micBusy = isTranscribing || searchMutation.isPending;
+  const deletingId = deleteMutation.isPending ? deleteMutation.variables ?? null : null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]">
@@ -178,7 +236,7 @@ export default function SearchPage() {
             aria-pressed={isRecording}
             className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors text-white"
             style={{
-              backgroundColor: isRecording ? "var(--dw-indigo-dim)" : "var(--dw-indigo)",
+              backgroundColor: isRecording ? "var(--dw-cyan-dim)" : "var(--dw-cyan)",
             }}
           >
             {micBusy ? (
@@ -205,7 +263,12 @@ export default function SearchPage() {
               </h2>
             </div>
             {filtered.map((e) => (
-              <EncounterRow key={e.id} encounter={e} />
+              <EncounterRow
+                key={e.id}
+                encounter={e}
+                onDelete={setPendingDelete}
+                isDeleting={deletingId === e.id}
+              />
             ))}
           </>
         ) : (
@@ -221,8 +284,42 @@ export default function SearchPage() {
         <SearchResultSheet
           results={searchResults}
           onClose={() => setSearchResults(null)}
+          onDelete={setPendingDelete}
+          deletingId={deletingId}
         />
       )}
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this encounter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `Removes your record of ${pendingDelete.name} at ${pendingDelete.location}. This can't be undone.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDelete) deleteMutation.mutate(pendingDelete.id);
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-dw-error text-white hover:bg-dw-error/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

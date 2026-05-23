@@ -21,6 +21,7 @@ export interface IStorage {
   getAllEncountersForUser(userId: string): Promise<Encounter[]>;
   getEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   createEncounter(input: CreateEncounterInput): Promise<Encounter>;
+  deleteEncounterForUser(id: string, userId: string): Promise<boolean>;
   deleteAllEncountersForUser(userId: string): Promise<number>;
   deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
@@ -64,6 +65,14 @@ export class DbStorage implements IStorage {
       .from(encounters)
       .where(eq(encounters.userId, userId))
       .orderBy(desc(encounters.datetime));
+  }
+
+  async deleteEncounterForUser(id: string, userId: string): Promise<boolean> {
+    const deleted = await db
+      .delete(encounters)
+      .where(and(eq(encounters.id, id), eq(encounters.userId, userId)))
+      .returning({ id: encounters.id });
+    return deleted.length > 0;
   }
 
   async deleteAllEncountersForUser(userId: string): Promise<number> {

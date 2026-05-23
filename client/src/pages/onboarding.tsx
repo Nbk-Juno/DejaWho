@@ -399,8 +399,8 @@ function CompleteScreen({ onFinish }: { onFinish: () => void }) {
     <div className="flex flex-col h-full px-8">
       <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center">
         <div
-          className="w-20 h-20 rounded-full bg-dw-indigo flex items-center justify-center"
-          style={{ boxShadow: "0 8px 32px rgba(65,45,240,0.45)" }}
+          className="w-20 h-20 rounded-full bg-dw-success flex items-center justify-center"
+          style={{ boxShadow: "0 8px 32px rgba(61,214,140,0.45)" }}
         >
           <Check className="w-10 h-10 text-white" strokeWidth={2.5} />
         </div>

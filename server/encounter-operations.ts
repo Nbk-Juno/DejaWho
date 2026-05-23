@@ -94,6 +94,19 @@ export function attachEncounterRoutes(app: Express): void {
     }
   });
 
+  app.delete("/api/encounters/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteEncounterForUser(req.params.id, userIdFrom(req));
+      if (!deleted) {
+        return res.status(404).json({ error: "Encounter not found" });
+      }
+      res.status(204).end();
+    } catch (error) {
+      logError("delete_encounter_route_failed", error);
+      res.status(500).json({ error: "Failed to delete encounter" });
+    }
+  });
+
   app.post("/api/encounters", requireAuth, async (req, res) => {
     try {
       const userId = userIdFrom(req);

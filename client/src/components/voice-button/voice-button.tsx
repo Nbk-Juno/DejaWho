@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mic, Search, Check, Volume2 } from "lucide-react";
 import type { VoiceButtonState, VoiceButtonMode } from "./state";
 
@@ -14,6 +14,19 @@ type VoiceButtonProps = {
   onModeChange: (mode: VoiceButtonMode) => void;
   onDoneTimeout?: () => void;
   showModePill?: boolean;
+};
+
+const MODE_COLOR: Record<VoiceButtonMode, { bg: string; glow: string; shadow: string }> = {
+  record: {
+    bg: "var(--dw-indigo)",
+    glow: "rgba(65,45,240,0.55)",
+    shadow: "0 8px 28px rgba(65,45,240,0.42), 0 0 0 1px rgba(255,255,255,0.06) inset",
+  },
+  search: {
+    bg: "var(--dw-cyan)",
+    glow: "rgba(34,211,238,0.55)",
+    shadow: "0 8px 28px rgba(34,211,238,0.42), 0 0 0 1px rgba(255,255,255,0.06) inset",
+  },
 };
 
 function WaveformBars() {
@@ -52,51 +65,48 @@ function GlyphCircle({ children, recording }: { children: React.ReactNode; recor
   );
 }
 
-function PulseRings() {
-  return (
-    <>
-      <span
-        className="absolute inset-0 rounded-full border-[1.5px] border-dw-indigo animate-dw-pulse-ring pointer-events-none"
-        style={{ animationDelay: "0s" }}
-      />
-      <span
-        className="absolute inset-0 rounded-full border-[1.5px] border-dw-indigo animate-dw-pulse-ring pointer-events-none"
-        style={{ animationDelay: "1.2s" }}
-      />
-    </>
-  );
-}
-
-function ModePill({
+function ModeToggle({
   mode,
   onModeChange,
 }: {
   mode: VoiceButtonMode;
   onModeChange: (m: VoiceButtonMode) => void;
 }) {
+  const isRecord = mode === "record";
   return (
     <button
       type="button"
-      onClick={() => onModeChange(mode === "record" ? "search" : "record")}
-      className="flex items-center gap-[6px] mb-3 mx-auto"
-      aria-label={`Switch to ${mode === "record" ? "search" : "record"} mode`}
+      onClick={() => onModeChange(isRecord ? "search" : "record")}
+      aria-label={`Switch to ${isRecord ? "ask" : "record"} mode`}
+      aria-pressed={!isRecord}
+      className="relative flex items-center w-[112px] h-9 rounded-full bg-white/8 border border-white/10 mb-3 mx-auto overflow-hidden"
     >
       <span
-        className={[
-          "w-2 h-2 rounded-full transition-all duration-200",
-          mode === "record"
-            ? "bg-dw-indigo"
-            : "border border-dw-border w-[7px] h-[7px]",
-        ].join(" ")}
+        className="absolute top-1 bottom-1 w-[52px] rounded-full transition-all duration-300 ease-out"
+        style={{
+          left: isRecord ? "4px" : "calc(100% - 56px)",
+          backgroundColor: isRecord ? "var(--dw-indigo)" : "var(--dw-cyan)",
+          boxShadow: `0 4px 12px ${isRecord ? "rgba(65,45,240,0.45)" : "rgba(34,211,238,0.45)"}`,
+        }}
       />
       <span
         className={[
-          "w-2 h-2 rounded-full transition-all duration-200",
-          mode === "search"
-            ? "bg-dw-indigo"
-            : "border border-dw-border w-[7px] h-[7px]",
+          "relative z-10 w-1/2 flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors duration-200",
+          isRecord ? "text-white" : "text-white/55",
         ].join(" ")}
-      />
+      >
+        <Mic className="w-3 h-3" strokeWidth={2.5} />
+        Speak
+      </span>
+      <span
+        className={[
+          "relative z-10 w-1/2 flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors duration-200",
+          !isRecord ? "text-white" : "text-white/55",
+        ].join(" ")}
+      >
+        <Search className="w-3 h-3" strokeWidth={2.5} />
+        Ask
+      </span>
     </button>
   );
 }
@@ -113,6 +123,30 @@ export function VoiceButton({
   const swipeStartX = useRef<number | null>(null);
   const didSwipe = useRef(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const isDefault = buttonState === "default";
+
+  // Wipe state — keeps the previous mode painted underneath until the overlay finishes sliding in.
+  const [displayedMode, setDisplayedMode] = useState<VoiceButtonMode>(mode);
+  const [wipeDir, setWipeDir] = useState<"left" | "right" | null>(null);
+
+  useEffect(() => {
+    if (mode === displayedMode) return;
+    if (!isDefault) {
+      // Skip the wipe entirely when not in default state (recording/processing/done).
+      setDisplayedMode(mode);
+      setWipeDir(null);
+      return;
+    }
+    if (wipeDir === null) {
+      setWipeDir(mode === "search" ? "right" : "left");
+    }
+  }, [mode, displayedMode, wipeDir, isDefault]);
+
+  function endWipe() {
+    setDisplayedMode(mode);
+    setWipeDir(null);
+  }
 
   useEffect(() => {
     if (buttonState === "done" && onDoneTimeout) {
@@ -146,13 +180,23 @@ export function VoiceButton({
   const isRecording = buttonState === "recording";
   const isProcessing = buttonState === "processing";
   const isDone = buttonState === "done";
-  const isDefault = buttonState === "default";
 
-  const bgColor = isRecording
-    ? "bg-dw-cream"
+  // bg + glow track the underlying displayedMode; the wipe overlay paints the new mode on top.
+  const baseBg = isRecording
+    ? "var(--dw-cream)"
     : isDone
-    ? "bg-dw-success"
-    : "bg-dw-indigo";
+    ? "var(--dw-success)"
+    : MODE_COLOR[displayedMode].bg;
+  const baseShadow = isRecording
+    ? "0 8px 24px rgba(251,236,93,0.30)"
+    : isDone
+    ? "0 8px 24px rgba(61,214,140,0.30)"
+    : MODE_COLOR[displayedMode].shadow;
+  const glowColor = isRecording
+    ? "rgba(251,236,93,0.50)"
+    : isDone
+    ? "rgba(61,214,140,0.50)"
+    : MODE_COLOR[mode].glow;
 
   const label = isRecording
     ? "Listening…"
@@ -179,50 +223,12 @@ export function VoiceButton({
   if (shape === "circle") {
     return (
       <div className="relative flex items-center justify-center">
-        {isDefault && <PulseRings />}
-        <button
-          ref={buttonRef}
-          type="button"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          className={[
-            "relative w-24 h-24 rounded-full flex items-center justify-center",
-            "touch-none transition-colors duration-200",
-            bgColor,
-          ].join(" ")}
-          style={{
-            boxShadow: isRecording
-              ? "0 8px 24px rgba(251,236,93,0.30)"
-              : isDone
-              ? "0 8px 24px rgba(61,214,140,0.30)"
-              : "0 8px 24px rgba(65,45,240,0.38), 0 0 0 1px rgba(255,255,255,0.06) inset",
-          }}
-          aria-label={label}
-        >
-          {glyph}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center w-full">
-      {showModePill && isDefault && (
-        <ModePill mode={mode} onModeChange={onModeChange} />
-      )}
-      <div className="relative w-full">
         {isDefault && (
-          <>
-            <span
-              className="absolute inset-0 rounded-full border-[1.5px] border-dw-indigo animate-dw-pulse-ring pointer-events-none"
-              style={{ animationDelay: "0s" }}
-            />
-            <span
-              className="absolute inset-0 rounded-full border-[1.5px] border-dw-indigo animate-dw-pulse-ring pointer-events-none"
-              style={{ animationDelay: "1.2s" }}
-            />
-          </>
+          <span
+            aria-hidden
+            className="absolute inset-[-14px] rounded-full blur-2xl animate-dw-glow-breathe pointer-events-none"
+            style={{ backgroundColor: glowColor }}
+          />
         )}
         <button
           ref={buttonRef}
@@ -231,21 +237,68 @@ export function VoiceButton({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           className={[
-            "relative w-full h-[72px] rounded-full flex items-center px-4 gap-3",
+            "relative w-24 h-24 rounded-full flex items-center justify-center overflow-hidden",
             "touch-none transition-colors duration-200",
-            bgColor,
           ].join(" ")}
-          style={{
-            boxShadow: isRecording
-              ? "0 8px 24px rgba(251,236,93,0.30)"
-              : isDone
-              ? "0 8px 24px rgba(61,214,140,0.30)"
-              : "0 8px 24px rgba(65,45,240,0.38), 0 0 0 1px rgba(255,255,255,0.06) inset",
-          }}
+          style={{ backgroundColor: baseBg, boxShadow: baseShadow }}
           aria-label={label}
         >
+          {wipeDir && isDefault && (
+            <span
+              aria-hidden
+              onAnimationEnd={endWipe}
+              className={[
+                "absolute inset-0 rounded-full pointer-events-none",
+                wipeDir === "right" ? "animate-dw-wipe-in-right" : "animate-dw-wipe-in-left",
+              ].join(" ")}
+              style={{ backgroundColor: MODE_COLOR[mode].bg }}
+            />
+          )}
+          <span className="relative z-10">{glyph}</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center w-full">
+      {showModePill && isDefault && (
+        <ModeToggle mode={mode} onModeChange={onModeChange} />
+      )}
+      <div className="relative w-full">
+        {isDefault && (
+          <span
+            aria-hidden
+            className="absolute inset-[-10px] rounded-full blur-2xl animate-dw-glow-breathe pointer-events-none"
+            style={{ backgroundColor: glowColor }}
+          />
+        )}
+        <button
+          ref={buttonRef}
+          type="button"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className={[
+            "relative w-full h-[72px] rounded-full flex items-center px-4 gap-3 overflow-hidden",
+            "touch-none transition-colors duration-200",
+          ].join(" ")}
+          style={{ backgroundColor: baseBg, boxShadow: baseShadow }}
+          aria-label={label}
+        >
+          {wipeDir && isDefault && (
+            <span
+              aria-hidden
+              onAnimationEnd={endWipe}
+              className={[
+                "absolute inset-0 rounded-full pointer-events-none",
+                wipeDir === "right" ? "animate-dw-wipe-in-right" : "animate-dw-wipe-in-left",
+              ].join(" ")}
+              style={{ backgroundColor: MODE_COLOR[mode].bg }}
+            />
+          )}
           <GlyphCircle recording={isRecording}>{glyph}</GlyphCircle>
-          <div className="flex flex-col items-start">
+          <div className="relative z-10 flex flex-col items-start">
             <span
               className={[
                 "text-[17px] font-semibold leading-tight tracking-[-0.2px]",
@@ -261,7 +314,7 @@ export function VoiceButton({
             )}
           </div>
           {isDone && (
-            <Volume2 className="ml-auto mr-2 w-5 h-5 text-white/70" strokeWidth={2} />
+            <Volume2 className="relative z-10 ml-auto mr-2 w-5 h-5 text-white/70" strokeWidth={2} />
           )}
         </button>
       </div>
