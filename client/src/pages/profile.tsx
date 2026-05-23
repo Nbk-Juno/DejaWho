@@ -52,6 +52,7 @@ function Row({
   danger,
   onClick,
   href,
+  testId,
 }: {
   icon?: React.ElementType;
   label: string;
@@ -59,6 +60,7 @@ function Row({
   danger?: boolean;
   onClick?: () => void;
   href?: string;
+  testId?: string;
 }) {
   const content = (
     <div
@@ -87,7 +89,11 @@ function Row({
   if (href) {
     return (
       <Link href={href}>
-        <button type="button" className="w-full text-left hover:brightness-110 transition-all duration-150">
+        <button
+          type="button"
+          data-testid={testId}
+          className="w-full text-left hover:brightness-110 transition-all duration-150"
+        >
           {content}
         </button>
       </Link>
@@ -98,6 +104,7 @@ function Row({
     return (
       <button
         type="button"
+        data-testid={testId}
         onClick={onClick}
         className="w-full text-left hover:brightness-110 transition-all duration-150"
       >
@@ -198,7 +205,7 @@ export default function Profile() {
               onClick={() => replayOnboardingMutation.mutate()}
             />
             <Divider />
-            <Row icon={LogOut} label="Sign out" onClick={signOut} />
+            <Row icon={LogOut} label="Sign out" onClick={signOut} testId="button-sign-out" />
           </SectionCard>
         </div>
 

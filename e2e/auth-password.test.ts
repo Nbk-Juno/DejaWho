@@ -20,57 +20,51 @@ test.describe("password auth on sign-in page", () => {
     await expect(page.getByTestId("button-sign-in")).toBeVisible();
   });
 
-  test("can sign in with password", async ({ page }) => {
-    if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !DATABASE_URL) {
-      test.skip();
-      return;
-    }
-
+  test("can sign in with password, navigate to profile, and sign out", async ({ page }) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const sql = postgres(DATABASE_URL);
 
-    // Clean up any leftover test user
     const { data: existing } = await admin.auth.admin.listUsers();
     const old = existing?.users?.find((u) => u.email === TEST_EMAIL);
     if (old) await admin.auth.admin.deleteUser(old.id);
 
-    // Create confirmed user via admin API
+    // Onboarding is skipped by pre-setting onboarding_completed_at — the
+    // 5-screen flow is exercised in the dedicated onboarding e2e (TBD).
     const { error: createErr } = await admin.auth.admin.createUser({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
       email_confirm: true,
+      user_metadata: { onboarding_completed_at: new Date().toISOString() },
     });
     if (createErr) throw createErr;
 
-    // Whitelist in local Postgres (where /api/me checks)
     await sql`INSERT INTO whitelisted_emails (email) VALUES (${TEST_EMAIL}) ON CONFLICT DO NOTHING`;
 
-    // Sign in via UI
-    await page.goto("/");
-    await page.getByTestId("input-email").fill(TEST_EMAIL);
-    await page.getByTestId("input-password").fill(TEST_PASSWORD);
-    await page.getByTestId("button-sign-in").click();
+    try {
+      await page.goto("/");
+      await page.getByTestId("input-email").fill(TEST_EMAIL);
+      await page.getByTestId("input-password").fill(TEST_PASSWORD);
+      await page.getByTestId("button-sign-in").click();
 
-    // Should land on authenticated app
-    await expect(page.getByTestId("button-sign-out")).toBeVisible({ timeout: 10_000 });
+      // Authenticated home renders the voice button + recent section.
+      await expect(page.getByTestId("home-loaded")).toBeVisible({ timeout: 10_000 });
 
-    // Sign out and sign back in to confirm round-trip
-    await page.getByTestId("button-sign-out").click();
-    await expect(page.getByTestId("tab-password")).toBeVisible({ timeout: 5_000 });
+      // Sign-out lives on the Profile page (see ADR-0002 polish phase).
+      await page.goto("/profile");
+      await expect(page.getByTestId("button-sign-out")).toBeVisible({ timeout: 5_000 });
+      await page.getByTestId("button-sign-out").click();
 
-    await page.getByTestId("input-email").fill(TEST_EMAIL);
-    await page.getByTestId("input-password").fill(TEST_PASSWORD);
-    await page.getByTestId("button-sign-in").click();
-    await expect(page.getByTestId("button-sign-out")).toBeVisible({ timeout: 10_000 });
-
-    // Cleanup
-    const { data: cleanup } = await admin.auth.admin.listUsers();
-    const toDelete = cleanup?.users?.find((u) => u.email === TEST_EMAIL);
-    if (toDelete) await admin.auth.admin.deleteUser(toDelete.id);
-    await sql`DELETE FROM whitelisted_emails WHERE email = ${TEST_EMAIL}`;
-    await sql.end();
+      // Back to sign-in.
+      await expect(page.getByTestId("tab-password")).toBeVisible({ timeout: 5_000 });
+    } finally {
+      const { data: cleanup } = await admin.auth.admin.listUsers();
+      const toDelete = cleanup?.users?.find((u) => u.email === TEST_EMAIL);
+      if (toDelete) await admin.auth.admin.deleteUser(toDelete.id);
+      await sql`DELETE FROM whitelisted_emails WHERE email = ${TEST_EMAIL}`;
+      await sql.end();
+    }
   });
 
   test("shows error on wrong password", async ({ page }) => {

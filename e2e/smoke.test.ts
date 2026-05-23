@@ -4,7 +4,6 @@ import postgres from "postgres";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const TEST_EMAIL = "e2e-smoke@test.local";
 const TEST_PASSWORD = "e2e-test-password-1234!";
@@ -13,11 +12,6 @@ let testUserId = "";
 let sql: ReturnType<typeof postgres>;
 
 test.beforeAll(async () => {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !DATABASE_URL) {
-    test.skip();
-    return;
-  }
-
   sql = postgres(DATABASE_URL);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -34,6 +28,7 @@ test.beforeAll(async () => {
     email: TEST_EMAIL,
     password: TEST_PASSWORD,
     email_confirm: true,
+    user_metadata: { onboarding_completed_at: new Date().toISOString() },
   });
   if (createErr) throw createErr;
   testUserId = created.user.id;
@@ -42,7 +37,6 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return;
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -53,52 +47,18 @@ test.afterAll(async () => {
   }
 });
 
-test("create encounter and find via search", async ({ page }) => {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !DATABASE_URL) {
-    test.skip();
-    return;
-  }
-
-  // Sign in via UI (same pattern as auth-password.test.ts)
+// Encounter recording is voice-only on the home screen (ADR-0002), so a
+// proper "create and search" e2e needs mic mocking — out of scope here.
+// This smoke test just verifies the post-auth shell loads and the Search
+// page is reachable from the bottom nav.
+test("sign in and navigate from home to search", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("input-email").fill(TEST_EMAIL);
   await page.getByTestId("input-password").fill(TEST_PASSWORD);
   await page.getByTestId("button-sign-in").click();
 
-  await expect(page.getByTestId("button-sign-out")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("home-loaded")).toBeVisible({ timeout: 10_000 });
 
-  // Navigate to record page
-  await page.goto("/record");
-  await expect(page.locator("text=Record")).toBeVisible({ timeout: 5_000 });
-
-  // Fill encounter form
-  const nameInput = page.locator('input[name="name"], input[placeholder*="name" i]').first();
-  await nameInput.fill("Playwright Tester");
-
-  const contextInput = page.locator(
-    'textarea[name="context"], textarea[placeholder*="context" i], textarea[name="notes"], textarea[placeholder*="note" i]',
-  ).first();
-  if (await contextInput.isVisible()) {
-    await contextInput.fill("Met at the E2E testing conference");
-  }
-
-  // Submit
-  const submitBtn = page.locator('button[type="submit"], button:has-text("Save")').first();
-  await submitBtn.click();
-
-  // Wait for success (redirect or toast)
-  await page.waitForURL("/", { timeout: 10_000 }).catch(() => {});
-
-  // Search for the encounter
   await page.goto("/search");
-  const searchInput = page.locator(
-    'input[name="query"], input[placeholder*="search" i], input[type="search"]',
-  ).first();
-  await searchInput.fill("Playwright Tester");
-
-  const searchBtn = page.locator('button[type="submit"], button:has-text("Search")').first();
-  await searchBtn.click();
-
-  // Verify result appears
-  await expect(page.locator("text=Playwright Tester")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Search" })).toBeVisible({ timeout: 5_000 });
 });

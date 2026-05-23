@@ -69,7 +69,10 @@ export default function Home() {
   }, [encounters]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]">
+    <div
+      data-testid="home-loaded"
+      className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]"
+    >
       {/* Header */}
       <header className="px-5 pt-[max(env(safe-area-inset-top),16px)] pb-4 flex items-center">
         <img

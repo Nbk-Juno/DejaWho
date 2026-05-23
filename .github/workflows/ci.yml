@@ -47,7 +47,6 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    if: vars.SUPABASE_URL != ''
 
     services:
       postgres:
@@ -65,6 +64,7 @@ jobs:
           --health-retries 10
 
     env:
+      PORT: 5050
       DATABASE_URL: postgresql://who_that:who_that_dev@localhost:5432/who_that
       SUPABASE_URL: ${{ vars.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -77,12 +77,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify e2e env vars are set
+        run: |
+          missing=()
+          [ -z "$SUPABASE_URL" ] && missing+=("SUPABASE_URL (repo variable)")
+          [ -z "$SUPABASE_ANON_KEY" ] && missing+=("SUPABASE_ANON_KEY (repo secret)")
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing+=("SUPABASE_SERVICE_ROLE_KEY (repo secret)")
+          [ -z "$SUPABASE_JWT_SECRET" ] && missing+=("SUPABASE_JWT_SECRET (repo secret)")
+          [ -z "$OPENAI_API_KEY" ] && missing+=("OPENAI_API_KEY (repo secret)")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "Missing required env for e2e:" >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            echo "Set these under Settings -> Secrets and variables -> Actions." >&2
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
       - run: npm ci
+
+      - name: Enable pgvector extension on e2e database
+        run: PGPASSWORD=who_that_dev psql -h localhost -U who_that -d who_that -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+      - name: Apply migrations to e2e database
+        run: npm run db:migrate
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
