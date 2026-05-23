@@ -9,12 +9,33 @@ AI-powered memory app: record encounters with people, search them with natural l
 | `npm run dev` | Start Express + Vite together (port 5050 by default; macOS uses 5000 for AirPlay Receiver) |
 | `npm run check` | TypeScript typecheck (no emit) — run before declaring work done |
 | `npm run test` | Vitest integration suite (requires `docker compose up -d` first) |
+| `npx playwright test` | Playwright end-to-end suite against the running app (auto-starts the dev server on port 5050; requires real Supabase admin keys in `.env`) |
 | `npm run build` | Production build: Vite for client, esbuild for server |
 | `npm run start` | Run the production build |
 | `npm run db:push` | Push the Drizzle schema directly to `DATABASE_URL` (dev convenience) |
 | `npm run db:migrate` | Apply versioned migrations from `./migrations` |
 
-Tests run against a real Postgres (Docker locally, GitHub Actions service in CI). There's no UI test suite yet — for UI changes, start the dev server and verify in a browser. Typecheck alone does not prove feature correctness.
+Tests run against a real Postgres (Docker locally, GitHub Actions service in CI). For UI changes also run `npx playwright test` and verify in a browser — the e2e suite is a thin smoke layer, not full UI coverage, and typecheck alone does not prove feature correctness.
+
+## CI
+
+`.github/workflows/ci.yml` runs two required jobs on every push to `main`: `test` (Vitest) and `e2e` (Playwright). **Both must pass to deploy.** The e2e job used to silently skip when `SUPABASE_URL` was unset; it now always runs and fails loud on missing env. See memory `ci-must-fail-loud`.
+
+The e2e job needs these in **repo Settings → Secrets and variables → Actions**:
+- Variables tab: `SUPABASE_URL` (the dev project URL — same value as in your local `.env`)
+- Secrets tab: `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `OPENAI_API_KEY`
+
+CI environment gotchas (each costs an iteration to discover the hard way — they are now baked into `ci.yml`):
+- The server defaults to `PORT=5000` if unset; Playwright waits on `5050`. CI sets `PORT=5050` explicitly.
+- A fresh Postgres needs `CREATE EXTENSION IF NOT EXISTS vector` before `drizzle-kit migrate` will run.
+- The e2e DB needs `npm run db:migrate` before tests touch any table.
+- Playwright's `webServer.timeout` is 60s — CI cold-start (npm install + Vite build + Express boot) consistently takes 15–25s.
+
+## E2E test maintenance
+
+E2E tests in `./e2e/` use stable `data-testid` attributes as their contract with the UI. If you remove or rename a testID that e2e relies on, the e2e job will fail and block the deploy. Current testIDs the suite depends on: `tab-password`, `tab-magic-link`, `input-email`, `input-password`, `button-sign-in`, `auth-error`, `input-magic-email`, `button-send-magic-link`, `home-loaded`, `button-sign-out`, plus the reset-password page testIDs.
+
+Test users are created via Supabase admin API with `user_metadata.onboarding_completed_at` pre-set so they skip the onboarding flow. If you change how onboarding completion is tracked, update the e2e test setup or the tests will land on onboarding instead of home.
 
 ## Agent skills
 
