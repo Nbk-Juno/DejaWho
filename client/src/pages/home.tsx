@@ -47,26 +47,28 @@ export default function Home() {
     queryKey: ["/api/encounters"],
   });
 
-  const recentPersons = useMemo(
-    () =>
-      persons
-        .slice()
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, 5),
-    [persons],
-  );
-
-  const latestByName = useMemo(() => {
-    const map = new Map<string, ApiEncounter>();
+  // Recent is derived from the encounters table itself — group by normalized name, keep the
+  // latest encounter per person, sort by datetime desc. The persons table is a derived cache
+  // and can lag behind (legacy rows, in-flight invalidations); encounters is the truth.
+  const recentEncounters = useMemo(() => {
+    const latestByName = new Map<string, ApiEncounter>();
     for (const e of encounters) {
       const key = normalizePersonName(e.name);
-      const existing = map.get(key);
+      const existing = latestByName.get(key);
       if (!existing || new Date(e.datetime) > new Date(existing.datetime)) {
-        map.set(key, e);
+        latestByName.set(key, e);
       }
     }
-    return map;
+    return Array.from(latestByName.values())
+      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
+      .slice(0, 5);
   }, [encounters]);
+
+  const personIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of persons) map.set(p.normalizedName, p.id);
+    return map;
+  }, [persons]);
 
   return (
     <div
@@ -103,7 +105,7 @@ export default function Home() {
 
       {/* Recent people */}
       <section className="px-5 pb-4">
-        {recentPersons.length > 0 ? (
+        {recentEncounters.length > 0 ? (
           <>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest">
@@ -118,15 +120,16 @@ export default function Home() {
               </button>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-none">
-              {recentPersons.map((p) => {
-                const latest = latestByName.get(p.normalizedName);
+              {recentEncounters.map((latest) => {
+                const normalizedName = normalizePersonName(latest.name);
+                const personId = personIdByName.get(normalizedName);
                 return (
                   <RecentCard
-                    key={p.id}
-                    name={p.normalizedName}
-                    location={latest?.location}
-                    date={latest?.datetime}
-                    onClick={() => setSelectedPersonId(p.id)}
+                    key={normalizedName}
+                    name={latest.name}
+                    location={latest.location}
+                    date={latest.datetime}
+                    onClick={() => personId && setSelectedPersonId(personId)}
                   />
                 );
               })}

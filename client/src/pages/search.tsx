@@ -133,6 +133,7 @@ export default function SearchPage() {
     },
     onSuccess: (_void, id) => {
       queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/persons"] });
       if (searchResults) {
         const remaining = searchResults.results.filter(({ encounter }) => encounter.id !== id);
         setSearchResults(remaining.length > 0 ? { ...searchResults, results: remaining } : null);

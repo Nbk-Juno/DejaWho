@@ -1,7 +1,7 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { storage } from "./storage";
-import { encounterEmbeddingText, insertEncounterSchema, toApiEncounter } from "@shared/schema";
+import { encounterEmbeddingText, insertEncounterSchema, normalizePersonName, toApiEncounter } from "@shared/schema";
 import { generateEmbedding, parseEncounterFromSpeech, transcribeAudio } from "./openai";
 import { requireAuth, userIdFrom } from "./auth";
 import { logError } from "./logger";
@@ -96,10 +96,14 @@ export function attachEncounterRoutes(app: Express): void {
 
   app.delete("/api/encounters/:id", requireAuth, async (req, res) => {
     try {
-      const deleted = await storage.deleteEncounterForUser(req.params.id, userIdFrom(req));
+      const userId = userIdFrom(req);
+      const deleted = await storage.deleteEncounterForUser(req.params.id, userId);
       if (!deleted) {
         return res.status(404).json({ error: "Encounter not found" });
       }
+      // Recompute the matching person row — drop it if no encounters remain for that name,
+      // otherwise update its count + updatedAt so the Recent surface reflects reality.
+      await storage.reconcilePersonForUser(userId, normalizePersonName(deleted.name));
       res.status(204).end();
     } catch (error) {
       logError("delete_encounter_route_failed", error);
@@ -117,7 +121,16 @@ export function attachEncounterRoutes(app: Express): void {
         generateEmbedding(embeddingText),
       );
       const encounter = await storage.createEncounter({ ...validated, embedding, userId });
-      storage.upsertPersonFromEncounter(userId, validated.name).catch(() => {});
+      // Persons is a derived cache — log failures (they used to be silently swallowed,
+      // which produced Recent-section orphans) but don't fail the create if it errors.
+      try {
+        await storage.upsertPersonFromEncounter(userId, validated.name);
+      } catch (personError) {
+        logError("upsert_person_after_encounter_failed", personError, {
+          userId,
+          encounterId: encounter.id,
+        });
+      }
       res.status(201).json(toApiEncounter(encounter));
     } catch (error: any) {
       if (handleAiPolicyError(error, res)) return;

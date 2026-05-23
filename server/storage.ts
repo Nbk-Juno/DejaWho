@@ -21,8 +21,9 @@ export interface IStorage {
   getAllEncountersForUser(userId: string): Promise<Encounter[]>;
   getEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   createEncounter(input: CreateEncounterInput): Promise<Encounter>;
-  deleteEncounterForUser(id: string, userId: string): Promise<boolean>;
+  deleteEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   deleteAllEncountersForUser(userId: string): Promise<number>;
+  reconcilePersonForUser(userId: string, normalizedName: string): Promise<void>;
   deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
   addAllowedEmail(email: string, invitedBy?: string | null): Promise<void>;
@@ -67,12 +68,28 @@ export class DbStorage implements IStorage {
       .orderBy(desc(encounters.datetime));
   }
 
-  async deleteEncounterForUser(id: string, userId: string): Promise<boolean> {
-    const deleted = await db
+  async deleteEncounterForUser(id: string, userId: string): Promise<Encounter | undefined> {
+    const [row] = await db
       .delete(encounters)
       .where(and(eq(encounters.id, id), eq(encounters.userId, userId)))
-      .returning({ id: encounters.id });
-    return deleted.length > 0;
+      .returning();
+    return row;
+  }
+
+  async reconcilePersonForUser(userId: string, normalizedName: string): Promise<void> {
+    // Count remaining encounters with this normalized name (mirror the storage convention
+    // of filtering in JS — dataset per user is small enough that the round trip is fine).
+    const remaining = await this.getEncountersForPerson(userId, normalizedName);
+    if (remaining.length === 0) {
+      await db
+        .delete(persons)
+        .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)));
+      return;
+    }
+    await db
+      .update(persons)
+      .set({ encounterCount: remaining.length, updatedAt: new Date() })
+      .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)));
   }
 
   async deleteAllEncountersForUser(userId: string): Promise<number> {
