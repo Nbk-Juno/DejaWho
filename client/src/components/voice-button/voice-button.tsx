@@ -16,16 +16,23 @@ type VoiceButtonProps = {
   showModePill?: boolean;
 };
 
-const MODE_COLOR: Record<VoiceButtonMode, { bg: string; glow: string; shadow: string }> = {
+const MODE_COLOR: Record<
+  VoiceButtonMode,
+  { bg: string; fg: string; accent: string; glow: string; shadow: string }
+> = {
   record: {
     bg: "var(--dw-indigo)",
+    fg: "#FFFFFF",
+    accent: "rgba(255,255,255,0.15)",
     glow: "rgba(65,45,240,0.55)",
     shadow: "0 8px 28px rgba(65,45,240,0.42), 0 0 0 1px rgba(255,255,255,0.06) inset",
   },
   search: {
-    bg: "var(--dw-cyan)",
-    glow: "rgba(34,211,238,0.55)",
-    shadow: "0 8px 28px rgba(34,211,238,0.42), 0 0 0 1px rgba(255,255,255,0.06) inset",
+    bg: "var(--dw-paper)",
+    fg: "var(--dw-indigo)",
+    accent: "rgba(65,45,240,0.10)",
+    glow: "rgba(240,239,248,0.50)",
+    shadow: "0 8px 28px rgba(240,239,248,0.32), 0 0 0 1px rgba(65,45,240,0.10) inset",
   },
 };
 
@@ -52,13 +59,11 @@ function Spinner() {
   );
 }
 
-function GlyphCircle({ children, recording }: { children: React.ReactNode; recording?: boolean }) {
+function GlyphCircle({ accent, children }: { accent: string; children: React.ReactNode }) {
   return (
     <div
-      className={[
-        "flex items-center justify-center rounded-full w-10 h-10 flex-shrink-0",
-        recording ? "bg-dw-amethyst/12" : "bg-white/15",
-      ].join(" ")}
+      className="flex items-center justify-center rounded-full w-10 h-10 flex-shrink-0"
+      style={{ backgroundColor: accent }}
     >
       {children}
     </div>
@@ -73,40 +78,28 @@ function ModeToggle({
   onModeChange: (m: VoiceButtonMode) => void;
 }) {
   const isRecord = mode === "record";
+  const trackBg = isRecord ? "var(--dw-indigo)" : "var(--dw-paper)";
+  const thumbBg = isRecord ? "var(--dw-paper)" : "var(--dw-indigo)";
   return (
     <button
       type="button"
       onClick={() => onModeChange(isRecord ? "search" : "record")}
       aria-label={`Switch to ${isRecord ? "ask" : "record"} mode`}
       aria-pressed={!isRecord}
-      className="relative flex items-center w-[112px] h-9 rounded-full bg-white/8 border border-white/10 mb-3 mx-auto overflow-hidden"
+      className="relative mb-3 mx-auto w-[52px] h-[30px] rounded-full transition-colors duration-300"
+      style={{
+        backgroundColor: trackBg,
+        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.25)",
+      }}
     >
       <span
-        className="absolute top-1 bottom-1 w-[52px] rounded-full transition-all duration-300 ease-out"
+        className="absolute top-[3px] w-6 h-6 rounded-full transition-all duration-300 ease-out"
         style={{
-          left: isRecord ? "4px" : "calc(100% - 56px)",
-          backgroundColor: isRecord ? "var(--dw-indigo)" : "var(--dw-cyan)",
-          boxShadow: `0 4px 12px ${isRecord ? "rgba(65,45,240,0.45)" : "rgba(34,211,238,0.45)"}`,
+          left: isRecord ? "3px" : "calc(100% - 27px)",
+          backgroundColor: thumbBg,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
         }}
       />
-      <span
-        className={[
-          "relative z-10 w-1/2 flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors duration-200",
-          isRecord ? "text-white" : "text-white/55",
-        ].join(" ")}
-      >
-        <Mic className="w-3 h-3" strokeWidth={2.5} />
-        Speak
-      </span>
-      <span
-        className={[
-          "relative z-10 w-1/2 flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors duration-200",
-          !isRecord ? "text-white" : "text-white/55",
-        ].join(" ")}
-      >
-        <Search className="w-3 h-3" strokeWidth={2.5} />
-        Ask
-      </span>
     </button>
   );
 }
@@ -208,6 +201,10 @@ export function VoiceButton({
     ? "Tap to speak"
     : "Tap to ask";
 
+  // In default/idle state the foreground tracks the active mode (white on indigo for Speak,
+  // indigo on paper-white for Ask). Recording/processing/done have their own bg+fg pairings.
+  const modeFg = MODE_COLOR[mode].fg;
+  const modeAccent = MODE_COLOR[mode].accent;
   const glyph = isRecording ? (
     <WaveformBars />
   ) : isProcessing ? (
@@ -215,10 +212,21 @@ export function VoiceButton({
   ) : isDone ? (
     <Check className="w-6 h-6 text-white" strokeWidth={2.5} />
   ) : mode === "record" ? (
-    <Mic className="w-[22px] h-[22px] text-white" strokeWidth={2} />
+    <Mic className="w-[22px] h-[22px]" style={{ color: modeFg }} strokeWidth={2} />
   ) : (
-    <Search className="w-[22px] h-[22px] text-white" strokeWidth={2} />
+    <Search className="w-[22px] h-[22px]" style={{ color: modeFg }} strokeWidth={2} />
   );
+  const glyphCircleAccent = isRecording
+    ? "rgba(9,4,58,0.12)"
+    : isProcessing || isDone
+    ? "rgba(255,255,255,0.15)"
+    : modeAccent;
+  const labelColor = isRecording
+    ? "var(--dw-amethyst)"
+    : isProcessing || isDone
+    ? "#FFFFFF"
+    : modeFg;
+  const helperColor = mode === "record" ? "rgba(255,255,255,0.60)" : "rgba(65,45,240,0.55)";
 
   if (shape === "circle") {
     return (
@@ -297,18 +305,16 @@ export function VoiceButton({
               style={{ backgroundColor: MODE_COLOR[mode].bg }}
             />
           )}
-          <GlyphCircle recording={isRecording}>{glyph}</GlyphCircle>
+          <GlyphCircle accent={glyphCircleAccent}>{glyph}</GlyphCircle>
           <div className="relative z-10 flex flex-col items-start">
             <span
-              className={[
-                "text-[17px] font-semibold leading-tight tracking-[-0.2px]",
-                isRecording ? "text-dw-amethyst" : "text-white",
-              ].join(" ")}
+              className="text-[17px] font-semibold leading-tight tracking-[-0.2px]"
+              style={{ color: labelColor }}
             >
               {label}
             </span>
             {isDefault && (
-              <span className="text-[13px] text-white/60 mt-0.5">
+              <span className="text-[13px] mt-0.5" style={{ color: helperColor }}>
                 {mode === "record" ? "Record an encounter" : "Find someone"} · swipe to switch
               </span>
             )}

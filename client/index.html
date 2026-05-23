@@ -14,8 +14,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      html, body { background: #09043A; }
+      #initial-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #09043A;
+        display: flex; align-items: center; justify-content: center;
+        transition: opacity 280ms ease-out;
+      }
+      #initial-splash.fade-out { opacity: 0; pointer-events: none; }
+      #initial-splash img {
+        width: 96px; height: 96px; object-fit: contain;
+        animation: dw-splash-pulse 1.8s ease-in-out infinite;
+      }
+      @keyframes dw-splash-pulse {
+        0%, 100% { transform: scale(1);    opacity: 0.85; }
+        50%      { transform: scale(1.06); opacity: 1; }
+      }
+    </style>
   </head>
   <body>
+    <div id="initial-splash"><img src="/hero-mark-nobg.png" alt="" /></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

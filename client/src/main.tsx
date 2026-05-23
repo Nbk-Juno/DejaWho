@@ -7,6 +7,22 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Fade the inline HTML splash once React has taken over. Minimum 600ms display so
+// the brand mark registers instead of flashing for cached/instant loads.
+const splash = document.getElementById("initial-splash");
+if (splash) {
+  const start = performance.now();
+  const MIN_DISPLAY_MS = 600;
+  requestAnimationFrame(() => {
+    const elapsed = performance.now() - start;
+    const wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
+    setTimeout(() => {
+      splash.classList.add("fade-out");
+      setTimeout(() => splash.remove(), 320);
+    }, wait);
+  });
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").then((reg) => {

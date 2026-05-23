@@ -11,6 +11,7 @@ import { AlertCircle } from "lucide-react";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { IosInstallBanner } from "@/components/ios-install-banner";
 import { BottomNav } from "@/components/bottom-nav";
+import { Splash } from "@/components/splash";
 import { Onboarding } from "@/pages/onboarding";
 import Home from "@/pages/home";
 import SearchPage from "@/pages/search";
@@ -66,11 +67,7 @@ function AuthenticatedShell() {
   });
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <Splash />;
   }
 
   if (error || !data) {
@@ -114,11 +111,7 @@ function AppContent() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <Splash />;
   }
 
   if (!session) {

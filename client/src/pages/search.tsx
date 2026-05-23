@@ -236,7 +236,7 @@ export default function SearchPage() {
             aria-pressed={isRecording}
             className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors text-white"
             style={{
-              backgroundColor: isRecording ? "var(--dw-cyan-dim)" : "var(--dw-cyan)",
+              backgroundColor: isRecording ? "var(--dw-indigo-dim)" : "var(--dw-indigo)",
             }}
           >
             {micBusy ? (
