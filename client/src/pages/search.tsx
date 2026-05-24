@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
 import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
 import { PersonCard } from "@/components/person-card";
+import { formatAiErrorTitle } from "@/lib/ai-error";
 import type { ApiEncounter, ApiSearchResponse } from "@shared/schema";
 
 const DEFAULT_LIST_LIMIT = 10;
@@ -146,8 +147,8 @@ export default function SearchPage() {
       return res.json() as Promise<ApiSearchResponse>;
     },
     onSuccess: (data) => setSearchResults(data),
-    onError: () => {
-      toast({ title: "Search failed — try again", variant: "destructive" });
+    onError: (err) => {
+      toast({ title: formatAiErrorTitle(err, "Search failed — try again."), variant: "destructive" });
     },
   });
 
@@ -177,8 +178,8 @@ export default function SearchPage() {
         setQuery(text);
         searchMutation.mutate(text);
       },
-      onTranscriptionError: () => {
-        toast({ title: "Couldn't hear that — try again", variant: "destructive" });
+      onTranscriptionError: (err) => {
+        toast({ title: formatAiErrorTitle(err, "Couldn't hear that — try again."), variant: "destructive" });
       },
       onMicrophoneError: () => {
         toast({
@@ -298,10 +299,10 @@ export default function SearchPage() {
             ))}
           </>
         ) : (
-          <p className="text-white/40 text-sm text-center py-8">
+          <p className="text-white/40 text-sm text-center py-8 max-w-[280px] mx-auto leading-relaxed">
             {trimmed
               ? "No matches in your list. Try the mic for a smarter search."
-              : "No encounters yet"}
+              : "Search gets smarter as you add encounters. Record your first one from the home screen."}
           </p>
         )}
       </section>

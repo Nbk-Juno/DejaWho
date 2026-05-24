@@ -1,5 +1,6 @@
+import { useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { LogOut, Download, Trash2, Shield, ChevronRight, PlayCircle } from "lucide-react";
+import { LogOut, Download, Trash2, Shield, ChevronRight, PlayCircle, Mail, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -127,6 +128,23 @@ export default function Profile() {
 
   const { data: usage } = useQuery<UsageSummary>({ queryKey: ["/api/me/usage"] });
 
+  // Auto-detect the user's IANA time zone (e.g. "America/Los_Angeles"). Persist it to
+  // Supabase user_metadata once so the server can use it for AI date context later.
+  const detectedTz = useMemo(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return "UTC";
+    }
+  }, []);
+  const storedTz = (user?.user_metadata as { time_zone?: string } | undefined)?.time_zone;
+  useEffect(() => {
+    if (!user || !detectedTz || storedTz === detectedTz) return;
+    supabase.auth.updateUser({ data: { time_zone: detectedTz } }).catch(() => {
+      // Silent — not user-blocking. Next sign-in will retry.
+    });
+  }, [user, detectedTz, storedTz]);
+
   const exportMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("GET", "/api/me/export");
@@ -241,6 +259,23 @@ export default function Profile() {
           </div>
         )}
 
+        {/* Preferences */}
+        <div className="space-y-2">
+          <p
+            className="text-[11px] font-semibold uppercase tracking-[1px] px-1"
+            style={{ color: "var(--dw-text-ter)" }}
+          >
+            Preferences
+          </p>
+          <SectionCard>
+            <Row
+              icon={Clock}
+              label="Time zone"
+              value={detectedTz}
+            />
+          </SectionCard>
+        </div>
+
         {/* Data */}
         <div className="space-y-2">
           <p
@@ -268,6 +303,36 @@ export default function Profile() {
               danger
               onClick={handleDeleteAccount}
             />
+          </SectionCard>
+        </div>
+
+        {/* Support */}
+        <div className="space-y-2">
+          <p
+            className="text-[11px] font-semibold uppercase tracking-[1px] px-1"
+            style={{ color: "var(--dw-text-ter)" }}
+          >
+            Support
+          </p>
+          <SectionCard>
+            <a
+              href={`mailto:support@dejawho.io?subject=${encodeURIComponent("DejaWho feedback")}`}
+              data-testid="link-send-feedback"
+              className="block w-full text-left hover:brightness-110 transition-all duration-150"
+            >
+              <div
+                className="flex items-center gap-3 px-4 py-[14px]"
+                style={{ color: "var(--dw-text-primary)" }}
+              >
+                <Mail
+                  className="w-[18px] h-[18px] flex-shrink-0"
+                  style={{ color: "var(--dw-indigo)" }}
+                  strokeWidth={2}
+                />
+                <span className="text-[15px] flex-1">Send feedback</span>
+                <ChevronRight className="w-4 h-4 opacity-40" strokeWidth={2} />
+              </div>
+            </a>
           </SectionCard>
         </div>
 

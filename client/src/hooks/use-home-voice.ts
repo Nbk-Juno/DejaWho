@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatAiErrorTitle } from "@/lib/ai-error";
 import type { VoiceButtonMode, VoiceButtonState } from "@/components/voice-button/state";
 import type { ApiSearchResponse } from "@shared/schema";
 
@@ -61,8 +62,8 @@ export function useHomeVoice() {
         playVoiceResponse(data.naturalLanguageResponse);
       }
     },
-    onError: () => {
-      toast({ title: "Search failed — try again", variant: "destructive" });
+    onError: (err) => {
+      toast({ title: formatAiErrorTitle(err, "Search failed — try again."), variant: "destructive" });
     },
   });
 
@@ -76,7 +77,10 @@ export function useHomeVoice() {
 
   const saveMutation = useMutation<void, Error, string>({
     mutationFn: async (transcript: string) => {
-      const parseRes = await apiRequest("POST", "/api/parse-encounter", { text: transcript });
+      const timeZone = (() => {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return "UTC"; }
+      })();
+      const parseRes = await apiRequest("POST", "/api/parse-encounter", { text: transcript, timeZone });
       const parsed = (await parseRes.json()) as { name: string; location: string; context?: string };
       await apiRequest("POST", "/api/encounters", {
         ...parsed,
@@ -89,8 +93,8 @@ export function useHomeVoice() {
       setIsDone(true);
       toast({ title: "Saved!" });
     },
-    onError: () => {
-      toast({ title: "Couldn't save — try again", variant: "destructive" });
+    onError: (err) => {
+      toast({ title: formatAiErrorTitle(err, "Couldn't save — try again."), variant: "destructive" });
     },
   });
 
@@ -104,8 +108,8 @@ export function useHomeVoice() {
           searchMutation.mutate(text);
         }
       },
-      onTranscriptionError: () => {
-        toast({ title: "Couldn't hear that — try again", variant: "destructive" });
+      onTranscriptionError: (err) => {
+        toast({ title: formatAiErrorTitle(err, "Couldn't hear that — try again."), variant: "destructive" });
       },
       onMicrophoneError: () => {
         toast({

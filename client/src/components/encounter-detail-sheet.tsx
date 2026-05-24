@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
+import { formatAiErrorTitle } from "@/lib/ai-error";
 import { useToast } from "@/hooks/use-toast";
 import { normalizePersonName, type ApiEncounter, type ApiPerson } from "@shared/schema";
 
@@ -145,7 +146,7 @@ function EditMode({
       onSaved(updated);
     },
     onError: (err) => {
-      toast({ title: err.message || "Couldn't save — try again", variant: "destructive" });
+      toast({ title: formatAiErrorTitle(err, "Couldn't save — try again."), variant: "destructive" });
     },
   });
 

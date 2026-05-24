@@ -9,11 +9,30 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  data?: unknown;
+  constructor(message: string, status: number, code?: string, data?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.data = data;
   }
+}
+
+async function throwIfResNotOk(res: Response) {
+  if (res.ok) return;
+  const text = (await res.text()) || res.statusText;
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    // not JSON — keep raw text as the message
+  }
+  const message = parsed?.error || parsed?.message || text;
+  throw new ApiError(message, res.status, parsed?.code, parsed);
 }
 
 function apiUrl(path: string): string {
