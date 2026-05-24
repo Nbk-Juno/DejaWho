@@ -102,6 +102,9 @@ export const insertEncounterSchema = createInsertSchema(encounters).omit({
 export type InsertEncounter = z.infer<typeof insertEncounterSchema>;
 export type Encounter = typeof encounters.$inferSelect;
 
+export const updateEncounterSchema = insertEncounterSchema.partial();
+export type UpdateEncounter = z.infer<typeof updateEncounterSchema>;
+
 export function encounterEmbeddingText(e: { name: string; location: string; context?: string | null }): string {
   return `${e.name} ${e.location} ${e.context || ""}`.trim();
 }

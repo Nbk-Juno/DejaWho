@@ -17,10 +17,19 @@ export type CreateEncounterInput = Omit<InsertEncounter, "context"> & {
   userId: string;
 };
 
+export type UpdateEncounterInput = {
+  name?: string;
+  location?: string;
+  datetime?: Date;
+  context?: string | null;
+  embedding?: number[];
+};
+
 export interface IStorage {
   getAllEncountersForUser(userId: string): Promise<Encounter[]>;
   getEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   createEncounter(input: CreateEncounterInput): Promise<Encounter>;
+  updateEncounterForUser(id: string, userId: string, input: UpdateEncounterInput): Promise<Encounter | undefined>;
   deleteEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   deleteAllEncountersForUser(userId: string): Promise<number>;
   reconcilePersonForUser(userId: string, normalizedName: string): Promise<void>;
@@ -66,6 +75,22 @@ export class DbStorage implements IStorage {
       .from(encounters)
       .where(eq(encounters.userId, userId))
       .orderBy(desc(encounters.datetime));
+  }
+
+  async updateEncounterForUser(
+    id: string,
+    userId: string,
+    input: UpdateEncounterInput,
+  ): Promise<Encounter | undefined> {
+    if (Object.keys(input).length === 0) {
+      return this.getEncounterForUser(id, userId);
+    }
+    const [row] = await db
+      .update(encounters)
+      .set(input)
+      .where(and(eq(encounters.id, id), eq(encounters.userId, userId)))
+      .returning();
+    return row;
   }
 
   async deleteEncounterForUser(id: string, userId: string): Promise<Encounter | undefined> {

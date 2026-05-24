@@ -10,6 +10,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
 import type { ApiEncounter, ApiPerson } from "@shared/schema";
 
 function titleCase(s: string): string {
@@ -21,11 +22,28 @@ type PersonDetail = {
   encounters: ApiEncounter[];
 };
 
-function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
+function EncounterRow({
+  encounter,
+  onOpen,
+}: {
+  encounter: ApiEncounter;
+  onOpen: (encounter: ApiEncounter) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(encounter)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(encounter);
+        }
+      }}
+      className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors"
+    >
       <p className="text-white font-medium text-sm">{encounter.name}</p>
       <div className="flex items-center gap-2 text-white/50 text-xs">
         <MapPin className="w-3 h-3 flex-shrink-0" />
@@ -43,7 +61,10 @@ function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
           {encounter.context.length > 120 && (
             <button
               type="button"
-              onClick={() => setExpanded((v) => !v)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded((v) => !v);
+              }}
               className="flex items-center gap-1 text-white/40 text-xs mt-1"
             >
               {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -56,7 +77,13 @@ function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
   );
 }
 
-function PersonCardContent({ detail }: { detail: PersonDetail }) {
+function PersonCardContent({
+  detail,
+  onOpenEncounter,
+}: {
+  detail: PersonDetail;
+  onOpenEncounter: (encounter: ApiEncounter) => void;
+}) {
   const { person, encounters } = detail;
   const lastSeen = encounters.length > 0
     ? format(new Date(encounters[0].datetime), "MMM d, yyyy")
@@ -93,7 +120,7 @@ function PersonCardContent({ detail }: { detail: PersonDetail }) {
           Encounters
         </h3>
         {encounters.length > 0 ? (
-          encounters.map((e) => <EncounterRow key={e.id} encounter={e} />)
+          encounters.map((e) => <EncounterRow key={e.id} encounter={e} onOpen={onOpenEncounter} />)
         ) : (
           <p className="text-white/40 text-sm">No encounters found</p>
         )}
@@ -120,22 +147,38 @@ function PersonCardSkeleton() {
 }
 
 export function PersonCard({ personId, onClose }: { personId: string; onClose: () => void }) {
+  const [openEncounterId, setOpenEncounterId] = useState<string | null>(null);
+
   const { data, isLoading, isError } = useQuery<PersonDetail>({
     queryKey: ["/api/persons", personId],
   });
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[85vh] overflow-y-auto rounded-t-2xl bg-[#0D0744] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
-      >
-        {isLoading && <PersonCardSkeleton />}
-        {isError && (
-          <p className="text-white/50 text-sm text-center py-8">Failed to load — tap outside to close</p>
-        )}
-        {data && <PersonCardContent detail={data} />}
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open onOpenChange={(open) => !open && onClose()}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[85vh] overflow-y-auto rounded-t-2xl bg-[#0D0744] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
+        >
+          {isLoading && <PersonCardSkeleton />}
+          {isError && (
+            <p className="text-white/50 text-sm text-center py-8">Failed to load — tap outside to close</p>
+          )}
+          {data && (
+            <PersonCardContent
+              detail={data}
+              onOpenEncounter={(e) => setOpenEncounterId(e.id)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {openEncounterId && (
+        <EncounterDetailSheet
+          encounterId={openEncounterId}
+          onClose={() => setOpenEncounterId(null)}
+        />
+      )}
+    </>
   );
 }

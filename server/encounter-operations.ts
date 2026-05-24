@@ -1,7 +1,13 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { storage } from "./storage";
-import { encounterEmbeddingText, insertEncounterSchema, normalizePersonName, toApiEncounter } from "@shared/schema";
+import {
+  encounterEmbeddingText,
+  insertEncounterSchema,
+  normalizePersonName,
+  toApiEncounter,
+  updateEncounterSchema,
+} from "@shared/schema";
 import { generateEmbedding, parseEncounterFromSpeech, transcribeAudio } from "./openai";
 import { requireAuth, userIdFrom } from "./auth";
 import { logError } from "./logger";
@@ -91,6 +97,67 @@ export function attachEncounterRoutes(app: Express): void {
     } catch (error) {
       logError("get_encounter_route_failed", error);
       res.status(500).json({ error: "Failed to fetch encounter" });
+    }
+  });
+
+  app.patch("/api/encounters/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = userIdFrom(req);
+      const existing = await storage.getEncounterForUser(req.params.id, userId);
+      if (!existing) {
+        return res.status(404).json({ error: "Encounter not found" });
+      }
+
+      const validated = updateEncounterSchema.parse(req.body);
+
+      // Re-embed only when search-relevant fields (name/location/context) change. Datetime
+      // changes alone skip the OpenAI call.
+      const merged = {
+        name: validated.name ?? existing.name,
+        location: validated.location ?? existing.location,
+        context: validated.context !== undefined ? validated.context : existing.context,
+      };
+      const embeddingChanged =
+        merged.name !== existing.name ||
+        merged.location !== existing.location ||
+        merged.context !== existing.context;
+
+      let embedding: number[] | undefined;
+      if (embeddingChanged) {
+        const text = encounterEmbeddingText(merged);
+        assertAiTextWithinLimit(text, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
+        embedding = await billableAiCall(userId, "encounter_embeddings", () =>
+          generateEmbedding(text),
+        );
+      }
+
+      const updated = await storage.updateEncounterForUser(req.params.id, userId, {
+        ...validated,
+        ...(embedding !== undefined ? { embedding } : {}),
+      });
+      if (!updated) {
+        return res.status(404).json({ error: "Encounter not found" });
+      }
+
+      // If the name changed, the old person row may have lost its only encounter and
+      // the new name needs a person row. Reconcile both ends.
+      if (validated.name !== undefined && validated.name !== existing.name) {
+        try {
+          await storage.reconcilePersonForUser(userId, normalizePersonName(existing.name));
+          await storage.upsertPersonFromEncounter(userId, updated.name);
+        } catch (personError) {
+          logError("reconcile_person_after_update_failed", personError, {
+            userId,
+            encounterId: updated.id,
+          });
+        }
+      }
+
+      res.json(toApiEncounter(updated));
+    } catch (error: any) {
+      if (handleAiPolicyError(error, res)) return;
+      logError("update_encounter_route_failed", error);
+      res.status(400).json({ error: error.message || "Failed to update encounter" });
     }
   });
 

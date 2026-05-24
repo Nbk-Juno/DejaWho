@@ -24,21 +24,37 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
+import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
+import { PersonCard } from "@/components/person-card";
 import type { ApiEncounter, ApiSearchResponse } from "@shared/schema";
 
 const DEFAULT_LIST_LIMIT = 10;
 
 function EncounterRow({
   encounter,
+  onOpen,
   onDelete,
   isDeleting,
 }: {
   encounter: ApiEncounter;
+  onOpen: (encounter: ApiEncounter) => void;
   onDelete: (encounter: ApiEncounter) => void;
   isDeleting?: boolean;
 }) {
   return (
-    <div className="relative rounded-xl bg-white/6 border border-white/10 p-4 pr-10 space-y-2">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(encounter)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(encounter);
+        }
+      }}
+      data-testid={`encounter-row-${encounter.id}`}
+      className="relative rounded-xl bg-white/6 border border-white/10 p-4 pr-10 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors"
+    >
       <p className="text-white font-medium text-sm">{encounter.name}</p>
       <div className="flex items-center gap-2 text-white/50 text-xs">
         <MapPin className="w-3 h-3 flex-shrink-0" />
@@ -53,7 +69,10 @@ function EncounterRow({
       )}
       <button
         type="button"
-        onClick={() => onDelete(encounter)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(encounter);
+        }}
         disabled={isDeleting}
         aria-label={`Delete encounter with ${encounter.name}`}
         data-testid={`button-delete-encounter-${encounter.id}`}
@@ -68,11 +87,13 @@ function EncounterRow({
 function SearchResultSheet({
   results,
   onClose,
+  onOpen,
   onDelete,
   deletingId,
 }: {
   results: ApiSearchResponse;
   onClose: () => void;
+  onOpen: (encounter: ApiEncounter) => void;
   onDelete: (encounter: ApiEncounter) => void;
   deletingId: string | null;
 }) {
@@ -94,6 +115,7 @@ function SearchResultSheet({
               <EncounterRow
                 key={encounter.id}
                 encounter={encounter}
+                onOpen={onOpen}
                 onDelete={onDelete}
                 isDeleting={deletingId === encounter.id}
               />
@@ -111,6 +133,8 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ApiSearchResponse | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ApiEncounter | null>(null);
+  const [openEncounterId, setOpenEncounterId] = useState<string | null>(null);
+  const [openPersonId, setOpenPersonId] = useState<string | null>(null);
 
   const { data: encounters = [], isLoading } = useQuery<ApiEncounter[]>({
     queryKey: ["/api/encounters"],
@@ -267,6 +291,7 @@ export default function SearchPage() {
               <EncounterRow
                 key={e.id}
                 encounter={e}
+                onOpen={(enc) => setOpenEncounterId(enc.id)}
                 onDelete={setPendingDelete}
                 isDeleting={deletingId === e.id}
               />
@@ -285,9 +310,22 @@ export default function SearchPage() {
         <SearchResultSheet
           results={searchResults}
           onClose={() => setSearchResults(null)}
+          onOpen={(enc) => setOpenEncounterId(enc.id)}
           onDelete={setPendingDelete}
           deletingId={deletingId}
         />
+      )}
+
+      {openEncounterId && (
+        <EncounterDetailSheet
+          encounterId={openEncounterId}
+          onClose={() => setOpenEncounterId(null)}
+          onOpenPerson={(personId) => setOpenPersonId(personId)}
+        />
+      )}
+
+      {openPersonId && (
+        <PersonCard personId={openPersonId} onClose={() => setOpenPersonId(null)} />
       )}
 
       <AlertDialog
