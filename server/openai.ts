@@ -155,15 +155,20 @@ export async function generatePersonSummary(
       const date = e.datetime.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       return `${i + 1}. ${date} at ${e.location}${e.context ? ` — ${e.context}` : ""}`;
     });
-    const prompt = `Summarize the user's encounters with ${personName} in 1–2 conversational sentences. Focus on where they've met and any recurring themes.\n\nEncounters:\n${lines.join("\n")}`;
+    const prompt = `In 1–2 short sentences, summarize where/when the user has met ${personName} and what was noted. Stick strictly to the facts below — no embellishment, no character commentary, no inferred feelings or qualities. If context is sparse, keep it short.\n\nEncounters:\n${lines.join("\n")}`;
 
     const response = await openai().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You write concise memory summaries about people the user has met. Be warm and specific." },
+        {
+          role: "system",
+          content:
+            "You write factual, neutral memory notes about people the user has met. Use ONLY information explicitly present in the encounters list. Do not infer feelings, character traits, opinions, relationships, or anything not stated. Prefer brevity — if context is sparse, the summary should be short.",
+        },
         { role: "user", content: prompt },
       ],
-      max_completion_tokens: 150,
+      temperature: 0.2,
+      max_completion_tokens: 80,
     });
 
     return response.choices[0].message.content?.trim() || `You've met ${personName} ${encounterList.length} time${encounterList.length === 1 ? "" : "s"}.`;
