@@ -140,13 +140,25 @@ export function attachEncounterRoutes(app: Express): void {
       }
 
       // If the name changed, the old person row may have lost its only encounter and
-      // the new name needs a person row. Reconcile both ends.
-      if (validated.name !== undefined && validated.name !== existing.name) {
+      // the new name needs a person row. Reconcile both ends (both also null the cached
+      // summary so it regenerates on next PersonCard open).
+      const nameChanged = validated.name !== undefined && validated.name !== existing.name;
+      if (nameChanged) {
         try {
           await storage.reconcilePersonForUser(userId, normalizePersonName(existing.name));
           await storage.upsertPersonFromEncounter(userId, updated.name);
         } catch (personError) {
           logError("reconcile_person_after_update_failed", personError, {
+            userId,
+            encounterId: updated.id,
+          });
+        }
+      } else if (embeddingChanged) {
+        // Same person, but location/context changed → cached summary is now stale.
+        try {
+          await storage.invalidatePersonSummary(userId, normalizePersonName(existing.name));
+        } catch (personError) {
+          logError("invalidate_summary_after_update_failed", personError, {
             userId,
             encounterId: updated.id,
           });

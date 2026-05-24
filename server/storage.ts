@@ -33,6 +33,7 @@ export interface IStorage {
   deleteEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   deleteAllEncountersForUser(userId: string): Promise<number>;
   reconcilePersonForUser(userId: string, normalizedName: string): Promise<void>;
+  invalidatePersonSummary(userId: string, normalizedName: string): Promise<void>;
   deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
   addAllowedEmail(email: string, invitedBy?: string | null): Promise<void>;
@@ -113,7 +114,14 @@ export class DbStorage implements IStorage {
     }
     await db
       .update(persons)
-      .set({ encounterCount: remaining.length, updatedAt: new Date() })
+      .set({ encounterCount: remaining.length, summary: null, updatedAt: new Date() })
+      .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)));
+  }
+
+  async invalidatePersonSummary(userId: string, normalizedName: string): Promise<void> {
+    await db
+      .update(persons)
+      .set({ summary: null, updatedAt: new Date() })
       .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)));
   }
 

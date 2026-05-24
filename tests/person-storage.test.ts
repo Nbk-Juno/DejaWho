@@ -88,4 +88,35 @@ describe("person clustering", () => {
     expect(ivanEncounters).toHaveLength(2);
     expect(ivanEncounters.every((e) => e.name === "Ivan")).toBe(true);
   });
+
+  it("invalidatePersonSummary clears the cached summary", async () => {
+    const storage = new DbStorage();
+    const person = await storage.upsertPersonFromEncounter(USER_A, "Kara");
+    await storage.updatePersonSummary(person.id, USER_A, "Kara likes coffee.");
+    expect((await storage.getPersonsForUser(USER_A))[0].summary).toBe("Kara likes coffee.");
+
+    await storage.invalidatePersonSummary(USER_A, "kara");
+    expect((await storage.getPersonsForUser(USER_A))[0].summary).toBeNull();
+  });
+
+  it("reconcilePersonForUser also clears the cached summary when an encounter is removed", async () => {
+    const storage = new DbStorage();
+    await seedEncounter(storage, USER_A, "Leo");
+    await seedEncounter(storage, USER_A, "Leo");
+    // seedEncounter goes around the route — upsert the person row the way the route does.
+    await storage.upsertPersonFromEncounter(USER_A, "Leo");
+    await storage.upsertPersonFromEncounter(USER_A, "Leo");
+    const [person] = await storage.getPersonsForUser(USER_A);
+    await storage.updatePersonSummary(person.id, USER_A, "Leo is a dev.");
+    expect((await storage.getPersonsForUser(USER_A))[0].summary).toBe("Leo is a dev.");
+
+    // Simulate one encounter being deleted, then reconcile.
+    const encounters = await storage.getEncountersForPerson(USER_A, "leo");
+    await storage.deleteEncounterForUser(encounters[0].id, USER_A);
+    await storage.reconcilePersonForUser(USER_A, "leo");
+
+    const [reconciled] = await storage.getPersonsForUser(USER_A);
+    expect(reconciled.encounterCount).toBe(1);
+    expect(reconciled.summary).toBeNull();
+  });
 });
