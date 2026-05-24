@@ -284,7 +284,7 @@ export default function SearchPage() {
         ) : filtered.length > 0 ? (
           <>
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest">
+              <h2 className="text-xs font-semibold text-dw-fg-ter uppercase tracking-widest">
                 {trimmed ? "Matches" : "Recent"}
               </h2>
             </div>
@@ -299,7 +299,7 @@ export default function SearchPage() {
             ))}
           </>
         ) : (
-          <p className="text-white/40 text-sm text-center py-8 max-w-[280px] mx-auto leading-relaxed">
+          <p className="text-dw-fg-sec text-sm text-center py-8 max-w-[280px] mx-auto leading-relaxed">
             {trimmed
               ? "No matches in your list. Try the mic for a smarter search."
               : "Search gets smarter as you add encounters. Record your first one from the home screen."}

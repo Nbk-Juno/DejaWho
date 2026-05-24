@@ -81,7 +81,7 @@ export function AllEncountersSheet({ onClose }: { onClose: () => void }) {
           ) : filtered.length > 0 ? (
             filtered.map((e) => <EncounterRow key={e.id} encounter={e} />)
           ) : (
-            <p className="text-white/40 text-sm text-center py-8">
+            <p className="text-dw-fg-sec text-sm text-center py-8">
               {filter ? "No matches" : "No encounters yet"}
             </p>
           )}

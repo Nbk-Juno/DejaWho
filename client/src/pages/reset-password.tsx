@@ -51,7 +51,7 @@ export default function ResetPassword() {
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-white">Password updated</h1>
-            <p className="text-white/50 text-sm">You can now sign in with your new password.</p>
+            <p className="text-dw-fg-sec text-sm">You can now sign in with your new password.</p>
           </div>
           <a
             href="/"
@@ -71,7 +71,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-sm space-y-8">
         <div className="flex flex-col items-center gap-3">
           <img src="/horizontal-lockup.png" alt="DejaWho" className="h-14 w-auto object-contain" />
-          <p className="text-white/50 text-sm">Set your new password below.</p>
+          <p className="text-dw-fg-sec text-sm">Set your new password below.</p>
         </div>
 
         <div className="rounded-2xl bg-white/5 border border-white/10 p-6 space-y-5">

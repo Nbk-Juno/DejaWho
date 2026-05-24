@@ -94,15 +94,15 @@ function ViewMode({
 
       {encounter.context ? (
         <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold text-white/40 uppercase tracking-widest">
+          <p className="text-[11px] font-semibold text-dw-fg-ter uppercase tracking-widest">
             Notes
           </p>
-          <p className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap">
+          <p className="text-dw-fg text-sm leading-relaxed whitespace-pre-wrap">
             {encounter.context}
           </p>
         </div>
       ) : (
-        <p className="text-white/35 text-sm italic">No notes yet — tap Edit to add some.</p>
+        <p className="text-dw-fg-ter text-sm italic">No notes yet — tap Edit to add some.</p>
       )}
     </div>
   );
@@ -222,7 +222,7 @@ function EditMode({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-widest">
+      <label className="block text-[11px] font-semibold text-dw-fg-ter uppercase tracking-widest">
         {label}
       </label>
       {children}
@@ -296,7 +296,7 @@ export function EncounterDetailSheet({
       >
         {isLoading && <DetailSkeleton />}
         {isError && (
-          <p className="text-white/50 text-sm text-center py-8">
+          <p className="text-dw-fg-sec text-sm text-center py-8">
             Couldn't load that encounter — tap outside to close.
           </p>
         )}

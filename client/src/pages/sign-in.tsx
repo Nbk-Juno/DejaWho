@@ -116,7 +116,7 @@ export default function SignIn() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
           <img src="/horizontal-lockup.png" alt="DejaWho" className="h-[70px] w-auto object-contain" />
-          <p className="text-white/50 text-sm text-center">
+          <p className="text-dw-fg-sec text-sm text-center">
             {mode === "forgot-password"
               ? "We'll send a reset link to your email."
               : tab === "password"
@@ -196,7 +196,7 @@ export default function SignIn() {
                   : mode === "sign-up" ? "Create account" : "Sign in"}
               </DwButton>
               <div className="space-y-2 pt-1">
-                <p className="text-sm text-center text-white/45">
+                <p className="text-sm text-center text-dw-fg-sec">
                   {mode === "sign-in" ? (
                     <>
                       No account?{" "}
@@ -248,8 +248,8 @@ export default function SignIn() {
                 </div>
                 <div>
                   <p className="text-white font-semibold">Check your email</p>
-                  <p className="text-white/50 text-sm mt-1" data-testid="reset-confirmation">
-                    Reset link sent to <strong className="text-white/70">{(status as { kind: "sent"; email: string }).email}</strong>
+                  <p className="text-dw-fg-sec text-sm mt-1" data-testid="reset-confirmation">
+                    Reset link sent to <strong className="text-dw-fg">{(status as { kind: "sent"; email: string }).email}</strong>
                   </p>
                 </div>
                 <button
@@ -303,8 +303,8 @@ export default function SignIn() {
                 </div>
                 <div>
                   <p className="text-white font-semibold">Check your email</p>
-                  <p className="text-white/50 text-sm mt-1">
-                    Magic link sent to <strong className="text-white/70">{(status as { kind: "sent"; email: string }).email}</strong>
+                  <p className="text-dw-fg-sec text-sm mt-1">
+                    Magic link sent to <strong className="text-dw-fg">{(status as { kind: "sent"; email: string }).email}</strong>
                   </p>
                 </div>
                 <button

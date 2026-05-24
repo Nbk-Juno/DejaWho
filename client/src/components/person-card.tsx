@@ -109,20 +109,20 @@ function PersonCardContent({
 
       {!person.summary && person.encounterCount < 2 && (
         <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-          <p className="text-white/40 text-sm italic">
+          <p className="text-dw-fg-sec text-sm italic">
             Record at least two encounters to generate a summary
           </p>
         </div>
       )}
 
       <div className="space-y-3">
-        <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest">
+        <h3 className="text-xs font-semibold text-dw-fg-ter uppercase tracking-widest">
           Encounters
         </h3>
         {encounters.length > 0 ? (
           encounters.map((e) => <EncounterRow key={e.id} encounter={e} onOpen={onOpenEncounter} />)
         ) : (
-          <p className="text-white/40 text-sm">No encounters found</p>
+          <p className="text-dw-fg-sec text-sm">No encounters found</p>
         )}
       </div>
     </div>
@@ -162,7 +162,7 @@ export function PersonCard({ personId, onClose }: { personId: string; onClose: (
         >
           {isLoading && <PersonCardSkeleton />}
           {isError && (
-            <p className="text-white/50 text-sm text-center py-8">Failed to load — tap outside to close</p>
+            <p className="text-dw-fg-sec text-sm text-center py-8">Failed to load — tap outside to close</p>
           )}
           {data && (
             <PersonCardContent

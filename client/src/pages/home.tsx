@@ -15,8 +15,8 @@ import {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
-      <p className="text-white/40 text-sm">No encounters yet</p>
-      <p className="text-white/25 text-xs max-w-[200px] leading-relaxed">
+      <p className="text-dw-fg-sec text-sm">No encounters yet</p>
+      <p className="text-dw-fg-ter text-xs max-w-[200px] leading-relaxed">
         Tap the button above to record your first encounter
       </p>
     </div>
@@ -108,7 +108,7 @@ export default function Home() {
         {recentEncounters.length > 0 ? (
           <>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest">
+              <h2 className="text-xs font-semibold text-dw-fg-ter uppercase tracking-widest">
                 Recent
               </h2>
               <button

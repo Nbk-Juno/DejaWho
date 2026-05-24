@@ -26,6 +26,10 @@ export default {
           "paper-dim":"var(--dw-paper-dim)",
           success:    "var(--dw-success)",
           error:      "var(--dw-error)",
+          fg:         "var(--dw-text-primary)",
+          "fg-sec":   "var(--dw-text-sec)",
+          "fg-ter":   "var(--dw-text-ter)",
+          "fg-faint": "var(--dw-text-faint)",
         },
         // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",

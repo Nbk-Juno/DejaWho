@@ -47,7 +47,7 @@ export function RecentCard({ name, location, date, onClick }: RecentCardProps) {
         </div>
       )}
       {date && (
-        <div className="text-[11px] text-white/40">
+        <div className="text-[11px] text-dw-fg-ter">
           {formatRecentDate(date)}
         </div>
       )}

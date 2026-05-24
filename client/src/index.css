@@ -22,6 +22,15 @@
   --dw-border:      rgba(255,255,255,0.10);
   --dw-border-str:  rgba(255,255,255,0.18);
 
+  /* Semantic text tokens — all rated against the amethyst (#09043A) bg.
+     Use these instead of ad-hoc text-white/NN so hierarchy stays consistent
+     and the floor stays at WCAG AA for body copy.
+       primary ≈ 17:1, sec ≈ 11:1, ter ≈ 7:1, faint ≈ 4:1 (icons / decorative ONLY) */
+  --dw-text-primary: rgba(255,255,255,0.96);
+  --dw-text-sec:     rgba(255,255,255,0.72);
+  --dw-text-ter:     rgba(255,255,255,0.55);
+  --dw-text-faint:   rgba(255,255,255,0.40);
+
   /* Tailwind semantic tokens */
   --background:           246 87% 12%;   /* #09043A Dark Amethyst */
   --foreground:           247 50% 95%;   /* #F0EFF8 */
