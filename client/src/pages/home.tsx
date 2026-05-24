@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { VoiceButton } from "@/components/voice-button/voice-button";
 import { PersonCard } from "@/components/person-card";
-import { AllEncountersSheet } from "@/components/all-encounters-sheet";
 import { RecentCard } from "@/components/recent-card";
 import { SearchResultSheet } from "@/components/search-result-sheet";
 import { useHomeVoice } from "@/hooks/use-home-voice";
@@ -37,7 +37,7 @@ export default function Home() {
   } = useHomeVoice();
 
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const [, setLocation] = useLocation();
 
   const { data: persons = [] } = useQuery<ApiPerson[]>({
     queryKey: ["/api/persons"],
@@ -113,7 +113,7 @@ export default function Home() {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowAll(true)}
+                onClick={() => setLocation("/search")}
                 className="text-xs text-dw-indigo font-medium"
               >
                 See all
@@ -155,10 +155,6 @@ export default function Home() {
           personId={selectedPersonId}
           onClose={() => setSelectedPersonId(null)}
         />
-      )}
-
-      {showAll && (
-        <AllEncountersSheet onClose={() => setShowAll(false)} />
       )}
     </div>
   );
