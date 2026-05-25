@@ -1,0 +1,384 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-24T00:00:00Z",
+  "title": "Design System: DejaWho",
+  "extensions": {
+    "colorMeta": {
+      "amethyst": {
+        "role": "neutral",
+        "displayName": "Dark Amethyst",
+        "canonical": "oklch(13% 0.13 275)",
+        "tonalRamp": [
+          "oklch(8% 0.06 275)",
+          "oklch(13% 0.13 275)",
+          "oklch(22% 0.16 275)",
+          "oklch(35% 0.18 275)",
+          "oklch(48% 0.18 275)",
+          "oklch(62% 0.15 275)",
+          "oklch(78% 0.10 275)",
+          "oklch(92% 0.04 275)"
+        ]
+      },
+      "amethyst-card": {
+        "role": "neutral",
+        "displayName": "Amethyst Card",
+        "canonical": "oklch(18% 0.14 275)",
+        "tonalRamp": [
+          "oklch(8% 0.06 275)",
+          "oklch(13% 0.13 275)",
+          "oklch(18% 0.14 275)",
+          "oklch(22% 0.16 275)",
+          "oklch(28% 0.17 275)",
+          "oklch(35% 0.18 275)",
+          "oklch(48% 0.18 275)",
+          "oklch(62% 0.15 275)"
+        ]
+      },
+      "amethyst-elevated": {
+        "role": "neutral",
+        "displayName": "Amethyst Elevated",
+        "canonical": "oklch(22% 0.16 275)",
+        "tonalRamp": [
+          "oklch(13% 0.13 275)",
+          "oklch(18% 0.14 275)",
+          "oklch(22% 0.16 275)",
+          "oklch(28% 0.17 275)",
+          "oklch(35% 0.18 275)",
+          "oklch(48% 0.18 275)",
+          "oklch(62% 0.15 275)",
+          "oklch(78% 0.10 275)"
+        ]
+      },
+      "amethyst-overlay": {
+        "role": "neutral",
+        "displayName": "Amethyst Overlay",
+        "canonical": "oklch(28% 0.17 275)",
+        "tonalRamp": [
+          "oklch(13% 0.13 275)",
+          "oklch(18% 0.14 275)",
+          "oklch(22% 0.16 275)",
+          "oklch(28% 0.17 275)",
+          "oklch(35% 0.18 275)",
+          "oklch(48% 0.18 275)",
+          "oklch(62% 0.15 275)",
+          "oklch(78% 0.10 275)"
+        ]
+      },
+      "indigo": {
+        "role": "primary",
+        "displayName": "Bright Indigo",
+        "canonical": "oklch(48% 0.28 275)",
+        "tonalRamp": [
+          "oklch(15% 0.10 275)",
+          "oklch(26% 0.15 275)",
+          "oklch(37% 0.22 275)",
+          "oklch(48% 0.28 275)",
+          "oklch(59% 0.28 275)",
+          "oklch(70% 0.22 275)",
+          "oklch(81% 0.14 275)",
+          "oklch(92% 0.07 275)"
+        ]
+      },
+      "indigo-dim": {
+        "role": "primary",
+        "displayName": "Indigo Dim",
+        "canonical": "oklch(37% 0.22 275)",
+        "tonalRamp": [
+          "oklch(15% 0.10 275)",
+          "oklch(26% 0.15 275)",
+          "oklch(37% 0.22 275)",
+          "oklch(48% 0.28 275)",
+          "oklch(59% 0.28 275)",
+          "oklch(70% 0.22 275)",
+          "oklch(81% 0.14 275)",
+          "oklch(92% 0.07 275)"
+        ]
+      },
+      "indigo-sub": {
+        "role": "primary",
+        "displayName": "Indigo Sub",
+        "canonical": "oklch(26% 0.15 275)",
+        "tonalRamp": [
+          "oklch(13% 0.08 275)",
+          "oklch(20% 0.12 275)",
+          "oklch(26% 0.15 275)",
+          "oklch(37% 0.22 275)",
+          "oklch(48% 0.28 275)",
+          "oklch(59% 0.28 275)",
+          "oklch(70% 0.22 275)",
+          "oklch(81% 0.14 275)"
+        ]
+      },
+      "cream": {
+        "role": "tertiary",
+        "displayName": "Banana Cream",
+        "canonical": "oklch(92% 0.18 98)",
+        "tonalRamp": [
+          "oklch(20% 0.05 98)",
+          "oklch(35% 0.08 98)",
+          "oklch(50% 0.12 98)",
+          "oklch(62% 0.15 98)",
+          "oklch(74% 0.18 98)",
+          "oklch(85% 0.18 98)",
+          "oklch(92% 0.18 98)",
+          "oklch(97% 0.12 98)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "oklch(96% 0.005 275)",
+        "tonalRamp": [
+          "oklch(20% 0.005 275)",
+          "oklch(35% 0.005 275)",
+          "oklch(50% 0.005 275)",
+          "oklch(65% 0.005 275)",
+          "oklch(78% 0.005 275)",
+          "oklch(88% 0.005 275)",
+          "oklch(92% 0.005 275)",
+          "oklch(96% 0.005 275)"
+        ]
+      },
+      "paper-dim": {
+        "role": "neutral",
+        "displayName": "Paper Dim",
+        "canonical": "oklch(88% 0.01 275)",
+        "tonalRamp": [
+          "oklch(20% 0.005 275)",
+          "oklch(35% 0.005 275)",
+          "oklch(50% 0.005 275)",
+          "oklch(65% 0.005 275)",
+          "oklch(78% 0.005 275)",
+          "oklch(88% 0.01 275)",
+          "oklch(92% 0.005 275)",
+          "oklch(96% 0.005 275)"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Success Green",
+        "canonical": "oklch(78% 0.16 160)",
+        "tonalRamp": [
+          "oklch(20% 0.05 160)",
+          "oklch(32% 0.08 160)",
+          "oklch(45% 0.12 160)",
+          "oklch(57% 0.15 160)",
+          "oklch(68% 0.16 160)",
+          "oklch(78% 0.16 160)",
+          "oklch(87% 0.13 160)",
+          "oklch(94% 0.08 160)"
+        ]
+      },
+      "error": {
+        "role": "secondary",
+        "displayName": "Error Red",
+        "canonical": "oklch(64% 0.22 25)",
+        "tonalRamp": [
+          "oklch(20% 0.06 25)",
+          "oklch(32% 0.10 25)",
+          "oklch(44% 0.16 25)",
+          "oklch(54% 0.20 25)",
+          "oklch(64% 0.22 25)",
+          "oklch(74% 0.20 25)",
+          "oklch(84% 0.14 25)",
+          "oklch(93% 0.07 25)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Wordmark fallback when the brand PNG is unavailable. Tracking pulls letters together (-0.5px)." },
+      "headline": { "displayName": "Headline", "purpose": "Screen titles. Set with the tightest tracking (-0.6px) in the system." },
+      "title": { "displayName": "Title", "purpose": "Card titles, step labels, person names in detail sheets." },
+      "body-large": { "displayName": "Body Large", "purpose": "Voice button labels, primary CTA text. Heavier than body for at-a-glance reads." },
+      "body": { "displayName": "Body", "purpose": "Paragraphs, natural-language response copy, encounter context. 65–75ch line length." },
+      "caption": { "displayName": "Caption", "purpose": "Greetings, helper text under labels, secondary metadata." },
+      "label": { "displayName": "Label", "purpose": "Eyebrows: 'STEP 1', 'RECORD'. Uppercase, positive tracking (1.0)." },
+      "micro": { "displayName": "Micro", "purpose": "Bottom-nav labels and the smallest kicker text. Uppercase, 0.6 tracking." }
+    },
+    "shadows": [
+      {
+        "name": "voice-button-rest-record",
+        "value": "0 8px 28px rgba(65,45,240,0.42), inset 0 0 0 1px rgba(255,255,255,0.06)",
+        "purpose": "Indigo glow under the voice button at rest in record mode. Reads as the button casting light on the amethyst ground."
+      },
+      {
+        "name": "voice-button-rest-search",
+        "value": "0 8px 28px rgba(240,239,248,0.32), inset 0 0 0 1px rgba(65,45,240,0.10)",
+        "purpose": "Paper glow under the voice button at rest in search mode. The inverted face."
+      },
+      {
+        "name": "voice-button-recording",
+        "value": "0 8px 24px rgba(251,236,93,0.30)",
+        "purpose": "Cream glow while actively recording. The only cream shadow in the system."
+      },
+      {
+        "name": "voice-button-done",
+        "value": "0 8px 24px rgba(61,214,140,0.30)",
+        "purpose": "Success-green glow for ~1.5s after a confirmed action."
+      },
+      {
+        "name": "bottom-nav-pill",
+        "value": "0 8px 28px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.06)",
+        "purpose": "Floats the bottom-nav above the safe-area edge. The only non-focal-point shadow allowed."
+      },
+      {
+        "name": "sheet",
+        "value": "0 -8px 32px rgba(0,0,0,0.40)",
+        "purpose": "Slide-up sheet separation from the page below."
+      },
+      {
+        "name": "card",
+        "value": "0 4px 12px rgba(0,0,0,0.40)",
+        "purpose": "Available for cards that genuinely need lift (rare). Default cards stay flat."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0.7, 0.3, 1)",
+        "purpose": "House easing. Used for fade-up entrances and the mode-switch wipe. Eases out fast then settles."
+      },
+      {
+        "name": "dw-pulse-ring",
+        "value": "2.4s ease-out infinite",
+        "purpose": "Two concentric indigo rings expanding around the resting voice button. Staggered by 1.2s."
+      },
+      {
+        "name": "dw-glow-breathe",
+        "value": "4s ease-in-out infinite",
+        "purpose": "Subtle 0.45→0.7 opacity and 1.0→1.05 scale on the resting glow halo. The slowest motion in the system."
+      },
+      {
+        "name": "dw-wave",
+        "value": "0.9s ease-in-out infinite",
+        "purpose": "Recording waveform bars (7 of them) at staggered delays 0–0.3s."
+      },
+      {
+        "name": "dw-spin",
+        "value": "0.7s linear infinite",
+        "purpose": "Processing spinner on the voice button."
+      },
+      {
+        "name": "dw-fade-up",
+        "value": "0.4s cubic-bezier(0.2, 0.7, 0.3, 1)",
+        "purpose": "Result card / sheet entry. Translates 12px up + fades in."
+      },
+      {
+        "name": "dw-wipe",
+        "value": "0.34s cubic-bezier(0.2, 0.7, 0.3, 1)",
+        "purpose": "Mode switch on the voice button. Old face slides off, new face is revealed beneath."
+      },
+      {
+        "name": "dw-pulse-soft",
+        "value": "2.4s ease-in-out infinite",
+        "purpose": "Halo around the success-check at the end of onboarding."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Voice Button — Resting (Record)",
+      "kind": "custom",
+      "refersTo": "voice-button-pill-rest-record",
+      "description": "The signature component at rest, in record mode. Indigo pill with mic + label + helper, indigo glow on the amethyst ground.",
+      "html": "<div class=\"ds-vb-wrap\"><span class=\"ds-vb-glow\" aria-hidden=\"true\"></span><button type=\"button\" class=\"ds-vb-pill ds-vb-rec\" aria-label=\"Tap to speak\"><span class=\"ds-vb-icon-circle ds-vb-icon-circle-rec\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"2\" width=\"6\" height=\"12\" rx=\"3\"/><path d=\"M5 10v1a7 7 0 0 0 14 0v-1\"/><path d=\"M12 18v4\"/></svg></span><span class=\"ds-vb-text\"><span class=\"ds-vb-label\">Tap to speak</span><span class=\"ds-vb-helper\">Record an encounter · swipe to switch</span></span></button></div>",
+      "css": ".ds-vb-wrap { position: relative; display: inline-block; min-width: 320px; padding: 14px; background: #09043A; border-radius: 24px; } .ds-vb-glow { position: absolute; inset: 4px; border-radius: 9999px; background: rgba(65,45,240,0.55); filter: blur(24px); opacity: 0.6; pointer-events: none; } .ds-vb-pill { position: relative; width: 100%; height: 72px; padding: 0 16px; display: flex; align-items: center; gap: 12px; border: none; border-radius: 9999px; cursor: pointer; font-family: Inter, -apple-system, system-ui, sans-serif; transition: background-color 0.2s, transform 0.2s; } .ds-vb-rec { background-color: #412DF0; box-shadow: 0 8px 28px rgba(65,45,240,0.42), inset 0 0 0 1px rgba(255,255,255,0.06); } .ds-vb-rec:hover { background-color: #2E1FB5; } .ds-vb-rec:focus-visible { outline: 2px solid #F0EFF8; outline-offset: 3px; } .ds-vb-icon-circle { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9999px; flex-shrink: 0; } .ds-vb-icon-circle-rec { background-color: rgba(255,255,255,0.15); } .ds-vb-text { display: flex; flex-direction: column; align-items: flex-start; } .ds-vb-label { font-size: 17px; font-weight: 600; line-height: 1.1; letter-spacing: -0.2px; color: #FFFFFF; } .ds-vb-helper { font-size: 13px; margin-top: 2px; color: rgba(255,255,255,0.60); }"
+    },
+    {
+      "name": "Voice Button — Recording (Cream)",
+      "kind": "custom",
+      "refersTo": "voice-button-pill-recording",
+      "description": "The magic moment. Cream-yellow pill, dark amethyst waveform. The only cream surface in the app.",
+      "html": "<div class=\"ds-vbc-wrap\"><span class=\"ds-vbc-glow\" aria-hidden=\"true\"></span><button type=\"button\" class=\"ds-vbc-pill\" aria-label=\"Listening\"><span class=\"ds-vbc-icon-circle\"><span class=\"ds-vbc-bars\"><span class=\"ds-vbc-bar\" style=\"animation-delay:0s\"></span><span class=\"ds-vbc-bar\" style=\"animation-delay:0.15s\"></span><span class=\"ds-vbc-bar\" style=\"animation-delay:0.3s\"></span><span class=\"ds-vbc-bar\" style=\"animation-delay:0.1s\"></span><span class=\"ds-vbc-bar\" style=\"animation-delay:0.25s\"></span><span class=\"ds-vbc-bar\" style=\"animation-delay:0.05s\"></span><span class=\"ds-vbc-bar\" style=\"animation-delay:0.2s\"></span></span></span><span class=\"ds-vbc-label\">Listening…</span></button></div>",
+      "css": "@keyframes ds-vbc-wave { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } } .ds-vbc-wrap { position: relative; display: inline-block; min-width: 320px; padding: 14px; background: #09043A; border-radius: 24px; } .ds-vbc-glow { position: absolute; inset: 4px; border-radius: 9999px; background: rgba(251,236,93,0.50); filter: blur(24px); opacity: 0.7; pointer-events: none; } .ds-vbc-pill { position: relative; width: 100%; height: 72px; padding: 0 16px; display: flex; align-items: center; gap: 12px; border: none; border-radius: 9999px; background-color: #FBEC5D; box-shadow: 0 8px 24px rgba(251,236,93,0.30); cursor: pointer; font-family: Inter, -apple-system, system-ui, sans-serif; } .ds-vbc-icon-circle { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9999px; background-color: rgba(9,4,58,0.12); flex-shrink: 0; } .ds-vbc-bars { display: flex; align-items: center; gap: 3px; height: 28px; } .ds-vbc-bar { width: 3px; height: 28px; border-radius: 9999px; background-color: #09043A; transform-origin: center; animation: ds-vbc-wave 0.9s ease-in-out infinite; } .ds-vbc-label { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; color: #09043A; }"
+    },
+    {
+      "name": "Recent Card",
+      "kind": "card",
+      "refersTo": "recent-card",
+      "description": "Small horizontal-scrollable tile on home: name, location with map-pin, relative date. No avatar.",
+      "html": "<div class=\"ds-rc-bg\"><button type=\"button\" class=\"ds-rc\"><span class=\"ds-rc-name\">Sarah Johnson</span><span class=\"ds-rc-loc\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/></svg><span>Blue Bottle Coffee</span></span><span class=\"ds-rc-date\">3d ago</span></button></div>",
+      "css": ".ds-rc-bg { background: #09043A; padding: 20px; display: inline-block; border-radius: 16px; } .ds-rc { display: flex; flex-direction: column; gap: 6px; width: 180px; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; background-color: rgba(255,255,255,0.04); text-align: left; cursor: pointer; font-family: Inter, -apple-system, system-ui, sans-serif; transition: background-color 0.15s; } .ds-rc:hover { background-color: rgba(255,255,255,0.07); } .ds-rc:active { background-color: rgba(255,255,255,0.09); } .ds-rc-name { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.96); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-rc-loc { display: flex; align-items: center; gap: 4px; font-size: 12px; color: rgba(255,255,255,0.55); min-width: 0; } .ds-rc-loc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-rc-date { font-size: 11px; color: rgba(255,255,255,0.55); }"
+    },
+    {
+      "name": "Bottom Navigation",
+      "kind": "nav",
+      "refersTo": "bottom-nav-container",
+      "description": "Floating pill nav with three tabs (Home, Search, Profile). Sits on amethyst-elevated above the safe area. Active tab fills with 20% indigo and switches color + stroke weight.",
+      "html": "<div class=\"ds-bn-bg\"><nav class=\"ds-bn\"><button class=\"ds-bn-tab ds-bn-active\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"#412DF0\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/><path d=\"M9 22V12h6v10\"/></svg><span class=\"ds-bn-label ds-bn-label-active\">HOME</span></button><button class=\"ds-bn-tab\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"rgba(255,255,255,0.55)\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><span class=\"ds-bn-label\">SEARCH</span></button><button class=\"ds-bn-tab\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"rgba(255,255,255,0.55)\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg><span class=\"ds-bn-label\">PROFILE</span></button></nav></div>",
+      "css": ".ds-bn-bg { background: #09043A; padding: 24px; display: inline-block; border-radius: 24px; } .ds-bn { display: inline-flex; align-items: center; gap: 4px; padding: 6px; border-radius: 9999px; background-color: #15105A; box-shadow: 0 8px 28px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.06); font-family: Inter, -apple-system, system-ui, sans-serif; } .ds-bn-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 72px; padding: 8px 16px; border: none; border-radius: 9999px; background-color: transparent; cursor: pointer; transition: background-color 0.2s; } .ds-bn-active { background-color: rgba(65,45,240,0.20); } .ds-bn-tab:hover:not(.ds-bn-active) { background-color: rgba(255,255,255,0.04); } .ds-bn-label { font-size: 10px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(255,255,255,0.55); } .ds-bn-label-active { color: #412DF0; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default CTA. Indigo fill, body-large label. Used for 'Get Started', 'Start Remembering', form submits.",
+      "html": "<div class=\"ds-pb-bg\"><button type=\"button\" class=\"ds-pb\">Get Started</button></div>",
+      "css": ".ds-pb-bg { background: #09043A; padding: 24px; display: inline-block; border-radius: 16px; } .ds-pb { padding: 12px 24px; border: none; border-radius: 12px; background-color: #412DF0; color: #FFFFFF; font-family: Inter, -apple-system, system-ui, sans-serif; font-size: 17px; font-weight: 600; letter-spacing: -0.2px; cursor: pointer; transition: background-color 0.15s; } .ds-pb:hover { background-color: #2E1FB5; } .ds-pb:focus-visible { outline: 2px solid #F0EFF8; outline-offset: 3px; } .ds-pb:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Encounter Card",
+      "kind": "card",
+      "refersTo": "encounter-card",
+      "description": "Larger content card with person name, location, date, and context preview. Flat surface, no shadow.",
+      "html": "<div class=\"ds-ec-bg\"><div class=\"ds-ec\"><div class=\"ds-ec-row\"><span class=\"ds-ec-name\">Alex Park</span><span class=\"ds-ec-date\">Today</span></div><div class=\"ds-ec-loc\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/></svg><span>Blue Bottle Coffee, Brooklyn</span></div><p class=\"ds-ec-ctx\">Photographer working on a series about late-night diners. Mentioned a show in March at a small gallery in Greenpoint.</p></div></div>",
+      "css": ".ds-ec-bg { background: #09043A; padding: 24px; display: inline-block; border-radius: 16px; max-width: 420px; } .ds-ec { padding: 16px; border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; background-color: rgba(255,255,255,0.04); font-family: Inter, -apple-system, system-ui, sans-serif; } .ds-ec-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; } .ds-ec-name { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; color: rgba(255,255,255,0.96); } .ds-ec-date { font-size: 13px; color: rgba(255,255,255,0.55); } .ds-ec-loc { display: flex; align-items: center; gap: 6px; font-size: 13px; color: rgba(255,255,255,0.72); margin-bottom: 10px; } .ds-ec-ctx { margin: 0; font-size: 15px; line-height: 1.45; letter-spacing: -0.1px; color: rgba(255,255,255,0.72); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night-Sky Atlas",
+    "overview": "DejaWho is a memory app rendered as a night sky. The ground is Dark Amethyst (#09043A) — almost-black, almost-blue, the color of a private indoor evening. Bright Indigo (#412DF0) is the considered, cool body of the system: the voice button at rest, every primary CTA, every active state. It does the work. Banana Cream (#FBEC5D) is starlight: rare, earned, reserved for the singular moment of recall. The eventual network graph reads as a constellation of people you remember.\n\nThe system is tonal-first. Depth comes from a four-step amethyst ramp (amethyst → amethyst-card → amethyst-elevated → amethyst-overlay), not from shadows. Shadows appear only at the focal point: a colored glow under the voice button, and a soft drop under the floating bottom-nav pill. Everything else sits flat on the ground. Type is Inter, weights are confident, tracking is negatively-set on display sizes so the wordmark and screen titles feel considered rather than airy. Cards are pressable but quiet. The user looks at the encounter, not the chrome around it.\n\nThis system explicitly rejects four currently-saturated lanes: generic productivity SaaS, the loud AI/crypto aesthetic, cold enterprise dashboards, and cutesy social/consumer apps. DejaWho is voice-first, adult, and intimate. It doesn't need to perform.",
+    "keyCharacteristics": [
+      "Dark-only. There is no light mode and there will not be one.",
+      "Tonal depth, not shadow depth — except at one focal point.",
+      "One workhorse accent (Indigo), one reserved highlight (Cream).",
+      "Voice button is the component; everything else recedes around it.",
+      "Considered, tactile, calm."
+    ],
+    "rules": [
+      { "name": "The Cream Reserve Rule", "body": "Banana Cream (#FBEC5D) is never decorative, never a hover tint, never a hyperlink color, never a secondary CTA. It marks moments that earn the word magical. The recording state qualifies today. A new use must clear the same bar.", "section": "colors" },
+      { "name": "The Ground Is Amethyst Rule", "body": "Backgrounds step up from #09043A through the four-stop amethyst ramp. Never invent a fifth stop, never bring in a gray, never use #FFFFFF as a surface. Paper (#F0EFF8) is for text and the voice button's search face only.", "section": "colors" },
+      { "name": "The One Workhorse Rule", "body": "Indigo carries every interactive moment that isn't explicitly success-green or recording-cream. Don't dilute it with a second accent. Don't introduce indigo siblings (teal-indigo, violet-indigo) — only the three indigo tones.", "section": "colors" },
+      { "name": "The Negative-Tracking Rule", "body": "Display, Headline, and Title sizes pull letters together. Body and caption sizes use slight negative tracking (-0.1px). Labels and Micro reverse to positive tracking (1.0 / 0.6) and go uppercase. Never use the same letter-spacing across the scale.", "section": "typography" },
+      { "name": "The No-Decorative-Type Rule", "body": "No script faces. No serif on body. No more than one weight per role. No gradient text. The discipline of one family done well beats mixing.", "section": "typography" },
+      { "name": "The Glow-at-the-Focal-Point Rule", "body": "Colored glows (indigo, cream, green) are exclusive to the voice button. Don't ship a card, button, badge, or icon with a colored glow shadow. The voice button is the only thing in the app projecting light onto the ground.", "section": "elevation" },
+      { "name": "The Flat-Cards Rule", "body": "Every non-focal surface is flat: amethyst-stepped background, 1px white-alpha border, no shadow. If a card needs to stand out more, step its background up one rung in the amethyst ramp, don't add a shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do start every full-bleed screen on amethyst (#09043A). The ground is the ground.",
+      "Do step surfaces up through the four-stop amethyst ramp for depth. Cards (amethyst-card), modals/nav (amethyst-elevated), sheets (amethyst-overlay).",
+      "Do use Indigo (#412DF0) as the single workhorse accent. Voice button, primary CTAs, active states, focus, links — all indigo.",
+      "Do reserve Banana Cream (#FBEC5D) for moments that earn the word magical. The recording state today. Future cream moments must clear the same bar.",
+      "Do give the voice button a colored glow shadow. It is the only thing in the app projecting light.",
+      "Do put text on dark via the alpha ramp (text-primary 96%, text-sec 72%, text-ter 55%). Never text-faint (40%) for body — it's for decorative icons only.",
+      "Do use negative letter-spacing on Display, Headline, and Title sizes (-0.5 to -0.3px). Positive (1.0) and uppercase on Label / Micro.",
+      "Do respect prefers-reduced-motion: reduce for the voice-button pulse rings, glow-breathe, and waveform animations.",
+      "Do pair every color-coded state with a non-color signal: recording is cream AND a waveform; success is green AND a check; processing is indigo AND a spinner.",
+      "Do keep body line length at 65–75ch."
+    ],
+    "donts": [
+      "Don't introduce a light mode. There is no light mode and there will not be one. Dark-only is doctrine.",
+      "Don't use #FFFFFF as a surface or #000000 anywhere. Paper (#F0EFF8) is the off-white; the ground is amethyst.",
+      "Don't use Cream as a decorative accent, a hover tint, a hyperlink color, a CTA fill, or a brand stamp. Cream marks magic, not chrome.",
+      "Don't add colored glows or drop shadows to cards, badges, icons, or ghost buttons. Glow belongs to the voice button. Drop shadow belongs to the floating bottom-nav. Nothing else.",
+      "Don't introduce a second accent color. No teal, no violet, no warm-orange counterpoint. One workhorse (indigo), one highlight (cream), semantic green and red. That's it.",
+      "Don't ship side-stripe borders (border-left or border-right >1px as a colored accent on cards or alerts). Use full borders, background tints, or leading icons.",
+      "Don't ship gradient text (background-clip: text). Use weight and size for emphasis.",
+      "Don't ship glassmorphism (blurs over content) decoratively. Avoid unless there's a specific functional reason.",
+      "Don't ship a hero-metric template (big number + small label + supporting stats + gradient accent). The loud AI/crypto aesthetic anti-reference rejects this by name.",
+      "Don't ship identical card grids (same-sized cards with icon + heading + text, repeated endlessly). The generic productivity SaaS anti-reference rejects this by name.",
+      "Don't reach for a modal as the first thought. Inline and slide-up sheets are the default progressive surfaces.",
+      "Don't ship em dashes in copy. Use commas, colons, semicolons, periods, or parentheses.",
+      "Don't animate CSS layout properties. Transform and opacity only.",
+      "Don't add bounce or elastic easing. Ease out with exponential curves (cubic-bezier(.2,.7,.3,1) is the house easing).",
+      "Don't make typing equally prominent with voice. The voice button is the hero on every primary screen.",
+      "Don't soften the recording state. Full cream, dark amethyst waveform, no overlay tint. It's supposed to feel different from the rest of the UI."
+    ]
+  }
+}
