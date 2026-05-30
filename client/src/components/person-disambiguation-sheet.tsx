@@ -6,6 +6,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { personDisplayName, type ApiPerson } from "@shared/schema";
 
 export type DisambiguationCandidate = {
@@ -42,8 +43,10 @@ export function PersonDisambiguationSheet({
   onPick: (personId: string) => void;
   onKeepNew: () => void;
 }) {
+  const { open, onOpenChange, closeThen } = useAnimatedSheetClose(onKeepNew);
+
   return (
-    <Sheet open onOpenChange={(open) => !open && onKeepNew()}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
@@ -65,7 +68,7 @@ export function PersonDisambiguationSheet({
               <button
                 key={person.id}
                 type="button"
-                onClick={() => onPick(person.id)}
+                onClick={() => closeThen(() => onPick(person.id))}
                 className="w-full text-left rounded-xl bg-white/[0.07] border border-white/10 p-4 hover:bg-white/[0.09] active:bg-white/[0.11] transition-colors"
               >
                 <p className="text-white font-semibold text-sm">{personDisplayName(person)}</p>
@@ -87,7 +90,7 @@ export function PersonDisambiguationSheet({
 
           <button
             type="button"
-            onClick={onKeepNew}
+            onClick={() => closeThen(onKeepNew)}
             className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 p-4 text-white/80 text-sm font-medium hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors"
           >
             <UserPlus className="w-4 h-4" />

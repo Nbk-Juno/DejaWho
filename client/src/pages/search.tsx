@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
 import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
 import { PersonCard } from "@/components/person-card";
@@ -155,8 +156,9 @@ function SearchResultSheet({
   onDelete: (encounter: ApiEncounter) => void;
   deletingId: string | null;
 }) {
+  const { open, onOpenChange } = useAnimatedSheetClose(onClose);
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-[#120A5C] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { encounterFullName, personDisplayName, type ApiEncounter, type ApiPerson } from "@shared/schema";
 
 type PersonDetail = {
@@ -144,6 +145,7 @@ function PersonCardSkeleton() {
 
 export function PersonCard({ personId, onClose }: { personId: string; onClose: () => void }) {
   const [openEncounterId, setOpenEncounterId] = useState<string | null>(null);
+  const { open, onOpenChange } = useAnimatedSheetClose(onClose);
 
   const { data, isLoading, isError } = useQuery<PersonDetail>({
     queryKey: ["/api/persons", personId],
@@ -151,7 +153,7 @@ export function PersonCard({ personId, onClose }: { personId: string; onClose: (
 
   return (
     <>
-      <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
           className="max-h-[85vh] overflow-y-auto rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)]"

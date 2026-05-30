@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { formatAiErrorTitle } from "@/lib/ai-error";
 import { useToast } from "@/hooks/use-toast";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { encounterFullName, normalizePersonName, type ApiEncounter, type ApiPerson } from "@shared/schema";
 
 function titleCase(s: string): string {
@@ -270,6 +271,7 @@ export function EncounterDetailSheet({
 }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const { open, onOpenChange } = useAnimatedSheetClose(onClose);
 
   const { data, isLoading, isError } = useQuery<ApiEncounter>({
     queryKey: ["/api/encounters", encounterId],
@@ -303,7 +305,7 @@ export function EncounterDetailSheet({
   }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="max-h-[90vh] overflow-y-auto rounded-t-2xl bg-[#0D0744] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"

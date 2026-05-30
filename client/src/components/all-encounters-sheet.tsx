@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { encounterFullName, type ApiEncounter } from "@shared/schema";
 
 function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
@@ -33,6 +34,7 @@ function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
 
 export function AllEncountersSheet({ onClose }: { onClose: () => void }) {
   const [filter, setFilter] = useState("");
+  const { open, onOpenChange } = useAnimatedSheetClose(onClose);
   const { data: encounters = [], isLoading } = useQuery<ApiEncounter[]>({
     queryKey: ["/api/encounters"],
   });
@@ -49,7 +51,7 @@ export function AllEncountersSheet({ onClose }: { onClose: () => void }) {
     : encounters;
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="h-[90vh] flex flex-col rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)] !p-0"

@@ -8,6 +8,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { encounterFullName, type ApiSearchResponse } from "@shared/schema";
 
 type PrimaryAction = {
@@ -33,6 +34,7 @@ export function SearchResultSheet({
   maxResults?: number;
   primaryAction?: PrimaryAction;
 }) {
+  const { open, onOpenChange } = useAnimatedSheetClose(onClose);
   const canReplay = Boolean(results.naturalLanguageResponse);
   const isEmpty = !results.naturalLanguageResponse && results.results.length === 0;
 
@@ -60,7 +62,7 @@ export function SearchResultSheet({
   }, [results.naturalLanguageResponse]);
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
