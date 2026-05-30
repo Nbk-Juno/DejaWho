@@ -23,7 +23,9 @@ if (splash) {
   });
 }
 
-if ("serviceWorker" in navigator) {
+// Register only in production builds. In dev the cache-first SW serves stale bundles and
+// fights Vite HMR; PWA features are tested against `npm run build && npm run start`.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").then((reg) => {
       reg.addEventListener("updatefound", () => {

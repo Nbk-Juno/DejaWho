@@ -11,11 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
-import type { ApiEncounter, ApiPerson } from "@shared/schema";
-
-function titleCase(s: string): string {
-  return s.replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import { encounterFullName, personDisplayName, type ApiEncounter, type ApiPerson } from "@shared/schema";
 
 type PersonDetail = {
   person: ApiPerson;
@@ -42,9 +38,9 @@ function EncounterRow({
           onOpen(encounter);
         }
       }}
-      className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors"
+      className="rounded-xl bg-white/[0.07] border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.09] active:bg-white/[0.11] transition-colors"
     >
-      <p className="text-white font-medium text-sm">{encounter.name}</p>
+      <p className="text-white font-medium text-sm">{encounterFullName(encounter)}</p>
       <div className="flex items-center gap-2 text-white/50 text-xs">
         <MapPin className="w-3 h-3 flex-shrink-0" />
         <span className="truncate">{encounter.location}</span>
@@ -93,7 +89,7 @@ function PersonCardContent({
     <div className="space-y-5">
       <SheetHeader>
         <SheetTitle className="text-white text-left text-2xl font-semibold">
-          {titleCase(person.normalizedName)}
+          {personDisplayName(person)}
         </SheetTitle>
         <SheetDescription className="text-white/50 text-left text-sm">
           {person.encounterCount} encounter{person.encounterCount !== 1 ? "s" : ""}
@@ -108,7 +104,7 @@ function PersonCardContent({
       )}
 
       {!person.summary && person.encounterCount < 2 && (
-        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+        <div className="rounded-xl bg-white/[0.04] border border-white/10 p-4">
           <p className="text-dw-fg-sec text-sm italic">
             Record at least two encounters to generate a summary
           </p>
@@ -158,7 +154,7 @@ export function PersonCard({ personId, onClose }: { personId: string; onClose: (
       <Sheet open onOpenChange={(open) => !open && onClose()}>
         <SheetContent
           side="bottom"
-          className="max-h-[85vh] overflow-y-auto rounded-t-2xl bg-[#0D0744] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
+          className="max-h-[85vh] overflow-y-auto rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
         >
           {isLoading && <PersonCardSkeleton />}
           {isError && (

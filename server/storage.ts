@@ -6,23 +6,26 @@ import {
   persons,
   usageCounters,
   whitelistedEmails,
-  normalizePersonName,
 } from "@shared/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "./db";
 
 export type CreateEncounterInput = Omit<InsertEncounter, "context"> & {
   context?: string | null;
+  lastName?: string | null;
   embedding: number[];
   userId: string;
+  personId?: string | null;
 };
 
 export type UpdateEncounterInput = {
   name?: string;
+  lastName?: string | null;
   location?: string;
   datetime?: Date;
   context?: string | null;
   embedding?: number[];
+  personId?: string | null;
 };
 
 export interface IStorage {
@@ -32,15 +35,17 @@ export interface IStorage {
   updateEncounterForUser(id: string, userId: string, input: UpdateEncounterInput): Promise<Encounter | undefined>;
   deleteEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
   deleteAllEncountersForUser(userId: string): Promise<number>;
-  reconcilePersonForUser(userId: string, normalizedName: string): Promise<void>;
-  invalidatePersonSummary(userId: string, normalizedName: string): Promise<void>;
   deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
   addAllowedEmail(email: string, invitedBy?: string | null): Promise<void>;
   getPersonsForUser(userId: string): Promise<Person[]>;
   getPersonForUser(id: string, userId: string): Promise<Person | undefined>;
-  getEncountersForPerson(userId: string, normalizedName: string): Promise<Encounter[]>;
-  upsertPersonFromEncounter(userId: string, name: string): Promise<Person>;
+  getPersonsByNameForUser(userId: string, normalizedName: string): Promise<Person[]>;
+  getEncountersForPerson(userId: string, personId: string): Promise<Encounter[]>;
+  createPersonForUser(userId: string, normalizedName: string, lastName?: string | null): Promise<Person>;
+  attachEncounterToPerson(encounterId: string, userId: string, personId: string): Promise<void>;
+  reassignEncounterPerson(encounterId: string, userId: string, toPersonId: string): Promise<void>;
+  recomputePerson(userId: string, personId: string): Promise<void>;
   updatePersonSummary(id: string, userId: string, summary: string): Promise<void>;
   deletePersonsForUser(userId: string): Promise<number>;
 }
@@ -52,10 +57,12 @@ export class DbStorage implements IStorage {
       .values({
         userId: input.userId,
         name: input.name,
+        lastName: input.lastName ?? null,
         location: input.location,
         datetime: input.datetime,
         context: input.context ?? null,
         embedding: input.embedding,
+        personId: input.personId ?? null,
       })
       .returning();
     return row;
@@ -102,27 +109,28 @@ export class DbStorage implements IStorage {
     return row;
   }
 
-  async reconcilePersonForUser(userId: string, normalizedName: string): Promise<void> {
-    // Count remaining encounters with this normalized name (mirror the storage convention
-    // of filtering in JS — dataset per user is small enough that the round trip is fine).
-    const remaining = await this.getEncountersForPerson(userId, normalizedName);
-    if (remaining.length === 0) {
-      await db
-        .delete(persons)
-        .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)));
+  // Recount + retag a person from its currently-attached encounters. Deletes the person row
+  // when nothing is left attached (e.g. its only encounter was deleted or reassigned away).
+  // Nulls the cached summary so it regenerates on next PersonCard open.
+  async recomputePerson(userId: string, personId: string): Promise<void> {
+    const attached = await this.getEncountersForPerson(userId, personId);
+    if (attached.length === 0) {
+      await db.delete(persons).where(and(eq(persons.id, personId), eq(persons.userId, userId)));
       return;
     }
+    // getEncountersForPerson returns datetime-desc, so [0] is the most recent.
+    const latest = attached[0];
+    const latestWithLastName = attached.find((e) => e.lastName && e.lastName.trim());
     await db
       .update(persons)
-      .set({ encounterCount: remaining.length, summary: null, updatedAt: new Date() })
-      .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)));
-  }
-
-  async invalidatePersonSummary(userId: string, normalizedName: string): Promise<void> {
-    await db
-      .update(persons)
-      .set({ summary: null, updatedAt: new Date() })
-      .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)));
+      .set({
+        encounterCount: attached.length,
+        lastName: latestWithLastName?.lastName ?? null,
+        locationTag: latest.location?.trim() || null,
+        summary: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(persons.id, personId), eq(persons.userId, userId)));
   }
 
   async deleteAllEncountersForUser(userId: string): Promise<number> {
@@ -176,30 +184,47 @@ export class DbStorage implements IStorage {
     return row;
   }
 
-  async getEncountersForPerson(userId: string, normalizedName: string): Promise<Encounter[]> {
-    const all = await db
+  async getPersonsByNameForUser(userId: string, normalizedName: string): Promise<Person[]> {
+    return db
       .select()
-      .from(encounters)
-      .where(eq(encounters.userId, userId))
-      .orderBy(desc(encounters.datetime));
-    return all.filter(e => normalizePersonName(e.name) === normalizedName);
+      .from(persons)
+      .where(and(eq(persons.userId, userId), eq(persons.normalizedName, normalizedName)))
+      .orderBy(desc(persons.updatedAt));
   }
 
-  async upsertPersonFromEncounter(userId: string, name: string): Promise<Person> {
-    const normalizedName = normalizePersonName(name);
+  async getEncountersForPerson(userId: string, personId: string): Promise<Encounter[]> {
+    return db
+      .select()
+      .from(encounters)
+      .where(and(eq(encounters.userId, userId), eq(encounters.personId, personId)))
+      .orderBy(desc(encounters.datetime));
+  }
+
+  async createPersonForUser(userId: string, normalizedName: string, lastName: string | null = null): Promise<Person> {
     const [row] = await db
       .insert(persons)
-      .values({ userId, normalizedName, encounterCount: 1, summary: null })
-      .onConflictDoUpdate({
-        target: [persons.userId, persons.normalizedName],
-        set: {
-          encounterCount: sql`${persons.encounterCount} + 1`,
-          summary: null,
-          updatedAt: sql`now()`,
-        },
-      })
+      .values({ userId, normalizedName, lastName, encounterCount: 0, summary: null })
       .returning();
     return row;
+  }
+
+  async attachEncounterToPerson(encounterId: string, userId: string, personId: string): Promise<void> {
+    await db
+      .update(encounters)
+      .set({ personId })
+      .where(and(eq(encounters.id, encounterId), eq(encounters.userId, userId)));
+  }
+
+  async reassignEncounterPerson(encounterId: string, userId: string, toPersonId: string): Promise<void> {
+    const existing = await this.getEncounterForUser(encounterId, userId);
+    if (!existing) return;
+    const fromPersonId = existing.personId;
+    if (fromPersonId === toPersonId) return;
+    await this.attachEncounterToPerson(encounterId, userId, toPersonId);
+    await this.recomputePerson(userId, toPersonId);
+    if (fromPersonId) {
+      await this.recomputePerson(userId, fromPersonId);
+    }
   }
 
   async updatePersonSummary(id: string, userId: string, summary: string): Promise<void> {

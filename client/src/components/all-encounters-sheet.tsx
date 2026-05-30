@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ApiEncounter } from "@shared/schema";
+import { encounterFullName, type ApiEncounter } from "@shared/schema";
 
 function EncounterRow({ encounter }: { encounter: ApiEncounter }) {
   return (
-    <div className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2">
-      <p className="text-white font-medium text-sm">{encounter.name}</p>
+    <div className="rounded-xl bg-white/[0.07] border border-white/10 p-4 space-y-2">
+      <p className="text-white font-medium text-sm">{encounterFullName(encounter)}</p>
       <div className="flex items-center gap-2 text-white/50 text-xs">
         <MapPin className="w-3 h-3 flex-shrink-0" />
         <span className="truncate">{encounter.location}</span>
@@ -41,7 +41,7 @@ export function AllEncountersSheet({ onClose }: { onClose: () => void }) {
     ? encounters.filter((e) => {
         const q = filter.toLowerCase();
         return (
-          e.name.toLowerCase().includes(q) ||
+          encounterFullName(e).toLowerCase().includes(q) ||
           e.location.toLowerCase().includes(q) ||
           (e.context ?? "").toLowerCase().includes(q)
         );
@@ -52,7 +52,7 @@ export function AllEncountersSheet({ onClose }: { onClose: () => void }) {
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
-        className="h-[90vh] flex flex-col rounded-t-2xl bg-[#0D0744] border-t border-white/10 pb-[env(safe-area-inset-bottom)] !p-0"
+        className="h-[90vh] flex flex-col rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)] !p-0"
       >
         <div className="flex-shrink-0 px-6 pt-6 pb-3 space-y-4">
           <SheetHeader>
@@ -66,7 +66,7 @@ export function AllEncountersSheet({ onClose }: { onClose: () => void }) {
               placeholder="Filter by name, place, or context…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-9 bg-white/8 border-white/15 text-white placeholder:text-white/35 focus-visible:ring-dw-indigo/50"
+              className="pl-9 bg-white/[0.07] border-white/10 text-white placeholder:text-white/40 focus-visible:ring-dw-indigo/50"
             />
           </div>
         </div>

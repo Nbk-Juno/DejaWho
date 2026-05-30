@@ -21,3 +21,12 @@ vite.config.ts.*
 
 # Test artifacts
 test-results/
+
+# Impeccable design-skill local state (design.json sidecar + critique snapshots —
+# regenerable, and trend tracking is personal per contributor)
+.impeccable/
+
+# AI tooling installer artifacts (.agents mirrors .claude/skills for other agents;
+# skills-lock.json pins skill versions for the same toolchain)
+.agents/
+skills-lock.json

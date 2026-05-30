@@ -9,56 +9,124 @@ function fakeEmbedding(): number[] {
   return Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => Math.sin(i) * 0.5);
 }
 
-async function seedEncounter(storage: DbStorage, userId: string, name: string) {
+async function seedEncounter(
+  storage: DbStorage,
+  userId: string,
+  name: string,
+  opts: { lastName?: string; location?: string; datetime?: Date; personId?: string } = {},
+) {
   return storage.createEncounter({
     userId,
     name,
-    location: "Somewhere",
-    datetime: new Date(),
+    lastName: opts.lastName ?? null,
+    location: opts.location ?? "Somewhere",
+    datetime: opts.datetime ?? new Date(),
     context: null,
     embedding: fakeEmbedding(),
+    personId: opts.personId ?? null,
   });
 }
 
-describe("person clustering", () => {
-  it("upsertPersonFromEncounter normalizes names to lowercase trimmed", async () => {
+describe("person identity storage", () => {
+  it("createPersonForUser inserts a new row on every call (same name can coexist)", async () => {
     const storage = new DbStorage();
-    const person = await storage.upsertPersonFromEncounter(USER_A, "  Alice Smith  ");
-    expect(person.normalizedName).toBe("alice smith");
-  });
-
-  it("treats same normalized name as the same person (upsert not insert)", async () => {
-    const storage = new DbStorage();
-    await storage.upsertPersonFromEncounter(USER_A, "Bob");
-    await storage.upsertPersonFromEncounter(USER_A, "bob");
+    const first = await storage.createPersonForUser(USER_A, "john");
+    const second = await storage.createPersonForUser(USER_A, "john");
+    expect(first.id).not.toBe(second.id);
     const all = await storage.getPersonsForUser(USER_A);
-    expect(all).toHaveLength(1);
+    expect(all).toHaveLength(2);
+    expect(all.every((p) => p.normalizedName === "john")).toBe(true);
   });
 
-  it("increments encounterCount on each upsert", async () => {
+  it("getPersonsByNameForUser returns all candidates with the normalized name", async () => {
     const storage = new DbStorage();
-    await storage.upsertPersonFromEncounter(USER_A, "Carol");
-    await storage.upsertPersonFromEncounter(USER_A, "Carol");
-    const [person] = await storage.getPersonsForUser(USER_A);
-    expect(person.encounterCount).toBe(2);
+    await storage.createPersonForUser(USER_A, "john");
+    await storage.createPersonForUser(USER_A, "john");
+    await storage.createPersonForUser(USER_A, "jane");
+
+    const johns = await storage.getPersonsByNameForUser(USER_A, "john");
+    expect(johns).toHaveLength(2);
+    expect(johns.every((p) => p.normalizedName === "john")).toBe(true);
   });
 
-  it("invalidates summary (sets to null) on each new encounter upsert", async () => {
+  it("attach + recompute sets count, latest lastName, and location tag", async () => {
     const storage = new DbStorage();
-    const first = await storage.upsertPersonFromEncounter(USER_A, "Dan");
-    await storage.updatePersonSummary(first.id, USER_A, "Dan is a great guy.");
-    const [withSummary] = await storage.getPersonsForUser(USER_A);
-    expect(withSummary.summary).toBe("Dan is a great guy.");
+    const person = await storage.createPersonForUser(USER_A, "john");
+    const older = await seedEncounter(storage, USER_A, "John", {
+      lastName: "Smith",
+      location: "Gym",
+      datetime: new Date("2026-01-01T10:00:00Z"),
+    });
+    const newer = await seedEncounter(storage, USER_A, "John", {
+      location: "Work",
+      datetime: new Date("2026-03-01T10:00:00Z"),
+    });
+    await storage.attachEncounterToPerson(older.id, USER_A, person.id);
+    await storage.attachEncounterToPerson(newer.id, USER_A, person.id);
+    await storage.recomputePerson(USER_A, person.id);
 
-    await storage.upsertPersonFromEncounter(USER_A, "Dan");
-    const [invalidated] = await storage.getPersonsForUser(USER_A);
-    expect(invalidated.summary).toBeNull();
+    const [updated] = await storage.getPersonsByNameForUser(USER_A, "john");
+    expect(updated.encounterCount).toBe(2);
+    // locationTag tracks the most recent encounter.
+    expect(updated.locationTag).toBe("Work");
+    // lastName falls back to the most recent encounter that actually has one.
+    expect(updated.lastName).toBe("Smith");
+  });
+
+  it("recomputePerson deletes the person when nothing is attached", async () => {
+    const storage = new DbStorage();
+    const person = await storage.createPersonForUser(USER_A, "ghost");
+    await storage.recomputePerson(USER_A, person.id);
+    expect(await storage.getPersonForUser(person.id, USER_A)).toBeUndefined();
+  });
+
+  it("recomputePerson nulls the cached summary", async () => {
+    const storage = new DbStorage();
+    const person = await storage.createPersonForUser(USER_A, "dan");
+    const enc = await seedEncounter(storage, USER_A, "Dan");
+    await storage.attachEncounterToPerson(enc.id, USER_A, person.id);
+    await storage.recomputePerson(USER_A, person.id);
+    await storage.updatePersonSummary(person.id, USER_A, "Dan is a dev.");
+    expect((await storage.getPersonForUser(person.id, USER_A))?.summary).toBe("Dan is a dev.");
+
+    await storage.recomputePerson(USER_A, person.id);
+    expect((await storage.getPersonForUser(person.id, USER_A))?.summary).toBeNull();
+  });
+
+  it("getEncountersForPerson returns only encounters attached to that personId", async () => {
+    const storage = new DbStorage();
+    const johnA = await storage.createPersonForUser(USER_A, "john");
+    const johnB = await storage.createPersonForUser(USER_A, "john");
+    const e1 = await seedEncounter(storage, USER_A, "John", { personId: johnA.id });
+    const e2 = await seedEncounter(storage, USER_A, "John", { personId: johnA.id });
+    await seedEncounter(storage, USER_A, "John", { personId: johnB.id });
+
+    const johnAEncounters = await storage.getEncountersForPerson(USER_A, johnA.id);
+    expect(johnAEncounters).toHaveLength(2);
+    expect(johnAEncounters.map((e) => e.id).sort()).toEqual([e1.id, e2.id].sort());
+  });
+
+  it("reassignEncounterPerson moves the encounter and reconciles both persons", async () => {
+    const storage = new DbStorage();
+    const fromPerson = await storage.createPersonForUser(USER_A, "john");
+    const toPerson = await storage.createPersonForUser(USER_A, "john");
+    const enc = await seedEncounter(storage, USER_A, "John", { personId: fromPerson.id });
+    await storage.recomputePerson(USER_A, fromPerson.id);
+    expect((await storage.getPersonForUser(fromPerson.id, USER_A))?.encounterCount).toBe(1);
+
+    await storage.reassignEncounterPerson(enc.id, USER_A, toPerson.id);
+
+    // Encounter now belongs to toPerson.
+    expect(await storage.getEncountersForPerson(USER_A, toPerson.id)).toHaveLength(1);
+    expect((await storage.getPersonForUser(toPerson.id, USER_A))?.encounterCount).toBe(1);
+    // fromPerson is now empty and was deleted by recompute.
+    expect(await storage.getPersonForUser(fromPerson.id, USER_A)).toBeUndefined();
   });
 
   it("keeps persons isolated per user", async () => {
     const storage = new DbStorage();
-    await storage.upsertPersonFromEncounter(USER_A, "Eve");
-    await storage.upsertPersonFromEncounter(USER_B, "Eve");
+    await storage.createPersonForUser(USER_A, "eve");
+    await storage.createPersonForUser(USER_B, "eve");
     const forA = await storage.getPersonsForUser(USER_A);
     const forB = await storage.getPersonsForUser(USER_B);
     expect(forA).toHaveLength(1);
@@ -68,55 +136,13 @@ describe("person clustering", () => {
 
   it("deletePersonsForUser removes all persons for that user only", async () => {
     const storage = new DbStorage();
-    await storage.upsertPersonFromEncounter(USER_A, "Frank");
-    await storage.upsertPersonFromEncounter(USER_A, "Grace");
-    await storage.upsertPersonFromEncounter(USER_B, "Heidi");
+    await storage.createPersonForUser(USER_A, "frank");
+    await storage.createPersonForUser(USER_A, "grace");
+    await storage.createPersonForUser(USER_B, "heidi");
 
     const deleted = await storage.deletePersonsForUser(USER_A);
     expect(deleted).toBe(2);
     expect(await storage.getPersonsForUser(USER_A)).toHaveLength(0);
     expect(await storage.getPersonsForUser(USER_B)).toHaveLength(1);
-  });
-
-  it("getEncountersForPerson returns only encounters matching normalized name", async () => {
-    const storage = new DbStorage();
-    await seedEncounter(storage, USER_A, "Ivan");
-    await seedEncounter(storage, USER_A, "Ivan");
-    await seedEncounter(storage, USER_A, "Jane");
-
-    const ivanEncounters = await storage.getEncountersForPerson(USER_A, "ivan");
-    expect(ivanEncounters).toHaveLength(2);
-    expect(ivanEncounters.every((e) => e.name === "Ivan")).toBe(true);
-  });
-
-  it("invalidatePersonSummary clears the cached summary", async () => {
-    const storage = new DbStorage();
-    const person = await storage.upsertPersonFromEncounter(USER_A, "Kara");
-    await storage.updatePersonSummary(person.id, USER_A, "Kara likes coffee.");
-    expect((await storage.getPersonsForUser(USER_A))[0].summary).toBe("Kara likes coffee.");
-
-    await storage.invalidatePersonSummary(USER_A, "kara");
-    expect((await storage.getPersonsForUser(USER_A))[0].summary).toBeNull();
-  });
-
-  it("reconcilePersonForUser also clears the cached summary when an encounter is removed", async () => {
-    const storage = new DbStorage();
-    await seedEncounter(storage, USER_A, "Leo");
-    await seedEncounter(storage, USER_A, "Leo");
-    // seedEncounter goes around the route — upsert the person row the way the route does.
-    await storage.upsertPersonFromEncounter(USER_A, "Leo");
-    await storage.upsertPersonFromEncounter(USER_A, "Leo");
-    const [person] = await storage.getPersonsForUser(USER_A);
-    await storage.updatePersonSummary(person.id, USER_A, "Leo is a dev.");
-    expect((await storage.getPersonsForUser(USER_A))[0].summary).toBe("Leo is a dev.");
-
-    // Simulate one encounter being deleted, then reconcile.
-    const encounters = await storage.getEncountersForPerson(USER_A, "leo");
-    await storage.deleteEncounterForUser(encounters[0].id, USER_A);
-    await storage.reconcilePersonForUser(USER_A, "leo");
-
-    const [reconciled] = await storage.getPersonsForUser(USER_A);
-    expect(reconciled.encounterCount).toBe(1);
-    expect(reconciled.summary).toBeNull();
   });
 });

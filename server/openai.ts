@@ -155,7 +155,7 @@ export async function generatePersonSummary(
       const date = e.datetime.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       return `${i + 1}. ${date} at ${e.location}${e.context ? ` — ${e.context}` : ""}`;
     });
-    const prompt = `In 1–2 short sentences, summarize where/when the user has met ${personName} and what was noted. Stick strictly to the facts below — no embellishment, no character commentary, no inferred feelings or qualities. If context is sparse, keep it short.\n\nEncounters:\n${lines.join("\n")}`;
+    const prompt = `In 1–2 short sentences, summarize where/when you've met ${personName} and what was noted. Address the reader directly in the second person — start with "You met ${personName}…", never "The user…". Stick strictly to the facts below — no embellishment, no character commentary, no inferred feelings or qualities. If context is sparse, keep it short.\n\nEncounters:\n${lines.join("\n")}`;
 
     const response = await openai().chat.completions.create({
       model: "gpt-4o-mini",
@@ -163,7 +163,7 @@ export async function generatePersonSummary(
         {
           role: "system",
           content:
-            "You write factual, neutral memory notes about people the user has met. Use ONLY information explicitly present in the encounters list. Do not infer feelings, character traits, opinions, relationships, or anything not stated. Prefer brevity — if context is sparse, the summary should be short.",
+            "You write factual, neutral memory notes addressed to the reader in the second person (\"You met…\"), never third person (\"The user…\"). Use ONLY information explicitly present in the encounters list. Do not infer feelings, character traits, opinions, relationships, or anything not stated. Prefer brevity — if context is sparse, the summary should be short.",
         },
         { role: "user", content: prompt },
       ],
@@ -180,6 +180,7 @@ export async function generatePersonSummary(
 
 interface ParsedEncounter {
   name: string;
+  lastName: string;
   location: string;
   context: string;
 }
@@ -209,8 +210,18 @@ export async function parseEncounterFromSpeech(text: string, retries = 2): Promi
       if (!content) throw new Error("No response from OpenAI");
 
       const parsed = JSON.parse(content);
+      const lastName = (parsed.lastName || "").trim();
+      let name = (parsed.name || "Unknown").trim();
+      // GPT sometimes echoes the full name into `name` while also filling `lastName`
+      // (e.g. name "John Brown", lastName "Brown"). Strip a trailing surname so `name`
+      // stays the given name(s) only — preserving multi-word first names like "Mary Jane".
+      if (lastName && name.toLowerCase().endsWith(lastName.toLowerCase())) {
+        const stripped = name.slice(0, name.length - lastName.length).trim();
+        if (stripped) name = stripped;
+      }
       return {
-        name: parsed.name || "Unknown",
+        name: name || "Unknown",
+        lastName,
         location: parsed.location || "Unknown location",
         context: parsed.context || "",
       };

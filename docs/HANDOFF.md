@@ -15,7 +15,7 @@ Last updated: 2026-05-17
 | 7. Observability (Sentry client + server) | Done | PR #21 |
 | 8. Tests (75 Vitest integration tests) | Done | PR #21 + ongoing |
 | 9. Rename (Who That!? → DejaWho) | Done | PR #22 |
-| 10. Deploy (Render free tier, prod Supabase, Resend SMTP) | Done | Live at dejawho.onrender.com |
+| 10. Deploy (Render free tier, prod Supabase, Resend SMTP) | Done | Live at dejawho.io |
 | 11A. Password auth + reset flow | Done | commit `7ecc3f1` |
 | 11B. Architecture deepening (6 refactors) | Done | commit `0f19972` |
 
@@ -51,6 +51,10 @@ Six improvements shipped in one commit (`0f19972`):
 - **Resend email deliverability:** Magic link emails sent via Resend (`onboarding@resend.dev` sender) may not reach inbox. Fix: verify `dejawho.io` domain in Resend, add the DNS records (SPF/DKIM/DMARC) to the registrar, then update the Supabase Auth SMTP sender to `noreply@dejawho.io`. In progress — see issue #25.
 - **Service worker caching:** After a Render rebuild, returning users may get stale cached JS. They need to clear site data or unregister the service worker to pick up new builds. Consider adding a cache-busting strategy or SW version check.
 - **Render cold starts:** Free tier sleeps after 15min. First request after sleep takes ~30s. Acceptable for friends-and-family.
+
+## Pending prod actions
+
+- **Apply migration `0005_person_identity` to prod Supabase** (multi-person disambiguation). Render does NOT auto-apply migrations — after this merges, run it via the Supabase MCP `apply_migration` tool (or paste the SQL into the Supabase SQL editor) and verify the new `encounters.person_id` / `last_name` and `persons.last_name` / `location_tag` columns exist. Skipping this causes route-level 500s (`42703 column ... does not exist`).
 
 ## Post-launch follow-ups (not yet tracked as issues)
 

@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "./storage";
-import { toApiEncounter, toApiPerson } from "@shared/schema";
+import { personDisplayName, toApiEncounter, toApiPerson } from "@shared/schema";
 import { generatePersonSummary } from "./openai";
 import { requireAuth, userIdFrom } from "./auth";
 import { logError } from "./logger";
@@ -25,12 +25,12 @@ export function attachPersonRoutes(app: Express): void {
         return res.status(404).json({ error: "Person not found" });
       }
 
-      const encounterList = await storage.getEncountersForPerson(userId, person.normalizedName);
+      const encounterList = await storage.getEncountersForPerson(userId, person.id);
 
       let summary = person.summary;
       if (!summary && encounterList.length > 0) {
         summary = await billableAiCall(userId, "parse_calls", () =>
-          generatePersonSummary(person.normalizedName, encounterList),
+          generatePersonSummary(personDisplayName(person), encounterList),
         );
         await storage.updatePersonSummary(person.id, userId, summary);
       }

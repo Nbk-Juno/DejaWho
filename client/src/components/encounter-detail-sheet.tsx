@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { formatAiErrorTitle } from "@/lib/ai-error";
 import { useToast } from "@/hooks/use-toast";
-import { normalizePersonName, type ApiEncounter, type ApiPerson } from "@shared/schema";
+import { encounterFullName, normalizePersonName, type ApiEncounter, type ApiPerson } from "@shared/schema";
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -33,6 +33,7 @@ function fromLocalInput(local: string): string {
 
 type FormState = {
   name: string;
+  lastName: string;
   location: string;
   datetimeLocal: string;
   context: string;
@@ -52,7 +53,7 @@ function ViewMode({
       <div className="flex items-start justify-between gap-3 pr-10">
         <div className="space-y-1 min-w-0 flex-1">
           <SheetTitle className="text-white text-left text-2xl font-semibold leading-tight">
-            {titleCase(encounter.name)}
+            {encounterFullName({ name: titleCase(encounter.name), lastName: encounter.lastName })}
           </SheetTitle>
         </div>
         <div className="flex-shrink-0 flex items-center gap-2">
@@ -120,6 +121,7 @@ function EditMode({
   const { toast } = useToast();
   const [form, setForm] = useState<FormState>({
     name: encounter.name,
+    lastName: encounter.lastName ?? "",
     location: encounter.location,
     datetimeLocal: toLocalInput(encounter.datetime),
     context: encounter.context ?? "",
@@ -134,6 +136,7 @@ function EditMode({
 
       const body = {
         name: trimmedName,
+        lastName: form.lastName.trim(),
         location: trimmedLocation,
         datetime: fromLocalInput(form.datetimeLocal),
         context: form.context.trim() || undefined,
@@ -185,6 +188,17 @@ function EditMode({
           className="bg-white/5 border-white/15 text-white focus-visible:ring-dw-indigo/50"
           autoCapitalize="words"
           autoComplete="off"
+        />
+      </Field>
+
+      <Field label="Last name">
+        <Input
+          value={form.lastName}
+          onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+          className="bg-white/5 border-white/15 text-white focus-visible:ring-dw-indigo/50"
+          autoCapitalize="words"
+          autoComplete="off"
+          placeholder="Optional — helps tell same-name people apart"
         />
       </Field>
 

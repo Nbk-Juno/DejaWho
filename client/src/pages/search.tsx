@@ -27,9 +27,66 @@ import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
 import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
 import { PersonCard } from "@/components/person-card";
 import { formatAiErrorTitle } from "@/lib/ai-error";
-import type { ApiEncounter, ApiSearchResponse } from "@shared/schema";
+import {
+  disambiguatedNames,
+  encounterFullName,
+  personDisplayName,
+  type ApiEncounter,
+  type ApiPerson,
+  type ApiSearchResponse,
+} from "@shared/schema";
 
-const DEFAULT_LIST_LIMIT = 10;
+function PersonRow({
+  person,
+  label,
+  location,
+  lastSeen,
+  onOpen,
+}: {
+  person: ApiPerson;
+  label: string;
+  location: string | null;
+  lastSeen: string | null;
+  onOpen: (personId: string) => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(person.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(person.id);
+        }
+      }}
+      data-testid={`person-row-${person.id}`}
+      className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-white font-medium text-sm">{label}</p>
+        <span className="text-white/40 text-xs flex-shrink-0">
+          {person.encounterCount} encounter{person.encounterCount !== 1 ? "s" : ""}
+        </span>
+      </div>
+      {location && (
+        <div className="flex items-center gap-2 text-white/50 text-xs">
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{location}</span>
+        </div>
+      )}
+      {lastSeen && (
+        <div className="flex items-center gap-2 text-white/50 text-xs">
+          <Calendar className="w-3 h-3 flex-shrink-0" />
+          <span>Last seen {lastSeen}</span>
+        </div>
+      )}
+      {person.summary && (
+        <p className="text-white/60 text-xs leading-relaxed line-clamp-2">{person.summary}</p>
+      )}
+    </div>
+  );
+}
 
 function EncounterRow({
   encounter,
@@ -56,7 +113,7 @@ function EncounterRow({
       data-testid={`encounter-row-${encounter.id}`}
       className="relative rounded-xl bg-white/6 border border-white/10 p-4 pr-10 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors"
     >
-      <p className="text-white font-medium text-sm">{encounter.name}</p>
+      <p className="text-white font-medium text-sm">{encounterFullName(encounter)}</p>
       <div className="flex items-center gap-2 text-white/50 text-xs">
         <MapPin className="w-3 h-3 flex-shrink-0" />
         <span className="truncate">{encounter.location}</span>
@@ -137,7 +194,11 @@ export default function SearchPage() {
   const [openEncounterId, setOpenEncounterId] = useState<string | null>(null);
   const [openPersonId, setOpenPersonId] = useState<string | null>(null);
 
-  const { data: encounters = [], isLoading } = useQuery<ApiEncounter[]>({
+  const { data: persons = [], isLoading } = useQuery<ApiPerson[]>({
+    queryKey: ["/api/persons"],
+  });
+
+  const { data: encounters = [] } = useQuery<ApiEncounter[]>({
     queryKey: ["/api/encounters"],
   });
 
@@ -190,23 +251,49 @@ export default function SearchPage() {
       },
     });
 
-  const recent = useMemo(() => {
-    return encounters
-      .slice()
-      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+  // Last-seen date + location per person, derived from the encounters table (the source of
+  // truth for datetime). Falls back to person.updatedAt for people whose encounters somehow
+  // lack a personId link.
+  const latestByPerson = useMemo(() => {
+    const map = new Map<string, ApiEncounter>();
+    for (const e of encounters) {
+      if (!e.personId) continue;
+      const existing = map.get(e.personId);
+      if (!existing || new Date(e.datetime) > new Date(existing.datetime)) {
+        map.set(e.personId, e);
+      }
+    }
+    return map;
   }, [encounters]);
+
+  const personLabels = useMemo(() => disambiguatedNames(persons), [persons]);
+
+  const people = useMemo(() => {
+    return persons
+      .map((person) => {
+        const latest = latestByPerson.get(person.id);
+        return {
+          person,
+          label: personLabels.get(person.id) ?? personDisplayName(person),
+          location: latest?.location ?? null,
+          lastSeenDate: latest ? new Date(latest.datetime) : new Date(person.updatedAt),
+        };
+      })
+      .sort((a, b) => b.lastSeenDate.getTime() - a.lastSeenDate.getTime());
+  }, [persons, personLabels, latestByPerson]);
 
   const trimmed = query.trim();
   const filtered = trimmed
-    ? recent.filter((e) => {
+    ? people.filter(({ person, label, location }) => {
         const q = trimmed.toLowerCase();
         return (
-          e.name.toLowerCase().includes(q) ||
-          e.location.toLowerCase().includes(q) ||
-          (e.context ?? "").toLowerCase().includes(q)
+          label.toLowerCase().includes(q) ||
+          (person.lastName ?? "").toLowerCase().includes(q) ||
+          (location ?? "").toLowerCase().includes(q) ||
+          (person.summary ?? "").toLowerCase().includes(q)
         );
       })
-    : recent.slice(0, DEFAULT_LIST_LIMIT);
+    : people;
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,24 +372,25 @@ export default function SearchPage() {
           <>
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold text-dw-fg-ter uppercase tracking-widest">
-                {trimmed ? "Matches" : "Recent"}
+                {trimmed ? "Matches" : "People"}
               </h2>
             </div>
-            {filtered.map((e) => (
-              <EncounterRow
-                key={e.id}
-                encounter={e}
-                onOpen={(enc) => setOpenEncounterId(enc.id)}
-                onDelete={setPendingDelete}
-                isDeleting={deletingId === e.id}
+            {filtered.map(({ person, label, location, lastSeenDate }) => (
+              <PersonRow
+                key={person.id}
+                person={person}
+                label={label}
+                location={location}
+                lastSeen={lastSeenDate ? format(lastSeenDate, "MMM d, yyyy") : null}
+                onOpen={(id) => setOpenPersonId(id)}
               />
             ))}
           </>
         ) : (
           <p className="text-dw-fg-sec text-sm text-center py-8 max-w-[280px] mx-auto leading-relaxed">
             {trimmed
-              ? "No matches in your list. Try the mic for a smarter search."
-              : "Search gets smarter as you add encounters. Record your first one from the home screen."}
+              ? "No one matches. Try the mic for a smarter search."
+              : "Your people will appear here as you record encounters. Record your first one from the home screen."}
           </p>
         )}
       </section>
