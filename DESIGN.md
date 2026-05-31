@@ -9,6 +9,7 @@ colors:
   indigo: "#412DF0"
   indigo-dim: "#2E1FB5"
   indigo-sub: "#1B1370"
+  indigo-text: "#857AF6"
   cream: "#FBEC5D"
   paper: "#F0EFF8"
   paper-dim: "#DBD9EA"
@@ -206,6 +207,13 @@ considered body, cream as rare starlight.
   Never used as a default fill — only as a reaction.
 - **Indigo Sub** (`#1B1370`): Icon-tile backgrounds and low-emphasis indigo
   fills (the 52×52 step icons in onboarding). The "quiet indigo" tone.
+- **Indigo Lift** (`#857AF6`): The same 246° hue as Bright Indigo, lightened so
+  indigo can be a legible *foreground* on the dark ground. Bright Indigo on
+  amethyst is only ≈2.6:1, which fails AA as link text and the 3:1 floor as a
+  standalone icon; Indigo Lift reads ≈5.6:1 on amethyst and ≈5.4:1 on the card.
+  Use it for indigo text and indigo icons on dark (the "See all" link, active
+  bottom-nav icon + label, profile row icons). Bright Indigo stays the *fill*
+  (white sits on it at ≈7.4:1); Indigo Lift is never a fill.
 
 ### Tertiary
 
@@ -261,8 +269,11 @@ button's search face only.
 
 **The One Workhorse Rule.** Indigo carries every interactive moment that isn't
 explicitly success-green or recording-cream. Don't dilute it with a second
-accent. Don't introduce indigo siblings (teal-indigo, violet-indigo) — only
-the three indigo tones above.
+accent. Don't introduce indigo *siblings* on a different hue (teal-indigo,
+violet-indigo) — only tonal steps of the one 246° indigo: the four tones above
+(`indigo`, `indigo-dim`, `indigo-sub`, `indigo-text`). `indigo` is the fill,
+`indigo-text` is that same hue lifted for legible foreground-on-dark; both are
+the workhorse, not a second accent.
 
 ## 3. Typography
 
@@ -429,9 +440,10 @@ circle for onboarding's "Try it" practice screens).
 - **Tabs:** 3 tabs (Home, Search, Profile). Each tab is a 72px-min pill,
   `rounded-full`, 8/16 padding, icon (22px) above Micro label (10px,
   uppercase, 0.6 tracking).
-- **Active state:** Indigo (`#412DF0`) icon + label, 20% indigo background
-  fill on the tab. Stroke weight bumps from 2 to 2.5.
-- **Inactive state:** 55% white icon + label, transparent fill.
+- **Active state:** Indigo Lift (`#857AF6`) icon + label for legibility, 20%
+  Bright Indigo (`#412DF0`) background fill on the tab. Stroke weight bumps
+  from 2 to 2.5.
+- **Inactive state:** `text-ter` (55% white) icon + label, transparent fill.
 
 ### Recent Card
 

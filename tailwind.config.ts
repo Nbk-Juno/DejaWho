@@ -20,6 +20,7 @@ export default {
           indigo:     "var(--dw-indigo)",
           "indigo-dim": "var(--dw-indigo-dim)",
           "indigo-sub": "var(--dw-indigo-sub)",
+          "indigo-text": "var(--dw-indigo-text)",
           cream:      "var(--dw-cream)",
           "cream-glow": "var(--dw-cream-glow)",
           paper:      "var(--dw-paper)",

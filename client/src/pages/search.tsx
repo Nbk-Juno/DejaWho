@@ -54,43 +54,36 @@ function PersonRow({
 }) {
   return (
     <div className="flex items-stretch rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden">
-      <div
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => onOpen(person.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpen(person.id);
-          }
-        }}
         data-testid={`person-row-${person.id}`}
-        className="flex-1 min-w-0 p-4 space-y-2 cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60"
+        className="flex-1 min-w-0 p-4 space-y-2 text-left cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60"
       >
-        <p className="text-dw-fg font-medium text-sm truncate">{label}</p>
+        <span className="block text-dw-fg font-medium text-sm truncate">{label}</span>
         {location && (
-          <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
+          <span className="flex items-center gap-2 text-dw-fg-ter text-xs">
             <MapPin className="w-3 h-3 flex-shrink-0" />
             <span className="truncate">{location}</span>
-          </div>
+          </span>
         )}
         {lastSeen && (
-          <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
+          <span className="flex items-center gap-2 text-dw-fg-ter text-xs">
             <Calendar className="w-3 h-3 flex-shrink-0" />
             <span>Last seen {lastSeen}</span>
-          </div>
+          </span>
         )}
         {person.summary && (
-          <p className="text-dw-fg-sec text-xs leading-relaxed line-clamp-2">{person.summary}</p>
+          <span className="block text-dw-fg-sec text-xs leading-relaxed line-clamp-2">{person.summary}</span>
         )}
-      </div>
+      </button>
       <button
         type="button"
         onClick={() => onDelete(person)}
         disabled={isDeleting}
         aria-label={`Delete ${label} and all encounters`}
         data-testid={`button-delete-person-${person.id}`}
-        className="flex-shrink-0 w-11 flex items-center justify-center text-dw-fg-faint hover:text-dw-error hover:bg-white/[0.06] transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60"
+        className="flex-shrink-0 w-11 flex items-center justify-center text-dw-fg-ter hover:text-dw-error hover:bg-white/[0.06] transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60"
       >
         {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
       </button>
@@ -113,29 +106,24 @@ function ResultPersonRow({
 }) {
   const { person, label, matched } = result;
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={() => onOpen(person.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(person.id);
-        }
-      }}
       data-testid={`result-person-row-${person.id}`}
-      className="rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.07] active:bg-white/[0.09] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dw-indigo/60"
+      className="block w-full text-left rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.07] active:bg-white/[0.09] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dw-indigo/60"
     >
-      <p className="text-dw-fg font-medium text-sm truncate">{label}</p>
-      <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
-        <MapPin className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate">{matched.location}</span>
-      </div>
-      <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
+      <span className="block text-dw-fg font-medium text-sm truncate">{label}</span>
+      {matched.location && (
+        <span className="flex items-center gap-2 text-dw-fg-ter text-xs">
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{matched.location}</span>
+        </span>
+      )}
+      <span className="flex items-center gap-2 text-dw-fg-ter text-xs">
         <Calendar className="w-3 h-3 flex-shrink-0" />
         <span>{format(new Date(matched.datetime), "MMM d, yyyy")}</span>
-      </div>
-    </div>
+      </span>
+    </button>
   );
 }
 
@@ -332,6 +320,7 @@ export default function SearchPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search people"
               placeholder="Name, place, or a question…"
               enterKeyHint="search"
               className="pl-9 pr-11 h-11 border-white/15 focus-visible:ring-dw-indigo/50"

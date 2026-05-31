@@ -139,14 +139,16 @@ export default function Home() {
             <span
               aria-hidden
               className="dw-hero-halo absolute inset-[-24px] rounded-full blur-2xl pointer-events-none"
-              style={{ backgroundColor: "rgba(251,236,93,0.45)" }}
+              style={{ backgroundColor: "var(--dw-cream-bloom)" }}
             />
           )}
-          <img
-            src="/hero-mark-nobg.png"
-            alt="DejaWho"
-            className="relative h-[115px] w-[115px] object-contain"
-          />
+          <h1 className="relative">
+            <img
+              src="/hero-mark-nobg.png"
+              alt="DejaWho"
+              className="h-[115px] w-[115px] object-contain"
+            />
+          </h1>
         </div>
         <div className="w-full max-w-md">
           <VoiceButton
@@ -175,7 +177,7 @@ export default function Home() {
                 type="button"
                 onClick={() => setLocation("/search")}
                 aria-label="See all encounters"
-                className="-mr-2 px-2 min-h-11 flex items-center gap-0.5 text-xs text-dw-indigo font-medium rounded-md"
+                className="-mr-2 px-2 min-h-11 flex items-center gap-0.5 text-xs text-dw-indigo-text font-medium rounded-md"
               >
                 See all
                 <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />

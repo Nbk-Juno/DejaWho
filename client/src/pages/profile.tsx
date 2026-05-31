@@ -50,7 +50,7 @@ function failureToast(err: unknown, fallbackTitle: string) {
 }
 
 function UsageBar({ label, count, cap }: { label: string; count: number; cap: number }) {
-  const pct = Math.min((count / cap) * 100, 100);
+  const pct = cap > 0 ? Math.min((count / cap) * 100, 100) : 0;
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between text-[13px]">
@@ -59,7 +59,14 @@ function UsageBar({ label, count, cap }: { label: string; count: number; cap: nu
           {count} <span className="text-dw-fg-ter">/ {cap}</span>
         </span>
       </div>
-      <div className="h-1 rounded-full bg-white/10">
+      <div
+        role="progressbar"
+        aria-label={`${label} usage`}
+        aria-valuenow={count}
+        aria-valuemin={0}
+        aria-valuemax={cap}
+        className="h-1 rounded-full bg-white/10"
+      >
         <div
           className="h-1 rounded-full bg-dw-indigo transition-all duration-500 ease-[cubic-bezier(.2,.7,.3,1)]"
           style={{ width: `${pct}%` }}
@@ -102,14 +109,14 @@ function Row({
     >
       {Icon && (
         <Icon
-          className={`w-[18px] h-[18px] flex-shrink-0 ${danger ? "text-dw-error" : "text-dw-indigo"}`}
+          className={`w-[18px] h-[18px] flex-shrink-0 ${danger ? "text-dw-error" : "text-dw-indigo-text"}`}
           strokeWidth={2}
         />
       )}
       <span className="text-[15px] flex-1">{label}</span>
       {value && <span className="text-[14px] text-dw-fg-sec">{value}</span>}
       {loading ? (
-        <Loader2 className="w-4 h-4 animate-spin text-dw-indigo" strokeWidth={2} />
+        <Loader2 className="w-4 h-4 animate-spin text-dw-indigo-text" strokeWidth={2} />
       ) : (
         (onClick || href) && <ChevronRight className="w-4 h-4 opacity-40" strokeWidth={2} />
       )}
@@ -236,9 +243,9 @@ export default function Profile() {
 
         {/* Account */}
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
             Account
-          </p>
+          </h2>
           <SectionCard>
             <div className="flex items-center gap-3 px-4 py-[14px]">
               <span className="flex-shrink-0 w-9 h-9 rounded-full bg-dw-indigo-sub flex items-center justify-center text-[15px] font-semibold text-dw-fg">
@@ -263,13 +270,13 @@ export default function Profile() {
         {/* Usage */}
         {usage && (
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
               Monthly usage · resets{" "}
               {new Date(`${usage.resetDate}T00:00:00Z`).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
               })}
-            </p>
+            </h2>
             <div className="rounded-2xl px-4 py-4 space-y-3 bg-dw-card border border-white/[0.06]">
               <UsageBar
                 label="Voice recordings"
@@ -284,9 +291,9 @@ export default function Profile() {
 
         {/* Preferences */}
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
             Preferences
-          </p>
+          </h2>
           <SectionCard>
             <Row icon={Clock} label="Time zone" value={friendlyTz} />
           </SectionCard>
@@ -294,9 +301,9 @@ export default function Profile() {
 
         {/* Data */}
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
             Data
-          </p>
+          </h2>
           <SectionCard>
             <Row
               icon={Download}
@@ -313,9 +320,9 @@ export default function Profile() {
 
         {/* Support */}
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[1px] px-1 text-dw-fg-ter">
             Support
-          </p>
+          </h2>
           <SectionCard>
             <a
               href={`mailto:support@dejawho.io?subject=${encodeURIComponent("DejaWho feedback")}`}
@@ -323,7 +330,7 @@ export default function Profile() {
               className={`block w-full text-left rounded-2xl hover:brightness-110 transition-all duration-150 ${rowFocus}`}
             >
               <div className="flex items-center gap-3 px-4 py-[14px] text-dw-fg">
-                <Mail className="w-[18px] h-[18px] flex-shrink-0 text-dw-indigo" strokeWidth={2} />
+                <Mail className="w-[18px] h-[18px] flex-shrink-0 text-dw-indigo-text" strokeWidth={2} />
                 <span className="text-[15px] flex-1">Send feedback</span>
                 <ChevronRight className="w-4 h-4 opacity-40" strokeWidth={2} />
               </div>

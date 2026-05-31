@@ -40,17 +40,17 @@ export function BottomNav() {
               aria-current={isActive ? "page" : undefined}
               className="flex flex-col items-center justify-center gap-0.5 px-4 py-2 rounded-full transition-colors duration-200 min-w-[72px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60"
               style={{
-                backgroundColor: isActive ? "rgba(65,45,240,0.20)" : "transparent",
+                backgroundColor: isActive ? "var(--dw-indigo-soft)" : "transparent",
               }}
             >
               <Icon
                 className="w-[22px] h-[22px]"
                 strokeWidth={isActive ? 2.5 : 2}
-                style={{ color: isActive ? "var(--dw-indigo)" : "rgba(255,255,255,0.55)" }}
+                style={{ color: isActive ? "var(--dw-indigo-text)" : "var(--dw-text-ter)" }}
               />
               <span
                 className="text-[10px] font-semibold uppercase tracking-[0.6px]"
-                style={{ color: isActive ? "var(--dw-indigo)" : "rgba(255,255,255,0.55)" }}
+                style={{ color: isActive ? "var(--dw-indigo-text)" : "var(--dw-text-ter)" }}
               >
                 {label}
               </span>

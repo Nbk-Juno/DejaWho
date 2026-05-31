@@ -12,8 +12,20 @@
   --dw-indigo:      #412DF0;
   --dw-indigo-dim:  #2E1FB5;
   --dw-indigo-sub:  #1B1370;
+  /* Indigo Lift — same 246° hue as --dw-indigo, lightened for legibility as a
+     FOREGROUND on dark. #412DF0 only hits ~2.6:1 on amethyst, so it fails AA as
+     link text and the 3:1 non-text floor as a standalone icon. This tone reads
+     ≈5.6:1 on amethyst and ≈5.4:1 on the card. Use it for indigo text/icons on
+     dark; keep #412DF0 for fills (white sits on top of those at ~7.4:1). */
+  --dw-indigo-text: #857AF6;
+  /* Bright Indigo at 20% — the active bottom-nav tab fill. Same color as
+     --dw-indigo, just the alpha the active state has always used. */
+  --dw-indigo-soft: rgba(65,45,240,0.20);
   --dw-cream:       #FBEC5D;
   --dw-cream-glow:  rgba(251,236,93,0.14);
+  /* The welcome-bloom halo behind the home wordmark. Stronger than cream-glow;
+     earns the cream per the Cream Reserve Rule (a once-per-day moment). */
+  --dw-cream-bloom: rgba(251,236,93,0.45);
   --dw-paper:       #F0EFF8;
   --dw-paper-dim:   #DBD9EA;
   --dw-success:     #3DD68C;
