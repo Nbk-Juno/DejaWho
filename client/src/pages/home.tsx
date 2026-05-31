@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
+import { useLocation } from "wouter";
 import { VoiceButton } from "@/components/voice-button/voice-button";
 import { PersonCard } from "@/components/person-card";
-import { AllEncountersSheet } from "@/components/all-encounters-sheet";
 import { RecentCard } from "@/components/recent-card";
 import { SearchResultSheet } from "@/components/search-result-sheet";
 import { PersonDisambiguationSheet } from "@/components/person-disambiguation-sheet";
@@ -78,8 +78,8 @@ export default function Home() {
   const freshNormalizedName = lastSavedName ? normalizePersonName(lastSavedName) : null;
 
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
   const [shouldBloom] = useState(shouldShowBloom);
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (!shouldBloom) return;
@@ -173,7 +173,7 @@ export default function Home() {
             {!isLoadingRecents && recentEncounters.length > 0 && (
               <button
                 type="button"
-                onClick={() => setShowAll(true)}
+                onClick={() => setLocation("/search")}
                 aria-label="See all encounters"
                 className="-mr-2 px-2 min-h-11 flex items-center gap-0.5 text-xs text-dw-indigo font-medium rounded-md"
               >
@@ -227,10 +227,6 @@ export default function Home() {
           personId={selectedPersonId}
           onClose={() => setSelectedPersonId(null)}
         />
-      )}
-
-      {showAll && (
-        <AllEncountersSheet onClose={() => setShowAll(false)} />
       )}
 
       {disambiguation && (

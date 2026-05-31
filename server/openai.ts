@@ -155,7 +155,7 @@ export async function generatePersonSummary(
       const date = e.datetime.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       return `${i + 1}. ${date} at ${e.location}${e.context ? ` — ${e.context}` : ""}`;
     });
-    const prompt = `In 1–2 short sentences, summarize where/when you've met ${personName} and what was noted. Address the reader directly in the second person — start with "You met ${personName}…", never "The user…". Stick strictly to the facts below — no embellishment, no character commentary, no inferred feelings or qualities. If context is sparse, keep it short.\n\nEncounters:\n${lines.join("\n")}`;
+    const prompt = `In 1–2 short sentences, summarize where/when you met ${personName} and what was noted. Stick strictly to the facts below — no embellishment, no character commentary, no inferred feelings or qualities. If context is sparse, keep it short.\n\nEncounters:\n${lines.join("\n")}`;
 
     const response = await openai().chat.completions.create({
       model: "gpt-4o-mini",
@@ -163,7 +163,7 @@ export async function generatePersonSummary(
         {
           role: "system",
           content:
-            "You write factual, neutral memory notes addressed to the reader in the second person (\"You met…\"), never third person (\"The user…\"). Use ONLY information explicitly present in the encounters list. Do not infer feelings, character traits, opinions, relationships, or anything not stated. Prefer brevity — if context is sparse, the summary should be short.",
+            "You write factual, neutral memory notes addressed to the reader as \"you\". Never refer to \"the user\" — always second person. Use ONLY information explicitly present in the encounters list. Do not infer feelings, character traits, opinions, relationships, or anything not stated. Prefer brevity — if context is sparse, the summary should be short.",
         },
         { role: "user", content: prompt },
       ],
