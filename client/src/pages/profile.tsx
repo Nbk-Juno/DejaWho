@@ -120,10 +120,8 @@ function Row({
 
   if (href) {
     return (
-      <Link href={href}>
-        <button type="button" data-testid={testId} className={interactive}>
-          {content}
-        </button>
+      <Link href={href} data-testid={testId} className={`block ${interactive}`}>
+        {content}
       </Link>
     );
   }
