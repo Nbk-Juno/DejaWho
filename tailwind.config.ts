@@ -26,6 +26,7 @@ export default {
           "paper-dim":"var(--dw-paper-dim)",
           success:    "var(--dw-success)",
           error:      "var(--dw-error)",
+          "error-deep": "var(--dw-error-deep)",
           fg:         "var(--dw-text-primary)",
           "fg-sec":   "var(--dw-text-sec)",
           "fg-ter":   "var(--dw-text-ter)",
