@@ -73,17 +73,29 @@ Extract:
    Never repeat the surname inside the name field.
 3. The LOCATION where they met (if mentioned, otherwise return "Unknown location")
 4. Any CONTEXT or notes about the encounter (what they talked about, what happened, etc.)
+5. A DAY OFFSET: a non-negative integer counting how many days BEFORE the day of recording
+   the encounter happened, based ONLY on explicit past-time wording in the text. Default to
+   0 — this is the common case. Recording happens now, so absent any time wording the
+   encounter is today (0).
+   - no time wording, "today", "just now", "earlier today" → 0
+   - "yesterday" → 1
+   - "last week", "a week ago" → 7
+   - "last month", "a month ago" → 30
+   - "N days ago" → N (e.g. "three days ago" → 3)
+   Never return a negative number and never invent a future date.
 
 Examples:
-- "I met John Brown at the gym" → {"name":"John","lastName":"Brown",...}
-- "ran into Priscilla Ventura at Vista" → {"name":"Priscilla","lastName":"Ventura",...}
-- "had coffee with Sarah" → {"name":"Sarah","lastName":"",...}
+- "I met John Brown at the gym" → {"name":"John","lastName":"Brown","dayOffset":0,...}
+- "ran into Priscilla Ventura at Vista" → {"name":"Priscilla","lastName":"Ventura","dayOffset":0,...}
+- "had coffee with Sarah yesterday" → {"name":"Sarah","lastName":"","dayOffset":1,...}
+- "met Dave at the conference last week" → {"name":"Dave","lastName":"","dayOffset":7,...}
 
 Return ONLY a JSON object in this exact format:
 {
   "name": "extracted first name(s) only, no surname",
   "lastName": "extracted last name or empty string",
   "location": "extracted location",
-  "context": "extracted context and notes"
+  "context": "extracted context and notes",
+  "dayOffset": 0
 }`;
 }

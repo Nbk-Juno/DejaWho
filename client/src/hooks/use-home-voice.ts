@@ -6,6 +6,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatAiErrorTitle } from "@/lib/ai-error";
 import type { VoiceButtonMode, VoiceButtonState } from "@/components/voice-button/state";
 import type { ApiEncounter, ApiPerson, ApiSearchResponse } from "@shared/schema";
+import { datetimeFromDayOffset } from "@shared/datetime";
 
 type ResolutionCandidate = { person: ApiPerson; lastSeen: string | null };
 
@@ -102,14 +103,12 @@ export function useHomeVoice() {
 
   const saveMutation = useMutation<{ name: string; create: CreateEncounterResponse }, Error, string>({
     mutationFn: async (transcript: string) => {
-      const timeZone = (() => {
-        try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return "UTC"; }
-      })();
-      const parseRes = await apiRequest("POST", "/api/parse-encounter", { text: transcript, timeZone });
-      const parsed = (await parseRes.json()) as { name: string; lastName?: string; location: string; context?: string };
+      const parseRes = await apiRequest("POST", "/api/parse-encounter", { text: transcript });
+      const parsed = (await parseRes.json()) as { name: string; lastName?: string; location: string; context?: string; dayOffset?: number };
+      const { dayOffset, ...fields } = parsed;
       const createRes = await apiRequest("POST", "/api/encounters", {
-        ...parsed,
-        datetime: new Date().toISOString(),
+        ...fields,
+        datetime: datetimeFromDayOffset(dayOffset),
       });
       const create = (await createRes.json()) as CreateEncounterResponse;
       queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });

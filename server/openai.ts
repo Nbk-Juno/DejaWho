@@ -7,6 +7,7 @@ import {
   type NaturalLanguageEncounter,
 } from "./encounter-ai-prompts";
 import { logError, logInfo, logWarn } from "./logger";
+import { clampDayOffset } from "@shared/datetime";
 
 let _client: OpenAI | null = null;
 function openai(): OpenAI {
@@ -183,6 +184,9 @@ interface ParsedEncounter {
   lastName: string;
   location: string;
   context: string;
+  // Whole days before the recording day, resolved from relative wording in the
+  // speech ("yesterday" → 1). 0 (today) is the common case. See shared/datetime.
+  dayOffset: number;
 }
 
 export async function parseEncounterFromSpeech(text: string, retries = 2): Promise<ParsedEncounter> {
@@ -224,6 +228,7 @@ export async function parseEncounterFromSpeech(text: string, retries = 2): Promi
         lastName,
         location: parsed.location || "Unknown location",
         context: parsed.context || "",
+        dayOffset: clampDayOffset(parsed.dayOffset),
       };
     } catch (error) {
       logError("openai_parse_encounter_failed", error, {

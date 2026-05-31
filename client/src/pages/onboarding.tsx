@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { VoiceButtonState } from "@/components/voice-button/state";
 import type { ApiSearchResponse } from "@shared/schema";
+import { datetimeFromDayOffset } from "@shared/datetime";
 
 async function markOnboardingComplete() {
   await supabase.auth.updateUser({ data: { onboarding_completed_at: new Date().toISOString() } });
@@ -21,10 +22,11 @@ function useOnboardingRecord(onSuccess: () => void) {
   const recordMutation = useMutation<void, Error, string>({
     mutationFn: async (transcript: string) => {
       const parseRes = await apiRequest("POST", "/api/parse-encounter", { text: transcript });
-      const parsed = (await parseRes.json()) as { name: string; location: string; context?: string };
+      const parsed = (await parseRes.json()) as { name: string; location: string; context?: string; dayOffset?: number };
+      const { dayOffset, ...fields } = parsed;
       await apiRequest("POST", "/api/encounters", {
-        ...parsed,
-        datetime: new Date().toISOString(),
+        ...fields,
+        datetime: datetimeFromDayOffset(dayOffset),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
       queryClient.invalidateQueries({ queryKey: ["/api/persons"] });

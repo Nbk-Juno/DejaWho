@@ -27,4 +27,12 @@ describe("encounter AI prompts", () => {
     expect(prompt).toContain('Spoken text: "I met Sam at Blue Bottle"');
     expect(prompt).toContain('"location": "extracted location"');
   });
+
+  it("teaches the relative day offset with a default of 0", () => {
+    const prompt = buildParseEncounterPrompt("had coffee with Sarah yesterday");
+
+    expect(prompt).toContain("DAY OFFSET");
+    expect(prompt).toContain('"yesterday" → 1');
+    expect(prompt).toContain('"dayOffset": 0');
+  });
 });
