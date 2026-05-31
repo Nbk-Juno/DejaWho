@@ -233,7 +233,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-dw-amethyst">
-      <div className="max-w-md mx-auto px-4 pt-14 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-6">
+      <div className="max-w-md mx-auto px-5 pt-[max(env(safe-area-inset-top),56px)] pb-[calc(80px+env(safe-area-inset-bottom))] space-y-6">
         <h1 className="text-[24px] font-bold tracking-[-0.5px] text-dw-fg">Profile</h1>
 
         {/* Account */}

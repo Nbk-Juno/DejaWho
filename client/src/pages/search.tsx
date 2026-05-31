@@ -53,7 +53,7 @@ function PersonRow({
   isDeleting?: boolean;
 }) {
   return (
-    <div className="flex items-stretch rounded-xl bg-white/6 border border-white/10 overflow-hidden">
+    <div className="flex items-stretch rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden">
       <div
         role="button"
         tabIndex={0}
@@ -124,7 +124,7 @@ function ResultPersonRow({
         }
       }}
       data-testid={`result-person-row-${person.id}`}
-      className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dw-indigo/60"
+      className="rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.07] active:bg-white/[0.09] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dw-indigo/60"
     >
       <p className="text-dw-fg font-medium text-sm truncate">{label}</p>
       <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
@@ -155,7 +155,7 @@ function SearchResultSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-[#120A5C] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
+        className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
       >
         <SheetHeader className="mb-4">
           <SheetTitle className="text-dw-fg text-left text-lg font-semibold">Result</SheetTitle>
@@ -322,7 +322,7 @@ export default function SearchPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]">
       <header className="px-5 pt-[max(env(safe-area-inset-top),16px)] pb-3">
-        <h1 className="text-dw-fg text-xl font-semibold">Search</h1>
+        <h1 className="text-[24px] font-bold tracking-[-0.5px] text-dw-fg">Search</h1>
       </header>
 
       <div className="px-5 pb-4">
@@ -374,13 +374,13 @@ export default function SearchPage() {
         {isLoading ? (
           <>
             {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-24 w-full bg-white/10 rounded-xl" />
+              <Skeleton key={i} className="h-24 w-full bg-white/10 rounded-2xl" />
             ))}
           </>
         ) : filtered.length > 0 ? (
           <div className="dw-content-in space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-dw-fg-ter uppercase tracking-widest">
+              <h2 className="text-[11px] font-semibold text-dw-fg-ter uppercase tracking-[1px]">
                 {trimmed ? "Matches" : "People"}
               </h2>
             </div>
