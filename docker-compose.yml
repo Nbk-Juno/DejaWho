@@ -19,3 +19,6 @@ services:
 
 volumes:
   postgres_data:
+    # Pinned so a project-directory rename can't silently swap in a fresh empty
+    # volume (Compose otherwise derives the volume name from the folder name).
+    name: dejawho_postgres_data
