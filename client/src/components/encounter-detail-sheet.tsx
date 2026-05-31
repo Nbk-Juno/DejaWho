@@ -1,12 +1,22 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar, List, MapPin, Pencil } from "lucide-react";
+import { Calendar, List, MapPin, Pencil, Trash2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,18 +124,34 @@ function EditMode({
   encounter,
   onCancel,
   onSaved,
+  onDeleted,
 }: {
   encounter: ApiEncounter;
   onCancel: () => void;
   onSaved: (updated: ApiEncounter) => void;
+  onDeleted: () => void;
 }) {
   const { toast } = useToast();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState<FormState>({
     name: encounter.name,
     lastName: encounter.lastName ?? "",
     location: encounter.location,
     datetimeLocal: toLocalInput(encounter.datetime),
     context: encounter.context ?? "",
+  });
+
+  const deleteMutation = useMutation<void, Error, void>({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/encounters/${encounter.id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Encounter deleted" });
+      onDeleted();
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete — try again.", variant: "destructive" });
+    },
   });
 
   const mutation = useMutation<ApiEncounter, Error, void>({
@@ -199,7 +225,7 @@ function EditMode({
           className="bg-white/5 border-white/15 text-white focus-visible:ring-dw-indigo/50"
           autoCapitalize="words"
           autoComplete="off"
-          placeholder="Optional — helps tell same-name people apart"
+          placeholder="Optional"
         />
       </Field>
 
@@ -230,6 +256,49 @@ function EditMode({
           placeholder="What stood out about this encounter?"
         />
       </Field>
+
+      <div className="pt-2 border-t border-white/10">
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          disabled={mutation.isPending || deleteMutation.isPending}
+          data-testid="button-delete-encounter-detail"
+          className="flex items-center gap-2 px-1 py-2 text-dw-error text-sm font-medium hover:opacity-80 transition-opacity disabled:opacity-50"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete encounter
+        </button>
+      </div>
+
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(o) => {
+          if (!o && !deleteMutation.isPending) setConfirmDelete(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this encounter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Removes your record of {encounter.name} at {encounter.location}. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                deleteMutation.mutate();
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-dw-error text-white hover:bg-dw-error/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }
@@ -271,7 +340,7 @@ export function EncounterDetailSheet({
 }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const { open, onOpenChange } = useAnimatedSheetClose(onClose);
+  const { open, onOpenChange, closeThen } = useAnimatedSheetClose(onClose);
 
   const { data, isLoading, isError } = useQuery<ApiEncounter>({
     queryKey: ["/api/encounters", encounterId],
@@ -304,6 +373,12 @@ export function EncounterDetailSheet({
     setEditing(false);
   }
 
+  function handleDeleted() {
+    queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/persons"] });
+    closeThen(onClose);
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -324,7 +399,12 @@ export function EncounterDetailSheet({
           />
         )}
         {data && editing && (
-          <EditMode encounter={data} onCancel={() => setEditing(false)} onSaved={handleSaved} />
+          <EditMode
+            encounter={data}
+            onCancel={() => setEditing(false)}
+            onSaved={handleSaved}
+            onDeleted={handleDeleted}
+          />
         )}
       </SheetContent>
     </Sheet>

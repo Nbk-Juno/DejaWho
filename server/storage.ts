@@ -47,6 +47,8 @@ export interface IStorage {
   reassignEncounterPerson(encounterId: string, userId: string, toPersonId: string): Promise<void>;
   recomputePerson(userId: string, personId: string): Promise<void>;
   updatePersonSummary(id: string, userId: string, summary: string): Promise<void>;
+  updatePersonIdentity(id: string, userId: string, normalizedName: string, lastName: string | null): Promise<void>;
+  deletePersonForUser(id: string, userId: string): Promise<number>;
   deletePersonsForUser(userId: string): Promise<number>;
 }
 
@@ -131,6 +133,17 @@ export class DbStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(and(eq(persons.id, personId), eq(persons.userId, userId)));
+  }
+
+  // Delete a person and every encounter attached to it. Returns the number of encounters
+  // removed (0 if the person doesn't exist / isn't this user's).
+  async deletePersonForUser(id: string, userId: string): Promise<number> {
+    const deletedEncounters = await db
+      .delete(encounters)
+      .where(and(eq(encounters.personId, id), eq(encounters.userId, userId)))
+      .returning({ id: encounters.id });
+    await db.delete(persons).where(and(eq(persons.id, id), eq(persons.userId, userId)));
+    return deletedEncounters.length;
   }
 
   async deleteAllEncountersForUser(userId: string): Promise<number> {
@@ -231,6 +244,20 @@ export class DbStorage implements IStorage {
     await db
       .update(persons)
       .set({ summary, updatedAt: new Date() })
+      .where(and(eq(persons.id, id), eq(persons.userId, userId)));
+  }
+
+  // Set the person's canonical first (normalized) + last name. Nulls the cached summary so it
+  // regenerates with the corrected name. Encounter backfill/re-embed is handled in the route.
+  async updatePersonIdentity(
+    id: string,
+    userId: string,
+    normalizedName: string,
+    lastName: string | null,
+  ): Promise<void> {
+    await db
+      .update(persons)
+      .set({ normalizedName, lastName, summary: null, updatedAt: new Date() })
       .where(and(eq(persons.id, id), eq(persons.userId, userId)));
   }
 

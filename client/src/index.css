@@ -228,6 +228,29 @@
   animation: dw-success-flash 0.6s cubic-bezier(.2,.7,.3,1) forwards;
 }
 
+/* Content settle: skeleton → loaded-content swap. A gentle fade + short rise so
+   resolved data arrives instead of popping. State feedback, not decoration. */
+@keyframes dw-content-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dw-content-in {
+  animation: dw-content-in 0.2s cubic-bezier(.2,.7,.3,1) backwards;
+}
+
+/* Route crossfade between bottom-nav screens. Opacity-only (no traversal) so it
+   smooths the snap without implying direction — tabs are siblings, not a stack.
+   Fast (160ms) so navigation still feels instant. Replays via a location key. */
+@keyframes dw-route-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.dw-route-in {
+  animation: dw-route-in 0.16s cubic-bezier(.2,.7,.3,1) backwards;
+}
+
 /* Honor prefers-reduced-motion (PRODUCT.md commitment).
    - Continuous/ambient animations are disabled outright.
    - State-change animations are kept but collapsed to ~instant so the state
@@ -254,6 +277,11 @@
   .dw-word,
   .dw-success-flash {
     animation: none !important;
+  }
+  /* Content/route fades: collapse to instant — the swap still happens, no fade. */
+  .dw-content-in,
+  .dw-route-in {
+    animation-duration: 0.001ms !important;
   }
 }
 

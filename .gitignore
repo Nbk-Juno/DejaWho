@@ -22,6 +22,9 @@ vite.config.ts.*
 # Test artifacts
 test-results/
 
+# Playwright MCP (browser session state, screenshots, console logs)
+.playwright-mcp/
+
 # Impeccable design-skill local state (design.json sidecar + critique snapshots —
 # regenerable, and trend tracking is personal per contributor)
 .impeccable/

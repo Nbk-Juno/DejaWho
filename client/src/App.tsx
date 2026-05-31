@@ -22,14 +22,20 @@ import Privacy from "@/pages/privacy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
+  const [location] = useLocation();
+  // Key on the route so the screen remounts and replays dw-route-in on each
+  // bottom-nav navigation, crossfading instead of snapping. Sibling tabs, so a
+  // plain fade (no directional slide).
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/record"><Redirect to="/" /></Route>
-      <Route path="/search" component={SearchPage} />
-      <Route path="/profile" component={Profile} />
-      <Route component={NotFound} />
-    </Switch>
+    <div key={location} className="dw-route-in">
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/record"><Redirect to="/" /></Route>
+        <Route path="/search" component={SearchPage} />
+        <Route path="/profile" component={Profile} />
+        <Route component={NotFound} />
+      </Switch>
+    </div>
   );
 }
 

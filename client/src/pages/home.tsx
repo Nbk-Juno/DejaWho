@@ -190,7 +190,7 @@ export default function Home() {
             ))}
           </div>
         ) : recentEncounters.length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-none">
+          <div className="dw-content-in flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-none">
             {recentEncounters.map((latest) => {
               const normalizedName = normalizePersonName(latest.name);
               const personId = latest.personId;

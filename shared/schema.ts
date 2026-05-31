@@ -164,6 +164,13 @@ export type Encounter = typeof encounters.$inferSelect;
 export const updateEncounterSchema = insertEncounterSchema.partial();
 export type UpdateEncounter = z.infer<typeof updateEncounterSchema>;
 
+// Person-level identity edit: the canonical first name (required) and an optional last name.
+export const updatePersonSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  lastName: z.string().optional(),
+});
+export type UpdatePerson = z.infer<typeof updatePersonSchema>;
+
 export function encounterEmbeddingText(e: { name: string; lastName?: string | null; location: string; context?: string | null }): string {
   return `${e.name} ${e.lastName || ""} ${e.location} ${e.context || ""}`.replace(/\s+/g, " ").trim();
 }
