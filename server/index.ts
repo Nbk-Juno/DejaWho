@@ -42,7 +42,6 @@ app.use(apiRequestLogger);
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     logInfo("server_started", { port });
   });

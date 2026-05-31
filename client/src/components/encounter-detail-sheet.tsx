@@ -1,19 +1,30 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar, List, MapPin, Pencil } from "lucide-react";
+import { Calendar, List, MapPin, Pencil, Trash2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { formatAiErrorTitle } from "@/lib/ai-error";
 import { useToast } from "@/hooks/use-toast";
-import { normalizePersonName, type ApiEncounter, type ApiPerson } from "@shared/schema";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
+import { encounterFullName, normalizePersonName, type ApiEncounter, type ApiPerson } from "@shared/schema";
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -33,6 +44,7 @@ function fromLocalInput(local: string): string {
 
 type FormState = {
   name: string;
+  lastName: string;
   location: string;
   datetimeLocal: string;
   context: string;
@@ -52,7 +64,7 @@ function ViewMode({
       <div className="flex items-start justify-between gap-3 pr-10">
         <div className="space-y-1 min-w-0 flex-1">
           <SheetTitle className="text-white text-left text-2xl font-semibold leading-tight">
-            {titleCase(encounter.name)}
+            {encounterFullName({ name: titleCase(encounter.name), lastName: encounter.lastName })}
           </SheetTitle>
         </div>
         <div className="flex-shrink-0 flex items-center gap-2">
@@ -112,17 +124,34 @@ function EditMode({
   encounter,
   onCancel,
   onSaved,
+  onDeleted,
 }: {
   encounter: ApiEncounter;
   onCancel: () => void;
   onSaved: (updated: ApiEncounter) => void;
+  onDeleted: () => void;
 }) {
   const { toast } = useToast();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState<FormState>({
     name: encounter.name,
+    lastName: encounter.lastName ?? "",
     location: encounter.location,
     datetimeLocal: toLocalInput(encounter.datetime),
     context: encounter.context ?? "",
+  });
+
+  const deleteMutation = useMutation<void, Error, void>({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/encounters/${encounter.id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Encounter deleted" });
+      onDeleted();
+    },
+    onError: () => {
+      toast({ title: "Couldn't delete — try again.", variant: "destructive" });
+    },
   });
 
   const mutation = useMutation<ApiEncounter, Error, void>({
@@ -134,6 +163,7 @@ function EditMode({
 
       const body = {
         name: trimmedName,
+        lastName: form.lastName.trim(),
         location: trimmedLocation,
         datetime: fromLocalInput(form.datetimeLocal),
         context: form.context.trim() || undefined,
@@ -188,6 +218,17 @@ function EditMode({
         />
       </Field>
 
+      <Field label="Last name">
+        <Input
+          value={form.lastName}
+          onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+          className="bg-white/5 border-white/15 text-white focus-visible:ring-dw-indigo/50"
+          autoCapitalize="words"
+          autoComplete="off"
+          placeholder="Optional"
+        />
+      </Field>
+
       <Field label="Location">
         <Input
           value={form.location}
@@ -215,6 +256,49 @@ function EditMode({
           placeholder="What stood out about this encounter?"
         />
       </Field>
+
+      <div className="pt-2 border-t border-white/10">
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          disabled={mutation.isPending || deleteMutation.isPending}
+          data-testid="button-delete-encounter-detail"
+          className="flex items-center gap-2 px-1 py-2 text-dw-error text-sm font-medium hover:opacity-80 transition-opacity disabled:opacity-50"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete encounter
+        </button>
+      </div>
+
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(o) => {
+          if (!o && !deleteMutation.isPending) setConfirmDelete(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this encounter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Removes your record of {encounter.name} at {encounter.location}. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                deleteMutation.mutate();
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-dw-error text-white hover:bg-dw-error/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }
@@ -256,6 +340,7 @@ export function EncounterDetailSheet({
 }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const { open, onOpenChange, closeThen } = useAnimatedSheetClose(onClose);
 
   const { data, isLoading, isError } = useQuery<ApiEncounter>({
     queryKey: ["/api/encounters", encounterId],
@@ -288,8 +373,14 @@ export function EncounterDetailSheet({
     setEditing(false);
   }
 
+  function handleDeleted() {
+    queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/persons"] });
+    closeThen(onClose);
+  }
+
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="max-h-[90vh] overflow-y-auto rounded-t-2xl bg-[#0D0744] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
@@ -308,7 +399,12 @@ export function EncounterDetailSheet({
           />
         )}
         {data && editing && (
-          <EditMode encounter={data} onCancel={() => setEditing(false)} onSaved={handleSaved} />
+          <EditMode
+            encounter={data}
+            onCancel={() => setEditing(false)}
+            onSaved={handleSaved}
+            onDeleted={handleDeleted}
+          />
         )}
       </SheetContent>
     </Sheet>

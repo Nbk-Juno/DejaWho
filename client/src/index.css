@@ -160,6 +160,131 @@
   to   { transform: translateX(-100%); }
 }
 
+/* One-shot bloom for the home hero halo: blooms up, then fades to nothing.
+   The Cream Reserve Rule allows cream as an earned moment; the welcome bloom
+   on app launch qualifies. After fade, the halo is permanently invisible
+   (animation-fill-mode: forwards). See DESIGN.md > Named Rules > Cream Reserve. */
+@keyframes dw-hero-welcome {
+  0%   { opacity: 0;   transform: scale(0.92); }
+  35%  { opacity: 0.7; transform: scale(1.02); }
+  100% { opacity: 0;   transform: scale(1); }
+}
+
+.dw-hero-halo {
+  animation: dw-hero-welcome 2.8s cubic-bezier(.2,.7,.3,1) forwards;
+}
+
+/* Card-attention glow: brief indigo border-pulse that marks "this card is the
+   special one right now" — used for both freshly-saved recent cards and the
+   top search result. ~1.6s, one-shot, mounted-with-element. */
+@keyframes dw-card-attention-glow {
+  0%   { box-shadow: 0 0 0 0 rgba(65,45,240,0); }
+  20%  { box-shadow: 0 0 0 2px rgba(65,45,240,0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(65,45,240,0); }
+}
+
+.dw-card-attention {
+  animation: dw-card-attention-glow 1.6s ease-out backwards;
+}
+
+/* Fresh recent card: slide-in entry + attention glow stacked. */
+@keyframes dw-recent-fresh {
+  0%   { transform: translateX(-12px); opacity: 0; }
+  100% { transform: translateX(0);     opacity: 1; }
+}
+
+.dw-recent-fresh {
+  animation:
+    dw-recent-fresh 0.42s cubic-bezier(.2,.7,.3,1) backwards,
+    dw-card-attention-glow 1.6s ease-out backwards;
+}
+
+/* Word-by-word reveal for the natural-language search response. Each word fades
+   in with a slight rise. Stagger is set via inline animation-delay per word. */
+@keyframes dw-word-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dw-word {
+  display: inline-block;
+  /* `backwards` fill so the word is invisible during animation-delay (before its turn)
+     but defaults to visible if animation is disabled (reduced-motion). */
+  animation: dw-word-rise 0.32s cubic-bezier(.2,.7,.3,1) backwards;
+}
+
+/* Brief success-green flash on the speaker icon when audio begins.
+   ~600ms total; afterwards the icon falls back to its indigo pulse during playback. */
+@keyframes dw-success-flash {
+  0%   { color: rgb(61,214,140); transform: scale(1.18); }
+  60%  { color: rgb(61,214,140); transform: scale(1); }
+  100% { color: var(--dw-indigo); transform: scale(1); }
+}
+
+.dw-success-flash {
+  /* End-state color in the base class so reduced-motion users still see the
+     "audio started" cue as an indigo color change, even without the green flash. */
+  color: var(--dw-indigo);
+  animation: dw-success-flash 0.6s cubic-bezier(.2,.7,.3,1) forwards;
+}
+
+/* Content settle: skeleton → loaded-content swap. A gentle fade + short rise so
+   resolved data arrives instead of popping. State feedback, not decoration. */
+@keyframes dw-content-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dw-content-in {
+  animation: dw-content-in 0.2s cubic-bezier(.2,.7,.3,1) backwards;
+}
+
+/* Route crossfade between bottom-nav screens. Opacity-only (no traversal) so it
+   smooths the snap without implying direction — tabs are siblings, not a stack.
+   Fast (160ms) so navigation still feels instant. Replays via a location key. */
+@keyframes dw-route-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.dw-route-in {
+  animation: dw-route-in 0.16s cubic-bezier(.2,.7,.3,1) backwards;
+}
+
+/* Honor prefers-reduced-motion (PRODUCT.md commitment).
+   - Continuous/ambient animations are disabled outright.
+   - State-change animations are kept but collapsed to ~instant so the state
+     transition is still visible, just without traversal motion. */
+@media (prefers-reduced-motion: reduce) {
+  /* Continuous/ambient: silence outright. */
+  .animate-dw-pulse-ring,
+  .animate-dw-pulse-soft,
+  .animate-dw-glow-breathe,
+  .animate-dw-wave,
+  .dw-hero-halo {
+    animation: none !important;
+  }
+  /* State-change motion: collapse to instant — change still happens, no traversal. */
+  .animate-dw-fade-up,
+  .animate-dw-wipe-out-right,
+  .animate-dw-wipe-out-left {
+    animation-duration: 0.001ms !important;
+  }
+  /* Delight moments: disable the motion but preserve the meaning carried by
+     each base class (color stays, layout stays, words stay visible). */
+  .dw-recent-fresh,
+  .dw-card-attention,
+  .dw-word,
+  .dw-success-flash {
+    animation: none !important;
+  }
+  /* Content/route fades: collapse to instant — the swap still happens, no fade. */
+  .dw-content-in,
+  .dw-route-in {
+    animation-duration: 0.001ms !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

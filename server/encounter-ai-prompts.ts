@@ -66,13 +66,23 @@ export function buildParseEncounterPrompt(text: string): string {
 Spoken text: "${text}"
 
 Extract:
-1. The person's NAME (if mentioned, otherwise return "Unknown")
-2. The LOCATION where they met (if mentioned, otherwise return "Unknown location")
-3. Any CONTEXT or notes about the encounter (what they talked about, what happened, etc.)
+1. The person's GIVEN / FIRST name(s) ONLY (if mentioned, otherwise return "Unknown").
+   This field must NOT contain the surname. If the full name is "John Brown", the name is
+   "John". If the full name is "Mary Jane Watson", the name is "Mary Jane".
+2. The person's LAST name / surname ONLY if explicitly mentioned, otherwise return "".
+   Never repeat the surname inside the name field.
+3. The LOCATION where they met (if mentioned, otherwise return "Unknown location")
+4. Any CONTEXT or notes about the encounter (what they talked about, what happened, etc.)
+
+Examples:
+- "I met John Brown at the gym" → {"name":"John","lastName":"Brown",...}
+- "ran into Priscilla Ventura at Vista" → {"name":"Priscilla","lastName":"Ventura",...}
+- "had coffee with Sarah" → {"name":"Sarah","lastName":"",...}
 
 Return ONLY a JSON object in this exact format:
 {
-  "name": "extracted name",
+  "name": "extracted first name(s) only, no surname",
+  "lastName": "extracted last name or empty string",
   "location": "extracted location",
   "context": "extracted context and notes"
 }`;

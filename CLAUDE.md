@@ -138,7 +138,7 @@ See `.env.example`. Required: `OPENAI_API_KEY`, `DATABASE_URL`, the four `SUPABA
 
 ## Hosting
 
-Production runs on **Render** free tier (auto-deploy from `main`), backed by **Supabase** (Auth + Postgres + RLS). Custom SMTP via **Resend** for magic-link emails (configured in Supabase Auth settings, not in app code). Live at `https://dejawho.onrender.com`.
+Production runs on **Render** free tier (auto-deploy from `main`), backed by **Supabase** (Auth + Postgres + RLS). Custom SMTP via **Resend** for magic-link emails (configured in Supabase Auth settings, not in app code). Live at `https://dejawho.io` (Render also serves the underlying `https://dejawho.onrender.com`).
 
 Build command on Render: `npm install --include=dev; npm run build` (devDeps needed for Vite/esbuild at build time). `DATABASE_URL` on Render must use the Supabase **transaction pooler** connection string (port 6543), not the direct connection.
 

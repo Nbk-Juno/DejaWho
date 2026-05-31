@@ -23,103 +23,150 @@ import {
 } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
-import { EncounterDetailSheet } from "@/components/encounter-detail-sheet";
 import { PersonCard } from "@/components/person-card";
 import { formatAiErrorTitle } from "@/lib/ai-error";
-import type { ApiEncounter, ApiSearchResponse } from "@shared/schema";
+import {
+  disambiguatedNames,
+  personDisplayName,
+  type ApiEncounter,
+  type ApiPerson,
+  type ApiSearchResponse,
+} from "@shared/schema";
 
-const DEFAULT_LIST_LIMIT = 10;
-
-function EncounterRow({
-  encounter,
+function PersonRow({
+  person,
+  label,
+  location,
+  lastSeen,
   onOpen,
   onDelete,
   isDeleting,
 }: {
-  encounter: ApiEncounter;
-  onOpen: (encounter: ApiEncounter) => void;
-  onDelete: (encounter: ApiEncounter) => void;
+  person: ApiPerson;
+  label: string;
+  location: string | null;
+  lastSeen: string | null;
+  onOpen: (personId: string) => void;
+  onDelete: (person: ApiPerson) => void;
   isDeleting?: boolean;
 }) {
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(encounter)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(encounter);
-        }
-      }}
-      data-testid={`encounter-row-${encounter.id}`}
-      className="relative rounded-xl bg-white/6 border border-white/10 p-4 pr-10 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors"
-    >
-      <p className="text-white font-medium text-sm">{encounter.name}</p>
-      <div className="flex items-center gap-2 text-white/50 text-xs">
-        <MapPin className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate">{encounter.location}</span>
+    <div className="flex items-stretch rounded-xl bg-white/6 border border-white/10 overflow-hidden">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onOpen(person.id)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen(person.id);
+          }
+        }}
+        data-testid={`person-row-${person.id}`}
+        className="flex-1 min-w-0 p-4 space-y-2 cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60"
+      >
+        <p className="text-dw-fg font-medium text-sm truncate">{label}</p>
+        {location && (
+          <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
+            <MapPin className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{location}</span>
+          </div>
+        )}
+        {lastSeen && (
+          <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
+            <Calendar className="w-3 h-3 flex-shrink-0" />
+            <span>Last seen {lastSeen}</span>
+          </div>
+        )}
+        {person.summary && (
+          <p className="text-dw-fg-sec text-xs leading-relaxed line-clamp-2">{person.summary}</p>
+        )}
       </div>
-      <div className="flex items-center gap-2 text-white/50 text-xs">
-        <Calendar className="w-3 h-3 flex-shrink-0" />
-        <span>{format(new Date(encounter.datetime), "MMM d, yyyy · h:mm a")}</span>
-      </div>
-      {encounter.context && (
-        <p className="text-white/60 text-xs leading-relaxed line-clamp-3">{encounter.context}</p>
-      )}
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(encounter);
-        }}
+        onClick={() => onDelete(person)}
         disabled={isDeleting}
-        aria-label={`Delete encounter with ${encounter.name}`}
-        data-testid={`button-delete-encounter-${encounter.id}`}
-        className="absolute top-2 right-2 p-2 rounded-md text-white/35 hover:text-dw-error hover:bg-white/8 transition-colors disabled:opacity-40"
+        aria-label={`Delete ${label} and all encounters`}
+        data-testid={`button-delete-person-${person.id}`}
+        className="flex-shrink-0 w-11 flex items-center justify-center text-dw-fg-faint hover:text-dw-error hover:bg-white/[0.06] transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60"
       >
-        {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+        {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
       </button>
     </div>
   );
 }
 
-function SearchResultSheet({
-  results,
-  onClose,
+type ResultPerson = {
+  person: ApiPerson;
+  label: string;
+  matched: ApiEncounter;
+};
+
+function ResultPersonRow({
+  result,
   onOpen,
-  onDelete,
-  deletingId,
 }: {
-  results: ApiSearchResponse;
-  onClose: () => void;
-  onOpen: (encounter: ApiEncounter) => void;
-  onDelete: (encounter: ApiEncounter) => void;
-  deletingId: string | null;
+  result: ResultPerson;
+  onOpen: (personId: string) => void;
 }) {
+  const { person, label, matched } = result;
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(person.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(person.id);
+        }
+      }}
+      data-testid={`result-person-row-${person.id}`}
+      className="rounded-xl bg-white/6 border border-white/10 p-4 space-y-2 cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.10] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dw-indigo/60"
+    >
+      <p className="text-dw-fg font-medium text-sm truncate">{label}</p>
+      <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
+        <MapPin className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate">{matched.location}</span>
+      </div>
+      <div className="flex items-center gap-2 text-dw-fg-ter text-xs">
+        <Calendar className="w-3 h-3 flex-shrink-0" />
+        <span>{format(new Date(matched.datetime), "MMM d, yyyy")}</span>
+      </div>
+    </div>
+  );
+}
+
+function SearchResultSheet({
+  answer,
+  people,
+  onClose,
+  onOpenPerson,
+}: {
+  answer: string;
+  people: ResultPerson[];
+  onClose: () => void;
+  onOpenPerson: (personId: string) => void;
+}) {
+  const { open, onOpenChange } = useAnimatedSheetClose(onClose);
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-[#120A5C] border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
       >
         <SheetHeader className="mb-4">
-          <SheetTitle className="text-white text-left text-lg font-semibold">Result</SheetTitle>
-          <SheetDescription className="text-white/70 text-left text-sm leading-relaxed">
-            {results.naturalLanguageResponse}
+          <SheetTitle className="text-dw-fg text-left text-lg font-semibold">Result</SheetTitle>
+          <SheetDescription className="text-dw-fg-sec text-left text-sm leading-relaxed">
+            {answer}
           </SheetDescription>
         </SheetHeader>
-        {results.results.length > 0 && (
+        {people.length > 0 && (
           <div className="space-y-3">
-            {results.results.slice(0, 3).map(({ encounter }) => (
-              <EncounterRow
-                key={encounter.id}
-                encounter={encounter}
-                onOpen={onOpen}
-                onDelete={onDelete}
-                isDeleting={deletingId === encounter.id}
-              />
+            {people.map((result) => (
+              <ResultPersonRow key={result.person.id} result={result} onOpen={onOpenPerson} />
             ))}
           </div>
         )}
@@ -133,11 +180,14 @@ export default function SearchPage() {
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ApiSearchResponse | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<ApiEncounter | null>(null);
-  const [openEncounterId, setOpenEncounterId] = useState<string | null>(null);
+  const [pendingDeletePerson, setPendingDeletePerson] = useState<ApiPerson | null>(null);
   const [openPersonId, setOpenPersonId] = useState<string | null>(null);
 
-  const { data: encounters = [], isLoading } = useQuery<ApiEncounter[]>({
+  const { data: persons = [], isLoading } = useQuery<ApiPerson[]>({
+    queryKey: ["/api/persons"],
+  });
+
+  const { data: encounters = [] } = useQuery<ApiEncounter[]>({
     queryKey: ["/api/encounters"],
   });
 
@@ -152,23 +202,19 @@ export default function SearchPage() {
     },
   });
 
-  const deleteMutation = useMutation<void, Error, string>({
+  const deletePersonMutation = useMutation<void, Error, string>({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/encounters/${id}`);
+      await apiRequest("DELETE", `/api/persons/${id}`);
     },
-    onSuccess: (_void, id) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/persons"] });
-      if (searchResults) {
-        const remaining = searchResults.results.filter(({ encounter }) => encounter.id !== id);
-        setSearchResults(remaining.length > 0 ? { ...searchResults, results: remaining } : null);
-      }
-      toast({ title: "Encounter deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
+      toast({ title: "Person deleted" });
     },
     onError: () => {
       toast({ title: "Couldn't delete — try again", variant: "destructive" });
     },
-    onSettled: () => setPendingDelete(null),
+    onSettled: () => setPendingDeletePerson(null),
   });
 
   const { isRecording, isProcessing: isTranscribing, startRecording, stopRecording } =
@@ -190,23 +236,71 @@ export default function SearchPage() {
       },
     });
 
-  const recent = useMemo(() => {
-    return encounters
-      .slice()
-      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+  // Last-seen date + location per person, derived from the encounters table (the source of
+  // truth for datetime). Falls back to person.updatedAt for people whose encounters somehow
+  // lack a personId link.
+  const latestByPerson = useMemo(() => {
+    const map = new Map<string, ApiEncounter>();
+    for (const e of encounters) {
+      if (!e.personId) continue;
+      const existing = map.get(e.personId);
+      if (!existing || new Date(e.datetime) > new Date(existing.datetime)) {
+        map.set(e.personId, e);
+      }
+    }
+    return map;
   }, [encounters]);
+
+  const personLabels = useMemo(() => disambiguatedNames(persons), [persons]);
+
+  // AI search returns ranked encounters; resolve each up to its person so the result sheet
+  // stays in the same object model as the list. Dedupe by personId, keeping the highest-ranked
+  // encounter as the "why this matched" context.
+  const resultPeople = useMemo<ResultPerson[]>(() => {
+    if (!searchResults) return [];
+    const seen = new Set<string>();
+    const out: ResultPerson[] = [];
+    for (const { encounter } of searchResults.results) {
+      const pid = encounter.personId;
+      if (!pid || seen.has(pid)) continue;
+      const person = persons.find((p) => p.id === pid);
+      if (!person) continue;
+      seen.add(pid);
+      out.push({
+        person,
+        label: personLabels.get(pid) ?? personDisplayName(person),
+        matched: encounter,
+      });
+    }
+    return out;
+  }, [searchResults, persons, personLabels]);
+
+  const people = useMemo(() => {
+    return persons
+      .map((person) => {
+        const latest = latestByPerson.get(person.id);
+        return {
+          person,
+          label: personLabels.get(person.id) ?? personDisplayName(person),
+          location: latest?.location ?? null,
+          lastSeenDate: latest ? new Date(latest.datetime) : new Date(person.updatedAt),
+        };
+      })
+      .sort((a, b) => b.lastSeenDate.getTime() - a.lastSeenDate.getTime());
+  }, [persons, personLabels, latestByPerson]);
 
   const trimmed = query.trim();
   const filtered = trimmed
-    ? recent.filter((e) => {
+    ? people.filter(({ person, label, location }) => {
         const q = trimmed.toLowerCase();
         return (
-          e.name.toLowerCase().includes(q) ||
-          e.location.toLowerCase().includes(q) ||
-          (e.context ?? "").toLowerCase().includes(q)
+          label.toLowerCase().includes(q) ||
+          (person.lastName ?? "").toLowerCase().includes(q) ||
+          (location ?? "").toLowerCase().includes(q) ||
+          (person.summary ?? "").toLowerCase().includes(q)
         );
       })
-    : recent.slice(0, DEFAULT_LIST_LIMIT);
+    : people;
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,52 +317,54 @@ export default function SearchPage() {
   };
 
   const micBusy = isTranscribing || searchMutation.isPending;
-  const deletingId = deleteMutation.isPending ? deleteMutation.variables ?? null : null;
+  const deletingPersonId = deletePersonMutation.isPending ? deletePersonMutation.variables ?? null : null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-[calc(80px+env(safe-area-inset-bottom))]">
       <header className="px-5 pt-[max(env(safe-area-inset-top),16px)] pb-3">
-        <h1 className="text-white text-xl font-semibold">Search</h1>
+        <h1 className="text-dw-fg text-xl font-semibold">Search</h1>
       </header>
 
       <div className="px-5 pb-4">
-        <form onSubmit={onSubmit} className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none z-10" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, place, or ask a question…"
-            enterKeyHint="search"
-            className="pl-9 pr-20 h-11 border-white/15 focus-visible:ring-dw-indigo/50"
-            style={{
-              backgroundColor: "var(--dw-card)",
-              color: "#FFFFFF",
-            }}
-          />
-          {query ? (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-              className="absolute right-12 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/70 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          ) : null}
+        <form onSubmit={onSubmit} className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dw-fg-faint pointer-events-none z-10" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Name, place, or a question…"
+              enterKeyHint="search"
+              className="pl-9 pr-11 h-11 border-white/15 focus-visible:ring-dw-indigo/50"
+              style={{
+                backgroundColor: "var(--dw-card)",
+                color: "var(--dw-text-primary)",
+              }}
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-dw-fg-faint hover:text-dw-fg-sec transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dw-indigo/60 rounded-r-md"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={onMicTap}
             aria-label={isRecording ? "Stop recording" : "Voice search"}
             aria-pressed={isRecording}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors text-white"
+            className="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl transition-colors text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-dw-indigo/60"
             style={{
               backgroundColor: isRecording ? "var(--dw-indigo-dim)" : "var(--dw-indigo)",
             }}
           >
             {micBusy ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <Mic className="w-4 h-4" />
+              <Mic className="w-5 h-5" />
             )}
           </button>
         </form>
@@ -282,46 +378,40 @@ export default function SearchPage() {
             ))}
           </>
         ) : filtered.length > 0 ? (
-          <>
+          <div className="dw-content-in space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold text-dw-fg-ter uppercase tracking-widest">
-                {trimmed ? "Matches" : "Recent"}
+                {trimmed ? "Matches" : "People"}
               </h2>
             </div>
-            {filtered.map((e) => (
-              <EncounterRow
-                key={e.id}
-                encounter={e}
-                onOpen={(enc) => setOpenEncounterId(enc.id)}
-                onDelete={setPendingDelete}
-                isDeleting={deletingId === e.id}
+            {filtered.map(({ person, label, location, lastSeenDate }) => (
+              <PersonRow
+                key={person.id}
+                person={person}
+                label={label}
+                location={location}
+                lastSeen={lastSeenDate ? format(lastSeenDate, "MMM d, yyyy") : null}
+                onOpen={(id) => setOpenPersonId(id)}
+                onDelete={setPendingDeletePerson}
+                isDeleting={deletingPersonId === person.id}
               />
             ))}
-          </>
+          </div>
         ) : (
           <p className="text-dw-fg-sec text-sm text-center py-8 max-w-[280px] mx-auto leading-relaxed">
             {trimmed
-              ? "No matches in your list. Try the mic for a smarter search."
-              : "Search gets smarter as you add encounters. Record your first one from the home screen."}
+              ? "No one matches. Try the mic for a smarter search."
+              : "Your people will appear here as you record encounters. Record your first one from the home screen."}
           </p>
         )}
       </section>
 
       {searchResults && (
         <SearchResultSheet
-          results={searchResults}
+          answer={searchResults.naturalLanguageResponse}
+          people={resultPeople}
           onClose={() => setSearchResults(null)}
-          onOpen={(enc) => setOpenEncounterId(enc.id)}
-          onDelete={setPendingDelete}
-          deletingId={deletingId}
-        />
-      )}
-
-      {openEncounterId && (
-        <EncounterDetailSheet
-          encounterId={openEncounterId}
-          onClose={() => setOpenEncounterId(null)}
-          onOpenPerson={(personId) => setOpenPersonId(personId)}
+          onOpenPerson={(id) => setOpenPersonId(id)}
         />
       )}
 
@@ -330,32 +420,34 @@ export default function SearchPage() {
       )}
 
       <AlertDialog
-        open={pendingDelete !== null}
+        open={pendingDeletePerson !== null}
         onOpenChange={(open) => {
-          if (!open && !deleteMutation.isPending) setPendingDelete(null);
+          if (!open && !deletePersonMutation.isPending) setPendingDeletePerson(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this encounter?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete {pendingDeletePerson ? personDisplayName(pendingDeletePerson) : "this person"}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDelete
-                ? `Removes your record of ${pendingDelete.name} at ${pendingDelete.location}. This can't be undone.`
+              {pendingDeletePerson
+                ? `Removes ${personDisplayName(pendingDeletePerson)} and all ${pendingDeletePerson.encounterCount} encounter${pendingDeletePerson.encounterCount !== 1 ? "s" : ""} you've recorded with them. This can't be undone.`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deletePersonMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                if (pendingDelete) deleteMutation.mutate(pendingDelete.id);
+                if (pendingDeletePerson) deletePersonMutation.mutate(pendingDeletePerson.id);
               }}
-              disabled={deleteMutation.isPending}
+              disabled={deletePersonMutation.isPending}
               className="bg-dw-error text-white hover:bg-dw-error/90"
-              data-testid="button-confirm-delete"
+              data-testid="button-confirm-delete-person"
             >
-              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              {deletePersonMutation.isPending ? "Deleting…" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -180,6 +180,7 @@ export async function generatePersonSummary(
 
 interface ParsedEncounter {
   name: string;
+  lastName: string;
   location: string;
   context: string;
 }
@@ -209,8 +210,18 @@ export async function parseEncounterFromSpeech(text: string, retries = 2): Promi
       if (!content) throw new Error("No response from OpenAI");
 
       const parsed = JSON.parse(content);
+      const lastName = (parsed.lastName || "").trim();
+      let name = (parsed.name || "Unknown").trim();
+      // GPT sometimes echoes the full name into `name` while also filling `lastName`
+      // (e.g. name "John Brown", lastName "Brown"). Strip a trailing surname so `name`
+      // stays the given name(s) only — preserving multi-word first names like "Mary Jane".
+      if (lastName && name.toLowerCase().endsWith(lastName.toLowerCase())) {
+        const stripped = name.slice(0, name.length - lastName.length).trim();
+        if (stripped) name = stripped;
+      }
       return {
-        name: parsed.name || "Unknown",
+        name: name || "Unknown",
+        lastName,
         location: parsed.location || "Unknown location",
         context: parsed.context || "",
       };

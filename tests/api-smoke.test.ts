@@ -18,6 +18,7 @@ function currentYearMonth(): string {
 
 function previousYearMonth(): string {
   const date = new Date();
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() - 1);
   return date.toISOString().slice(0, 7);
 }
@@ -146,10 +147,10 @@ describe("API smoke", () => {
       });
 
     expect(create.status).toBe(201);
-    expect(create.body.name).toBe("Sarah Chen");
-    expect(create.body.id).toBeTruthy();
-    expect(create.body).not.toHaveProperty("userId");
-    expect(create.body).not.toHaveProperty("embedding");
+    expect(create.body.encounter.name).toBe("Sarah Chen");
+    expect(create.body.encounter.id).toBeTruthy();
+    expect(create.body.encounter).not.toHaveProperty("userId");
+    expect(create.body.encounter).not.toHaveProperty("embedding");
 
     const search = await request(app)
       .post("/api/search")
@@ -352,7 +353,7 @@ describe("API smoke", () => {
         context: "private to alice",
       });
     expect(aCreate.status).toBe(201);
-    const aEncounterId = aCreate.body.id;
+    const aEncounterId = aCreate.body.encounter.id;
 
     await request(app)
       .post("/api/encounters")
