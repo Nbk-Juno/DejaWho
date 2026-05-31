@@ -18,6 +18,7 @@ function currentYearMonth(): string {
 
 function previousYearMonth(): string {
   const date = new Date();
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() - 1);
   return date.toISOString().slice(0, 7);
 }
