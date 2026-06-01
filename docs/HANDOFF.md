@@ -73,9 +73,9 @@ Six improvements shipped in one commit (`0f19972`):
 Ran `get_advisors(security)` after the waitlist migration. Current state:
 
 - **No data-exposure vulnerabilities.** Every `public` table has RLS enabled; the only RLS lint is `rls_enabled_no_policy` at **INFO** level, which is the intended posture here (no policy = anon/authenticated denied; the server connects as table owner and bypasses RLS). `waitlist_emails` now matches the other tables — the email list is **not** publicly readable.
-- **Two pre-existing WARN advisories** (not introduced by this work), both low real-risk:
-  1. `rls_auto_enable()` is `EXECUTE`-able by `anon`/`authenticated`. On inspection it is an **event-trigger function** (auto-enables RLS on new public tables), takes no args, only enables RLS, and pins `search_path` to `pg_catalog`. It **cannot be meaningfully invoked via PostgREST RPC** (event-trigger functions error outside trigger context), so exploitability is effectively nil. Optional cleanup to clear the lint: `REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon, authenticated;`
-  2. `auth_leaked_password_protection` disabled — a hardening toggle (HaveIBeenPwned check) in Supabase Auth settings, not an active vuln. Low priority at friends-and-family scale.
+- **Pre-existing WARN advisories** (not introduced by this work):
+  1. ~~`rls_auto_enable()` `EXECUTE`-able by anon/authenticated~~ — **CLEARED 2026-06-01.** It is an event-trigger function (auto-enables RLS on new public tables), takes no args, only enables RLS, and pins `search_path` to `pg_catalog`; it cannot be meaningfully invoked via PostgREST RPC, so exploitability was already nil. Revoked anyway: `REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;` (the `PUBLIC` grant was the operative one — revoking only anon/authenticated left it accessible). ACL is now owner + `service_role` only; the event trigger still fires. Applied **directly to prod** (the function is not in our migration files, so nothing recreates the grant — no migration needed, and one would fail locally where these roles don't exist). `get_advisors(security)` confirms both SECURITY DEFINER warnings are gone.
+  2. `auth_leaked_password_protection` disabled — a hardening toggle (HaveIBeenPwned check), **still open**, low priority. Enable it in the Supabase dashboard (Authentication → password settings); not togglable via SQL/MCP.
 
 ## Next-session checkpoint — landing page refinement
 
@@ -95,5 +95,5 @@ Pick up here:
 - ~~Verify Resend deliverability~~ — done, `noreply@dejawho.io` confirmed working
 - ~~Public marketing site / landing page~~ — done, live at `/` with waitlist (commit `b66e44a`)
 - Broader test user feedback collection
-- Optional security cleanups (see Security posture): revoke `anon`/`authenticated` EXECUTE on `rls_auto_enable()`; enable Supabase Auth leaked-password protection
+- Security: enable Supabase Auth leaked-password protection (dashboard toggle). (`rls_auto_enable` EXECUTE grant — revoked from prod 2026-06-01, see Security posture.)
 - Waitlist marketing: if/when sending newsletters to the list, consider a dedicated CRM (Loops/Kit/MailerLite) on a marketing subdomain to keep marketing sends off the transactional (auth) domain
