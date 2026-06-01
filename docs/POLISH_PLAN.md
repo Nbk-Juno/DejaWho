@@ -164,7 +164,7 @@ Manual QA matrix: iPhone Safari (PWA install + voice record/search + onboarding 
 - **Re-recording an encounter's audio after edit.** Delete + create new instead.
 - **Push notifications.** Out of scope.
 - **Native iOS / Android wrap (Capacitor).** Capacitor-readiness was in v1; actually wrapping is post-polish.
-- **Public signup.** Still invite-only.
+- **Public signup.** Still invite-only; a public landing + waitlist now front the app, and `INVITE_ONLY=false` opens signups when ready (commit `b66e44a`).
 - **Theme toggle.** Dark-only.
 - **HNSW pgvector index.** Same as v1 — not needed at current scale.
 - **Hybrid-search scoring changes.** Tuned IP, not touched.
@@ -198,4 +198,4 @@ Expected delta vs v1 monthly OpenAI cost: negligible at friends-and-family scale
 
 ### Post-polish follow-ups (Track B and beyond)
 
-Network graph view, audio storage + playback, fuzzy person dedup, user-confirmed merge UI, Capacitor native wrap, broader public signup, branded email domain (now done — `noreply@dejawho.io`), public marketing site.
+Network graph view, audio storage + playback, fuzzy person dedup, user-confirmed merge UI, Capacitor native wrap, broader public signup, branded email domain (now done — `noreply@dejawho.io`), public marketing site (now done — landing + waitlist at `/`, commit `b66e44a`).

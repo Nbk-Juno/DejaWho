@@ -1,6 +1,6 @@
 # Handoff — DejaWho production launch status
 
-Last updated: 2026-05-17
+Last updated: 2026-06-01
 
 ## What's done (Phases 1–10 + post-launch architecture)
 
@@ -18,6 +18,17 @@ Last updated: 2026-05-17
 | 10. Deploy (Render free tier, prod Supabase, Resend SMTP) | Done | Live at dejawho.io |
 | 11A. Password auth + reset flow | Done | commit `7ecc3f1` |
 | 11B. Architecture deepening (6 refactors) | Done | commit `0f19972` |
+| 12. Public landing + waitlist + invite-gate hardening | Done (deployed) | commit `b66e44a` |
+
+### Landing + waitlist + invite gate (12) summary
+
+Shipped in commit `b66e44a` (merged to `main`, deployed, prod verified):
+
+1. **Public marketing landing** — `client/src/pages/landing.tsx` renders at `/` for logged-out visitors (Night-Sky Atlas brand, mobile-tuned). The sign-in form moved to `/sign-in`; `App.tsx` gates logged-out paths to the landing except `/sign-in`, `/privacy`, `/reset-password`. Sign-out returns to `/sign-in`.
+2. **Waitlist capture** — `waitlist_emails` table (migrations `0006` + `0007`) + public `POST /api/waitlist` (`server/waitlist-operations.ts`). Separate from the access allow-list: joining grants nothing. RLS enabled (no policy) so the email list is not readable via the public anon key.
+3. **Invite gate is now the real spending gate** — `requireAllowlisted` middleware (`server/auth.ts`) enforces the allow-list on every AI/data route, so a signed-in-but-not-invited session cannot reach OpenAI. Controlled by the `INVITE_ONLY` flag (`isInviteOnly()`), default true. `/api/me` respects the same flag.
+4. **Going public is a flag flip** — set `INVITE_ONLY=false` (env) to open signups; the gate becomes a no-op. Plus a short copy pass on the three invite-only surfaces (landing/sign-in/invite-only screen). See the conversion notes in the next-session checkpoint.
+5. **Operator approvals** — promoting a waitlist email to access = `INSERT INTO whitelisted_emails`, done in batches via the Supabase MCP/SQL editor (no automated invite send). The "you're in" email is a separate notification, not an account-creation link.
 
 ### Architecture deepening (11B) summary
 
@@ -38,6 +49,7 @@ Six improvements shipped in one commit (`0f19972`):
 - **Auth:** Supabase email/password (primary) + magic-link via Resend SMTP + password reset flow
 - **Error tracking:** Sentry (DSN configured in Render env vars)
 - **Allow-listed users:** doplitog@gmail.com, priscilla.ventura@gmail.com
+- **Front door:** public landing at `/` (logged out), sign-in at `/sign-in`. Invite-only via `INVITE_ONLY` (defaults true even when unset on Render). Waitlist collects to `waitlist_emails`.
 
 ## Open issues
 
@@ -54,7 +66,26 @@ Six improvements shipped in one commit (`0f19972`):
 
 ## Pending prod actions
 
-- **Apply migration `0005_person_identity` to prod Supabase** (multi-person disambiguation). Render does NOT auto-apply migrations — after this merges, run it via the Supabase MCP `apply_migration` tool (or paste the SQL into the Supabase SQL editor) and verify the new `encounters.person_id` / `last_name` and `persons.last_name` / `location_tag` columns exist. Skipping this causes route-level 500s (`42703 column ... does not exist`).
+- _None outstanding._ Migrations `0005_person_identity`, `0006_waitlist_emails`, and `0007_waitlist_rls` are all applied to prod (verified via `list_migrations` / `list_tables`). Reminder for next time: Render does NOT auto-apply migrations — after merging any new migration, apply it via the Supabase MCP `apply_migration` tool and re-run `get_advisors(security)`.
+
+## Security posture (as of 2026-06-01)
+
+Ran `get_advisors(security)` after the waitlist migration. Current state:
+
+- **No data-exposure vulnerabilities.** Every `public` table has RLS enabled; the only RLS lint is `rls_enabled_no_policy` at **INFO** level, which is the intended posture here (no policy = anon/authenticated denied; the server connects as table owner and bypasses RLS). `waitlist_emails` now matches the other tables — the email list is **not** publicly readable.
+- **Two pre-existing WARN advisories** (not introduced by this work), both low real-risk:
+  1. `rls_auto_enable()` is `EXECUTE`-able by `anon`/`authenticated`. On inspection it is an **event-trigger function** (auto-enables RLS on new public tables), takes no args, only enables RLS, and pins `search_path` to `pg_catalog`. It **cannot be meaningfully invoked via PostgREST RPC** (event-trigger functions error outside trigger context), so exploitability is effectively nil. Optional cleanup to clear the lint: `REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon, authenticated;`
+  2. `auth_leaked_password_protection` disabled — a hardening toggle (HaveIBeenPwned check) in Supabase Auth settings, not an active vuln. Low priority at friends-and-family scale.
+
+## Next-session checkpoint — landing page refinement
+
+Pick up here:
+
+- **Landing file:** `client/src/pages/landing.tsx`. Run `npm run dev` (port 5050). Logged-out `/` = landing; `/sign-in` = form.
+- **Open design thread:** whether to collapse the two waitlist CTAs (hero + closing) into one — e.g. make the footer CTA a button that scrolls to the hero field. Left as-is (both are live forms) pending your call.
+- **Other refinement ideas raised but not done:** optional sticky mobile "Join the waitlist" bar; trimming the hero subhead on mobile (runs ~5 lines).
+- **Going public, when ready:** flip `INVITE_ONLY=false` on Render (one env var) → opens signups. Then a short copy pass on landing/sign-in/invite-only screen (waitlist framing → signup framing). The hard parts of opening up (abuse controls, billing/Stripe, infra scale, HNSW index) are separate and tracked in `docs/PRODUCTION_PLAN.md`.
+- **Migration gotcha (learned this round):** new Supabase tables created via raw SQL are exposed to the anon key unless RLS is enabled in the migration. Always `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` for new public tables.
 
 ## Post-launch follow-ups (not yet tracked as issues)
 
@@ -62,4 +93,7 @@ Six improvements shipped in one commit (`0f19972`):
 - ~~GitHub repo rename from `Who-That` to `DejaWho`~~ — done
 - ~~iPhone Safari manual QA session (voice record, voice search, PWA install)~~ — done
 - ~~Verify Resend deliverability~~ — done, `noreply@dejawho.io` confirmed working
+- ~~Public marketing site / landing page~~ — done, live at `/` with waitlist (commit `b66e44a`)
 - Broader test user feedback collection
+- Optional security cleanups (see Security posture): revoke `anon`/`authenticated` EXECUTE on `rls_auto_enable()`; enable Supabase Auth leaked-password protection
+- Waitlist marketing: if/when sending newsletters to the list, consider a dedicated CRM (Loops/Kit/MailerLite) on a marketing subdomain to keep marketing sends off the transactional (auth) domain
