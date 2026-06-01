@@ -1,49 +1,60 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Mic, Search, Lock, ArrowRight, Check, AlertCircle } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Lock,
+  MapPin,
+  Mic,
+  Search,
+  Sparkles,
+  Timer,
+} from "lucide-react";
 
-/* ─────────────────────────────────────────────────────────────
-   DejaWho — public landing. Shown to logged-out visitors at /.
-   Creative north star: "The Night-Sky Atlas" (see DESIGN.md).
-   Amethyst ground, indigo workhorse, cream spent once — on recall.
-   ───────────────────────────────────────────────────────────── */
-
-// Deterministic-enough starfield, computed once at module load.
-const STARS = Array.from({ length: 64 }, (_, i) => ({
+const STARS = Array.from({ length: 82 }, (_, i) => ({
   left: (i * 61.8) % 100,
   top: ((i * 38.2) % 96) + 2,
-  size: i % 9 === 0 ? 2.5 : i % 3 === 0 ? 1.6 : 1,
-  delay: (i % 11) * 0.45,
-  bright: i % 9 === 0,
+  size: i % 13 === 0 ? 2.6 : i % 5 === 0 ? 1.7 : 1,
+  delay: (i % 17) * 0.28,
+  bright: i % 11 === 0,
 }));
 
-function Starfield() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      {STARS.map((s, i) => (
-        <span
-          key={i}
-          className="absolute rounded-full bg-white motion-safe:animate-dw-pulse-soft"
-          style={{
-            left: `${s.left}%`,
-            top: `${s.top}%`,
-            width: s.size,
-            height: s.size,
-            opacity: s.bright ? 0.7 : 0.28,
-            animationDelay: `${s.delay}s`,
-            animationDuration: "5.5s",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
+const SIGNALS = [
+  { x: "12%", y: "22%", label: "name" },
+  { x: "38%", y: "14%", label: "place" },
+  { x: "68%", y: "24%", label: "date" },
+  { x: "83%", y: "48%", label: "context" },
+  { x: "57%", y: "73%", label: "voice" },
+  { x: "25%", y: "68%", label: "memory" },
+];
 
 type FormStatus =
   | { kind: "idle" }
   | { kind: "sending" }
   | { kind: "done"; email: string }
   | { kind: "error"; message: string };
+
+function Starfield({ dense = false }: { dense?: boolean }) {
+  return (
+    <div className="landing-starfield" aria-hidden="true">
+      {STARS.slice(0, dense ? STARS.length : 48).map((s, i) => (
+        <span
+          key={i}
+          style={{
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            width: s.size,
+            height: s.size,
+            opacity: s.bright ? 0.72 : 0.3,
+            animationDelay: `${s.delay}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function WaitlistForm({ source }: { source: string }) {
   const [email, setEmail] = useState("");
@@ -91,9 +102,7 @@ function WaitlistForm({ source }: { source: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      {/* One coupled control: an email field with the submit button inside it,
-          so it reads as "enter your email → join", not a field plus a stray button. */}
-      <div className="flex items-center gap-1.5 rounded-2xl border border-white/15 bg-white/[0.07] p-1.5 transition-[box-shadow,border-color] focus-within:border-transparent focus-within:ring-2 focus-within:ring-dw-indigo/55">
+      <div className="landing-waitlist-control">
         <input
           type="email"
           required
@@ -105,16 +114,16 @@ function WaitlistForm({ source }: { source: string }) {
           disabled={status.kind === "sending"}
           aria-label="Email address"
           data-testid={`waitlist-email-${source}`}
-          className="h-11 min-w-0 flex-1 bg-transparent pl-3 pr-1 text-base text-dw-fg outline-none placeholder:text-white/35 disabled:opacity-50"
+          className="h-12 min-w-0 flex-1 bg-transparent pl-3 pr-1 text-base text-dw-fg outline-none placeholder:text-white/55 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={status.kind === "sending"}
           data-testid={`waitlist-submit-${source}`}
-          className="group inline-flex h-11 flex-shrink-0 items-center justify-center gap-1.5 rounded-xl bg-dw-indigo px-4 font-semibold text-white transition-[background-color,transform] hover:bg-dw-indigo-dim active:scale-[0.98] disabled:opacity-60"
+          className="group inline-flex h-12 flex-shrink-0 items-center justify-center gap-1.5 rounded-xl bg-dw-indigo px-4 font-semibold text-white transition-[background-color,transform] hover:bg-dw-indigo-dim active:scale-[0.98] disabled:opacity-60"
         >
           {status.kind === "sending" ? (
-            "Joining…"
+            "Joining..."
           ) : (
             <>
               <span className="sm:hidden">Join</span>
@@ -136,72 +145,77 @@ function WaitlistForm({ source }: { source: string }) {
   );
 }
 
-/* The hero "recall" moment — the only place cream is spent on this page.
-   A vague spoken question resolves into a remembered person. */
-function RecallDemo() {
-  const [revealed, setRevealed] = useState(false);
-  useEffect(() => {
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setRevealed(true);
-      return;
-    }
-    const t = setTimeout(() => setRevealed(true), 1100);
-    return () => clearTimeout(t);
-  }, []);
-
+function HeroMemoryScene() {
   return (
-    <div className="relative w-full max-w-md">
-      {/* The question, as if spoken */}
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-dw-indigo/20 ring-1 ring-dw-indigo/30">
-          <Search className="h-4 w-4 text-dw-indigo-text" />
-        </span>
-        <p className="rounded-2xl rounded-tl-sm bg-white/[0.06] px-4 py-3 text-left text-[15px] leading-snug text-dw-fg">
-          Who was that photographer I met at the farmers market in February?
-        </p>
-      </div>
+    <div className="landing-scene" aria-label="A remembered encounter resolving from voice search">
+      <div className="landing-orbit" aria-hidden="true" />
+      <div className="landing-phone-shell">
+        <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+          <div className="flex items-center gap-2">
+            <img src="/hero-mark-nobg.png" alt="" className="h-8 w-8" />
+            <span className="text-sm font-semibold text-dw-fg">DejaWho</span>
+          </div>
+          <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-dw-fg-sec">
+            Recall
+          </span>
+        </div>
 
-      {/* The answer — blooms in with cream starlight */}
-      <div
-        className={[
-          "relative mt-4 ml-12 origin-top-left transition-all duration-700 ease-[cubic-bezier(.2,.7,.3,1)]",
-          revealed ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-3 scale-[0.97]",
-        ].join(" ")}
-      >
-        {/* cream bloom — the recall halo */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -inset-6 -z-10 rounded-[2rem] blur-2xl"
-          style={{ background: "var(--dw-cream-bloom)", opacity: revealed ? 0.5 : 0 }}
-        />
-        <div className="rounded-2xl border border-dw-cream/25 bg-dw-card/90 p-4 text-left backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-base font-semibold text-dw-amethyst"
-              style={{ background: "var(--dw-cream)" }}
-            >
-              MR
+        <div className="space-y-5 p-4 sm:p-5">
+          <div className="landing-voice-pill">
+            <span className="landing-mic">
+              <Mic className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <p className="font-semibold text-dw-fg">Marisol Reyes</p>
-              <p className="text-[13px] leading-snug text-dw-fg-sec">
-                Shoots editorial portraits, moving to Lisbon in spring.
+              <p className="text-sm font-semibold text-dw-fg">Ask out loud</p>
+              <p className="truncate text-xs text-dw-fg-sec">
+                Who was that photographer from February?
               </p>
             </div>
+            <div className="ml-auto flex h-8 items-center gap-1" aria-hidden="true">
+              {[0, 1, 2, 3, 4].map((bar) => (
+                <span key={bar} className="landing-wave" style={{ animationDelay: `${bar * 90}ms` }} />
+              ))}
+            </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-dw-fg-sec">
-              February
-            </span>
-            <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-dw-fg-sec">
-              Ferry Plaza farmers market
-            </span>
-            <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-dw-fg-sec">
-              Met once
-            </span>
+
+          <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-white/10 bg-dw-amethyst/80 p-4">
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 260" aria-hidden="true">
+              <path
+                className="landing-path"
+                d="M62 58 C120 20 165 48 214 37 S316 42 350 98 C386 158 318 194 260 188 S162 236 102 178 C63 140 39 91 62 58Z"
+              />
+              <path
+                className="landing-path landing-path-secondary"
+                d="M106 176 C150 116 210 130 250 80 S315 50 351 98"
+              />
+            </svg>
+            {SIGNALS.map((signal, i) => (
+              <span
+                key={signal.label}
+                className="landing-signal"
+                style={{ left: signal.x, top: signal.y, animationDelay: `${280 + i * 120}ms` }}
+              >
+                {signal.label}
+              </span>
+            ))}
+            <div className="landing-answer-card">
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-dw-cream text-base font-bold text-dw-amethyst">
+                  MR
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-dw-fg">Marisol Reyes</p>
+                  <p className="text-sm leading-snug text-dw-fg-sec">
+                    Editorial portraits, Lisbon in spring.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span>February</span>
+                <span>Ferry Plaza</span>
+                <span>Met once</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -209,46 +223,98 @@ function RecallDemo() {
   );
 }
 
-function Step({
+function StoryStep({
   icon,
-  tone,
   title,
   body,
+  meta,
 }: {
   icon: React.ReactNode;
-  tone: string;
   title: string;
   body: string;
+  meta: string;
 }) {
   return (
-    <div className="flex gap-4">
-      <span
-        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full"
-        style={{ background: tone }}
-      >
-        {icon}
-      </span>
-      <div className="pt-0.5">
-        <h3 className="text-lg font-semibold text-dw-fg">{title}</h3>
-        <p className="mt-1 max-w-[40ch] text-[15px] leading-relaxed text-dw-fg-sec">{body}</p>
+    <div className="landing-story-step">
+      <span className="landing-story-icon">{icon}</span>
+      <div>
+        <p className="text-xs font-semibold text-dw-indigo-text">{meta}</p>
+        <h3 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-dw-fg">{title}</h3>
+        <p className="mt-2 max-w-[42ch] text-[15px] leading-relaxed text-dw-fg-sec">{body}</p>
+      </div>
+    </div>
+  );
+}
+
+function SearchQualityPanel() {
+  return (
+    <div className="landing-quality-panel">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-dw-fg">Search weighs the whole memory</p>
+          <p className="mt-1 text-sm text-dw-fg-sec">One question can mix context, place, time, and feeling.</p>
+        </div>
+        <Search className="h-5 w-5 flex-shrink-0 text-dw-indigo-text" />
+      </div>
+      <div className="mt-6 space-y-3">
+        {[
+          ["semantic", "0.42"],
+          ["date", "0.24"],
+          ["place", "0.18"],
+          ["keyword", "0.16"],
+        ].map(([label, value], i) => (
+          <div key={label} className="grid grid-cols-[5rem_1fr_2.75rem] items-center gap-3 text-sm">
+            <span className="text-dw-fg-sec">{label}</span>
+            <span className="h-2 overflow-hidden rounded-full bg-white/[0.07]">
+              <span
+                className="landing-weight-bar"
+                style={{ width: `${Number(value) * 100}%`, animationDelay: `${i * 110}ms` }}
+              />
+            </span>
+            <span className="text-right font-medium text-dw-fg">{value}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-dw-success/25 bg-dw-success/[0.08] p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-dw-success">
+            <Check className="h-4 w-4" /> Confident
+          </div>
+          <p className="mt-2 text-[15px] leading-relaxed text-dw-fg">
+            That's Daniel Okafor, the recruiter from the rooftop mixer in October.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-dw-fg-sec">
+            <Search className="h-4 w-4" /> Needs your call
+          </div>
+          <p className="mt-2 text-[15px] leading-relaxed text-dw-fg">
+            Could be one of two people from that weekend. DejaWho shows both.
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
 export default function Landing() {
-  const heroRef = useRef<HTMLDivElement>(null);
+  const [heroReady, setHeroReady] = useState(false);
+
+  useEffect(() => {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setHeroReady(true);
+      return;
+    }
+    const t = window.setTimeout(() => setHeroReady(true), 180);
+    return () => window.clearTimeout(t);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background text-dw-fg" data-testid="landing-loaded">
-      {/* Nav */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-background/80 backdrop-blur-md">
+    <div className="min-h-screen overflow-x-hidden bg-background text-dw-fg" data-testid="landing-loaded">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-background/86 backdrop-blur-md">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <img
-            src="/horizontal-lockup.svg"
-            alt="DejaWho"
-            className="h-7 w-auto object-contain"
-          />
+          <img src="/horizontal-lockup.svg" alt="DejaWho" className="h-7 w-auto object-contain" />
           <Link
             href="/sign-in"
             className="text-sm font-medium text-dw-fg-sec transition-colors hover:text-dw-fg"
@@ -259,170 +325,150 @@ export default function Landing() {
         </nav>
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <Starfield />
-        <div
-          ref={heroRef}
-          className="relative mx-auto flex max-w-6xl flex-col items-start gap-10 px-5 pb-16 pt-12 sm:gap-12 sm:pb-20 sm:pt-16 lg:flex-row lg:items-center lg:gap-16 lg:pb-28 lg:pt-24"
-        >
-          <div className="w-full motion-safe:animate-dw-fade-up lg:max-w-xl">
-            <h1
-              className="text-balance font-bold leading-[1.02] tracking-[-0.03em] text-dw-fg"
-              style={{ fontSize: "clamp(2.5rem, 6vw, 4.25rem)" }}
-            >
-              Who was that, again?
-            </h1>
-            <p className="mt-5 max-w-[52ch] text-lg leading-relaxed text-dw-fg-sec">
-              DejaWho is a quiet, private memory for the people you meet. Say who
-              you met in a sentence. Months later, ask out loud and hear the
-              answer back, by name.
-            </p>
-
-            <div className="mt-8 max-w-md">
-              <WaitlistForm source="hero" />
-            </div>
-            <p className="mt-4 text-sm text-dw-fg-ter">
-              Already invited?{" "}
-              <Link
-                href="/sign-in"
-                className="font-medium text-dw-indigo-text underline-offset-4 hover:underline"
-                data-testid="hero-sign-in"
+      <main>
+        <section className="relative overflow-hidden lg:min-h-[calc(100svh-4rem)]">
+          <Starfield dense />
+          <div className="landing-hero-glow" aria-hidden="true" />
+          <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-5 pb-10 pt-9 sm:gap-10 sm:py-12 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:py-14">
+            <div className={heroReady ? "landing-hero-copy is-ready min-w-0" : "landing-hero-copy min-w-0"}>
+              <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-sm text-dw-fg-sec">
+                <Sparkles className="h-4 w-4 text-dw-indigo-text" />
+                Voice-first memory, invite-only
+              </p>
+              <h1
+                className="max-w-[10ch] text-balance font-bold leading-[0.98] tracking-[-0.035em] text-dw-fg"
+                style={{ fontSize: "clamp(2.7rem, 13vw, 5.8rem)" }}
               >
-                Sign in
-              </Link>
-            </p>
-          </div>
-
-          <div className="w-full motion-safe:animate-dw-fade-up lg:flex lg:justify-end [animation-delay:120ms]">
-            <RecallDemo />
-          </div>
-        </div>
-      </section>
-
-      {/* The loop — stepped up to the card tone (band A) */}
-      <section className="border-t border-white/[0.06] bg-dw-card">
-        <div className="mx-auto max-w-6xl px-5 py-16 sm:py-20 lg:py-28">
-          <h2 className="max-w-[18ch] text-balance text-3xl font-bold tracking-[-0.02em] text-dw-fg sm:text-4xl">
-            Ten seconds to remember. None to recall.
-          </h2>
-          <p className="mt-4 max-w-[56ch] text-lg text-dw-fg-sec">
-            The voice button does the work. You talk; DejaWho keeps the thread and
-            hands it back when you need it.
-          </p>
-          <div className="mt-10 grid gap-8 sm:mt-12 sm:grid-cols-3">
-            <Step
-              tone="var(--dw-indigo)"
-              icon={<Mic className="h-5 w-5 text-white" />}
-              title="Speak it"
-              body="Hold the button, say who you met and what stuck with you. A sentence is plenty."
-            />
-            <Step
-              tone="rgba(255,255,255,0.06)"
-              icon={<Lock className="h-5 w-5 text-dw-fg-sec" />}
-              title="Forget it"
-              body="Get on with your week. The detail you'd normally lose stays kept, on its own."
-            />
-            <Step
-              tone="var(--dw-indigo)"
-              icon={<Search className="h-5 w-5 text-white" />}
-              title="Ask for it"
-              body="Months later, ask in plain words, by name, place, date, or a vague half-memory. The answer comes back in your ears."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* The hard problem / honest hedging — back to ground (band B) */}
-      <section className="border-t border-white/[0.06]">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:gap-12 sm:py-20 lg:grid-cols-2 lg:items-center lg:py-28">
-          <div>
-            <h2 className="max-w-[20ch] text-balance text-3xl font-bold tracking-[-0.02em] text-dw-fg sm:text-4xl">
-              It doesn't just match words.
-            </h2>
-            <p className="mt-5 max-w-[56ch] text-lg leading-relaxed text-dw-fg-sec">
-              Most search hands you mush when you mix a name, a place, and a vague
-              feeling in one breath. DejaWho weighs what you said, when, and where,
-              all at once. And when it isn't sure, it tells you, instead of
-              guessing.
-            </p>
-          </div>
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-dw-success/25 bg-dw-success/[0.08] p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-dw-success">
-                <Check className="h-4 w-4" /> Sure
+                Who was that, again?
+              </h1>
+              <p className="mt-6 max-w-[55ch] text-lg leading-[1.75] text-dw-fg-sec sm:text-xl">
+                DejaWho helps you record the people you meet in seconds, then find them later by name,
+                place, date, or the fragment you still remember.
+              </p>
+              <div className="mt-9 w-full max-w-md">
+                <WaitlistForm source="hero" />
               </div>
-              <p className="mt-2 text-[15px] text-dw-fg">
-                That's Daniel Okafor, the recruiter from the rooftop mixer in
-                October.
+              <p className="mt-4 text-sm text-dw-fg-ter">
+                Already invited?{" "}
+                <Link
+                  href="/sign-in"
+                  className="font-medium text-dw-indigo-text underline-offset-4 hover:underline"
+                  data-testid="hero-sign-in"
+                >
+                  Sign in
+                </Link>
               </p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-dw-fg-sec">
-                <Search className="h-4 w-4" /> Not sure, and saying so
-              </div>
-              <p className="mt-2 text-[15px] text-dw-fg">
-                Could be one of two people you met that weekend. Here are both,
-                so you decide.
-              </p>
+            <div className={heroReady ? "landing-hero-visual is-ready min-w-0" : "landing-hero-visual min-w-0"}>
+              <HeroMemoryScene />
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Trust — stepped up to the card tone (band A) */}
-      <section className="border-t border-white/[0.06] bg-dw-card">
-        <div className="mx-auto max-w-6xl px-5 py-16 sm:py-20 lg:py-28">
-          <div className="flex flex-col items-start gap-5">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.06]">
-              <Lock className="h-5 w-5 text-dw-fg-sec" />
-            </span>
-            <h2 className="max-w-[22ch] text-balance text-3xl font-bold tracking-[-0.02em] text-dw-fg sm:text-4xl">
-              Built for a small circle, first.
+        <section className="border-t border-white/[0.06] bg-dw-card">
+          <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:py-28">
+            <div>
+              <h2 className="max-w-[16ch] text-balance text-3xl font-bold tracking-[-0.025em] text-dw-fg sm:text-5xl">
+                The button becomes the habit.
+              </h2>
+              <p className="mt-5 max-w-[48ch] text-lg leading-relaxed text-dw-fg-sec">
+                People are easiest to remember at the moment you meet them. DejaWho keeps that moment
+                lightweight, private, and close to how you naturally speak.
+              </p>
+            </div>
+            <div className="grid gap-5">
+              <StoryStep
+                icon={<Mic className="h-5 w-5" />}
+                meta="record"
+                title="Capture the encounter while it is fresh"
+                body="Say who they are, where you met, and the detail that will matter later. A rough sentence is enough."
+              />
+              <StoryStep
+                icon={<Timer className="h-5 w-5" />}
+                meta="keep"
+                title="Let the week move on"
+                body="The app stores the thread around the person, so your notes stay useful without becoming another task list."
+              />
+              <StoryStep
+                icon={<MapPin className="h-5 w-5" />}
+                meta="recall"
+                title="Ask with the clue you still have"
+                body="Search by a name, a city, a month, a role, or a half-memory. The answer comes back by voice."
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="relative overflow-hidden border-t border-white/[0.06]">
+          <div className="landing-section-mark" aria-hidden="true" />
+          <div className="relative mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:py-28">
+            <div>
+              <h2 className="max-w-[17ch] text-balance text-3xl font-bold tracking-[-0.025em] text-dw-fg sm:text-5xl">
+                It listens for the shape of a memory.
+              </h2>
+              <p className="mt-5 max-w-[58ch] text-lg leading-relaxed text-dw-fg-sec">
+                Simple keyword search breaks when a question mixes names, places, dates, and vague
+                context. DejaWho blends those signals and treats uncertainty as part of the answer.
+              </p>
+            </div>
+            <SearchQualityPanel />
+          </div>
+        </section>
+
+        <section className="border-t border-white/[0.06] bg-dw-card">
+          <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:py-28">
+            <div>
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.06]">
+                <Lock className="h-5 w-5 text-dw-fg-sec" />
+              </span>
+              <h2 className="mt-6 max-w-[20ch] text-balance text-3xl font-bold tracking-[-0.025em] text-dw-fg sm:text-5xl">
+                Small circle first. Trust before scale.
+              </h2>
+              <p className="mt-5 max-w-[62ch] text-lg leading-relaxed text-dw-fg-sec">
+                DejaWho is open to a small invite list while the product learns from real encounters.
+                Your notes are personal, so access widens slowly and deliberately.
+              </p>
+            </div>
+            <div className="landing-trust-stack">
+              {["Invite-only access", "Private encounter notes", "Honest uncertainty", "Voice-first recall"].map(
+                (item, index) => (
+                  <div key={item} className="landing-trust-row" style={{ animationDelay: `${index * 110}ms` }}>
+                    <Check className="h-4 w-4 text-dw-success" />
+                    <span>{item}</span>
+                    <ChevronRight className="ml-auto h-4 w-4 text-dw-fg-ter" />
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="relative overflow-hidden border-t border-white/[0.06]">
+          <Starfield />
+          <div className="relative mx-auto max-w-2xl px-5 py-20 text-center sm:py-24 lg:py-32">
+            <h2
+              className="mx-auto max-w-[18ch] text-balance font-bold leading-[1.04] tracking-[-0.025em] text-dw-fg"
+              style={{ fontSize: "clamp(2.25rem, 5vw, 4.5rem)" }}
+            >
+              Join before the circle gets wider.
             </h2>
-            <p className="max-w-[60ch] text-lg leading-relaxed text-dw-fg-sec">
-              Right now DejaWho is invite-only, opened to friends and family who
-              trust it with their memory of the people they meet. Your encounters
-              are yours. We're widening the circle slowly, and on purpose.
+            <p className="mx-auto mt-5 max-w-[52ch] text-lg leading-relaxed text-dw-fg-sec">
+              Leave your email. Invites go out in small batches so the people already here keep a
+              careful, useful experience.
             </p>
+            <div className="mx-auto mt-9 w-full max-w-md">
+              <WaitlistForm source="footer" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* Closing CTA */}
-      <section className="relative overflow-hidden border-t border-white/[0.06]">
-        <Starfield />
-        <div className="relative mx-auto max-w-2xl px-5 py-20 text-center sm:py-24 lg:py-32">
-          <h2
-            className="mx-auto max-w-[20ch] text-balance font-bold leading-[1.05] tracking-[-0.025em] text-dw-fg"
-            style={{ fontSize: "clamp(2rem, 4.5vw, 3.25rem)" }}
-          >
-            We're opening the doors slowly.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[52ch] text-lg text-dw-fg-sec">
-            Leave your email. Invites go out in small batches, so the people
-            already here keep a good experience.
-          </p>
-          <div className="mx-auto mt-9 max-w-md">
-            <WaitlistForm source="footer" />
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
       <footer className="border-t border-white/[0.06]">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 sm:flex-row">
-          <img
-            src="/horizontal-lockup.svg"
-            alt="DejaWho"
-            className="h-6 w-auto object-contain opacity-80"
-          />
+          <img src="/horizontal-lockup.svg" alt="DejaWho" className="h-6 w-auto object-contain opacity-80" />
           <p className="text-xs text-dw-fg-ter">
             Invite-only during early access.{" "}
-            <Link
-              href="/privacy"
-              className="underline-offset-4 transition-colors hover:text-dw-fg-sec"
-            >
+            <Link href="/privacy" className="underline-offset-4 transition-colors hover:text-dw-fg-sec">
               Privacy &amp; Terms
             </Link>
           </p>
