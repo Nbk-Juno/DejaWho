@@ -52,7 +52,7 @@ test.afterAll(async () => {
 // This smoke test just verifies the post-auth shell loads and the Search
 // page is reachable from the bottom nav.
 test("sign in and navigate from home to search", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/sign-in");
   await page.getByTestId("input-email").fill(TEST_EMAIL);
   await page.getByTestId("input-password").fill(TEST_PASSWORD);
   await page.getByTestId("button-sign-in").click();

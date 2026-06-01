@@ -263,7 +263,7 @@ export default function Profile() {
               onClick={() => setConfirmReplay(true)}
             />
             <Divider />
-            <Row icon={LogOut} label="Sign out" onClick={signOut} testId="button-sign-out" />
+            <Row icon={LogOut} label="Sign out" onClick={() => signOut()} testId="button-sign-out" />
           </SectionCard>
         </div>
 

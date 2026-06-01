@@ -19,6 +19,7 @@ import Profile from "@/pages/profile";
 import SignIn from "@/pages/sign-in";
 import ResetPassword from "@/pages/reset-password";
 import Privacy from "@/pages/privacy";
+import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -49,13 +50,22 @@ function InviteOnlyScreen() {
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold">Invite only</h1>
           <p className="text-muted-foreground">
-            <strong>{user?.email}</strong> isn't on the invite list yet. Reach out to the
-            operator to request access.
+            <strong>{user?.email}</strong> isn't on the invite list yet. Join the waitlist
+            and we'll email you the moment a spot opens.
           </p>
         </div>
-        <Button onClick={() => signOut()} data-testid="button-back-to-sign-in">
-          Sign out
-        </Button>
+        <div className="space-y-3">
+          <Button onClick={() => signOut("/")} className="w-full" data-testid="button-join-waitlist">
+            Join the waitlist
+          </Button>
+          <button
+            onClick={() => signOut()}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-back-to-sign-in"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -121,7 +131,14 @@ function AppContent() {
   }
 
   if (!session) {
-    return <SignIn />;
+    // The public marketing landing is the front door; the sign-in form lives
+    // at /sign-in so logged-out visitors meet the brand before the gate.
+    return location === "/sign-in" ? <SignIn /> : <Landing />;
+  }
+
+  // A signed-in user who lands on /sign-in (e.g. after auth completes) goes home.
+  if (location === "/sign-in") {
+    return <Redirect to="/" />;
   }
 
   return <AuthenticatedShell />;

@@ -9,13 +9,13 @@ import {
   updatePersonSchema,
 } from "@shared/schema";
 import { generateEmbedding, generatePersonSummary } from "./openai";
-import { requireAuth, userIdFrom } from "./auth";
+import { requireAuth, requireAllowlisted, userIdFrom } from "./auth";
 import { logError } from "./logger";
 import { AI_TEXT_LIMITS, assertAiTextWithinLimit, handleAiPolicyError } from "./ai-policy";
 import { billableAiCall } from "./usage-counters";
 
 export function attachPersonRoutes(app: Express): void {
-  app.get("/api/persons", requireAuth, async (req, res) => {
+  app.get("/api/persons", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const persons = await storage.getPersonsForUser(userIdFrom(req));
       res.json(persons.map(toApiPerson));
@@ -25,7 +25,7 @@ export function attachPersonRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/persons/:id", requireAuth, async (req, res) => {
+  app.get("/api/persons/:id", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const userId = userIdFrom(req);
       const person = await storage.getPersonForUser(req.params.id, userId);
@@ -57,7 +57,7 @@ export function attachPersonRoutes(app: Express): void {
   // of this person; the last name backfills onto encounters that don't already have one (a
   // differing surname is left alone). Changed encounters are re-embedded so search stays
   // accurate. The person row is then recomputed from its encounters.
-  app.patch("/api/persons/:id", requireAuth, async (req, res) => {
+  app.patch("/api/persons/:id", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const userId = userIdFrom(req);
       const person = await storage.getPersonForUser(req.params.id, userId);
@@ -110,7 +110,7 @@ export function attachPersonRoutes(app: Express): void {
     }
   });
 
-  app.delete("/api/persons/:id", requireAuth, async (req, res) => {
+  app.delete("/api/persons/:id", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const userId = userIdFrom(req);
       const person = await storage.getPersonForUser(req.params.id, userId);

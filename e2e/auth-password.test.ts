@@ -10,7 +10,7 @@ const TEST_PASSWORD = "Test-password-9876!";
 
 test.describe("password auth on sign-in page", () => {
   test("shows password form by default", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/sign-in");
 
     await expect(page.getByTestId("tab-password")).toBeVisible();
     await expect(page.getByTestId("tab-magic-link")).toBeVisible();
@@ -43,7 +43,7 @@ test.describe("password auth on sign-in page", () => {
     await sql`INSERT INTO whitelisted_emails (email) VALUES (${TEST_EMAIL}) ON CONFLICT DO NOTHING`;
 
     try {
-      await page.goto("/");
+      await page.goto("/sign-in");
       await page.getByTestId("input-email").fill(TEST_EMAIL);
       await page.getByTestId("input-password").fill(TEST_PASSWORD);
       await page.getByTestId("button-sign-in").click();
@@ -68,7 +68,7 @@ test.describe("password auth on sign-in page", () => {
   });
 
   test("shows error on wrong password", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/sign-in");
     await page.getByTestId("input-email").fill("nobody@example.com");
     await page.getByTestId("input-password").fill("wrong-password");
     await page.getByTestId("button-sign-in").click();
@@ -77,7 +77,7 @@ test.describe("password auth on sign-in page", () => {
   });
 
   test("can switch to magic link tab", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/sign-in");
 
     await page.getByTestId("tab-magic-link").click();
 

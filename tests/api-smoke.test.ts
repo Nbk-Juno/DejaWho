@@ -121,7 +121,7 @@ beforeAll(async () => {
   await registerRoutes(app);
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
   delete process.env.AI_MONTHLY_TTS_LIMIT;
   delete process.env.AI_MONTHLY_SEARCH_LIMIT;
@@ -129,7 +129,13 @@ beforeEach(() => {
   delete process.env.AI_MONTHLY_VOICE_TRANSCRIPTION_LIMIT;
   delete process.env.AI_MONTHLY_ENCOUNTER_EMBEDDINGS_LIMIT;
   delete process.env.API_RATE_LIMIT_REQUESTS_PER_MINUTE;
+  delete process.env.INVITE_ONLY;
   resetApiRateLimitForTests();
+  // Functional tests run as allow-listed users; the invite gate is tested
+  // separately. setup.ts truncates whitelisted_emails before each test.
+  const { storage } = await import("../server/storage");
+  await storage.addAllowedEmail("alice@example.com");
+  await storage.addAllowedEmail("bob@example.com");
 });
 
 describe("API smoke", () => {
@@ -472,6 +478,49 @@ describe("API smoke", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe("invite_only");
+  });
+
+  it("blocks a non-allow-listed user from AI routes (the spending gate)", async () => {
+    const res = await request(app)
+      .post("/api/search")
+      .set("Authorization", `Bearer ${tokenFor(USER_A, "stranger@example.com")}`)
+      .send({ query: "who did I meet at the market" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("invite_only");
+  });
+
+  it("opens AI routes to any authenticated user when INVITE_ONLY=false", async () => {
+    process.env.INVITE_ONLY = "false";
+    const res = await request(app)
+      .post("/api/search")
+      .set("Authorization", `Bearer ${tokenFor(USER_A, "stranger@example.com")}`)
+      .send({ query: "who did I meet at the market" });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("waitlist accepts a valid email, normalizes case, and is idempotent (no auth)", async () => {
+    const first = await request(app)
+      .post("/api/waitlist")
+      .send({ email: "Hopeful@Example.com", source: "hero" });
+    expect(first.status).toBe(200);
+    expect(first.body.ok).toBe(true);
+
+    const second = await request(app).post("/api/waitlist").send({ email: "hopeful@example.com" });
+    expect(second.status).toBe(200);
+
+    const rows = (await db.execute(
+      sql`SELECT email, source FROM waitlist_emails`,
+    )) as Array<{ email: string; source: string | null }>;
+    expect(rows.length).toBe(1);
+    expect(rows[0].email).toBe("hopeful@example.com");
+    expect(rows[0].source).toBe("hero");
+  });
+
+  it("waitlist rejects an invalid email", async () => {
+    const res = await request(app).post("/api/waitlist").send({ email: "not-an-email" });
+    expect(res.status).toBe(400);
   });
 
   it("returns the authenticated user's monthly usage summary and ignores spoofed user input", async () => {

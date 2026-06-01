@@ -13,7 +13,7 @@ import {
 } from "@shared/schema";
 import { resolvePerson, type PersonCandidate } from "./person-resolution";
 import { generateEmbedding, parseEncounterFromSpeech, transcribeAudio } from "./openai";
-import { requireAuth, userIdFrom } from "./auth";
+import { requireAuth, requireAllowlisted, userIdFrom } from "./auth";
 import { logError } from "./logger";
 import {
   AI_AUDIO_MAX_BYTES,
@@ -102,7 +102,7 @@ async function resolveAndAttach(userId: string, encounter: Encounter): Promise<R
 export function attachEncounterRoutes(app: Express): void {
   const uploadAudio = makeUploadAudio();
 
-  app.post("/api/transcribe", requireAuth, uploadAudio, async (req, res) => {
+  app.post("/api/transcribe", requireAuth, requireAllowlisted, uploadAudio, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
@@ -118,7 +118,7 @@ export function attachEncounterRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/parse-encounter", requireAuth, async (req, res) => {
+  app.post("/api/parse-encounter", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const { text } = req.body;
       if (!text || typeof text !== "string") {
@@ -136,7 +136,7 @@ export function attachEncounterRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/encounters", requireAuth, async (req, res) => {
+  app.get("/api/encounters", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const encounters = await storage.getAllEncountersForUser(userIdFrom(req));
       res.json(encounters.map(toApiEncounter));
@@ -146,7 +146,7 @@ export function attachEncounterRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/encounters/:id", requireAuth, async (req, res) => {
+  app.get("/api/encounters/:id", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const encounter = await storage.getEncounterForUser(req.params.id, userIdFrom(req));
       if (!encounter) {
@@ -159,7 +159,7 @@ export function attachEncounterRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/encounters/:id", requireAuth, async (req, res) => {
+  app.patch("/api/encounters/:id", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const userId = userIdFrom(req);
       const existing = await storage.getEncounterForUser(req.params.id, userId);
@@ -240,7 +240,7 @@ export function attachEncounterRoutes(app: Express): void {
     }
   });
 
-  app.delete("/api/encounters/:id", requireAuth, async (req, res) => {
+  app.delete("/api/encounters/:id", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const userId = userIdFrom(req);
       const deleted = await storage.deleteEncounterForUser(req.params.id, userId);
@@ -259,7 +259,7 @@ export function attachEncounterRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/encounters", requireAuth, async (req, res) => {
+  app.post("/api/encounters", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const userId = userIdFrom(req);
       const validated = insertEncounterSchema.parse(req.body);
@@ -293,7 +293,7 @@ export function attachEncounterRoutes(app: Express): void {
 
   // Merge an encounter into a different existing person (the disambiguation "this was
   // actually the same John" correction). Reconciles both the old and new person rows.
-  app.patch("/api/encounters/:id/person", requireAuth, async (req, res) => {
+  app.patch("/api/encounters/:id/person", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const userId = userIdFrom(req);
       const { personId } = req.body;

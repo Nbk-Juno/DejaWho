@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { storage } from "./storage";
 import { supabaseAdmin } from "./supabase";
-import { requireAuth, userIdFrom } from "./auth";
+import { requireAuth, userIdFrom, isInviteOnly } from "./auth";
 import { logError } from "./logger";
 import { getMonthlyUsageSummary } from "./usage-counters";
 
@@ -12,7 +12,7 @@ export function attachAccountRoutes(app: Express): void {
       res.status(401).json({ error: "Token has no email claim" });
       return;
     }
-    const allowed = await storage.isEmailAllowed(email);
+    const allowed = !isInviteOnly() || (await storage.isEmailAllowed(email));
     if (!allowed) {
       res.status(403).json({
         error: "invite_only",

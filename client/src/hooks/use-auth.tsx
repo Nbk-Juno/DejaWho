@@ -11,7 +11,7 @@ type AuthState = {
   signUpWithPassword: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: (redirectTo?: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -69,8 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }
 
-  async function signOut(): Promise<void> {
+  async function signOut(redirectTo: string = "/sign-in"): Promise<void> {
     await supabase.auth.signOut();
+    // Default a signed-out user to the sign-in page; the invite-only screen
+    // passes "/" to send not-yet-approved users back to the waitlist instead.
+    // Guard against call sites like onClick={signOut} passing the event object.
+    const target = typeof redirectTo === "string" ? redirectTo : "/sign-in";
+    window.location.assign(target);
   }
 
   const value: AuthState = {

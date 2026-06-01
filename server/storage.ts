@@ -6,6 +6,7 @@ import {
   persons,
   usageCounters,
   whitelistedEmails,
+  waitlistEmails,
 } from "@shared/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "./db";
@@ -38,6 +39,7 @@ export interface IStorage {
   deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
   addAllowedEmail(email: string, invitedBy?: string | null): Promise<void>;
+  addToWaitlist(email: string, source?: string | null): Promise<void>;
   getPersonsForUser(userId: string): Promise<Person[]>;
   getPersonForUser(id: string, userId: string): Promise<Person | undefined>;
   getPersonsByNameForUser(userId: string, normalizedName: string): Promise<Person[]>;
@@ -177,6 +179,14 @@ export class DbStorage implements IStorage {
     await db
       .insert(whitelistedEmails)
       .values({ email: normalized, invitedBy })
+      .onConflictDoNothing();
+  }
+
+  async addToWaitlist(email: string, source: string | null = null): Promise<void> {
+    const normalized = email.trim().toLowerCase();
+    await db
+      .insert(waitlistEmails)
+      .values({ email: normalized, source })
       .onConflictDoNothing();
   }
 

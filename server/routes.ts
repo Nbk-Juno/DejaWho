@@ -5,6 +5,7 @@ import { attachAccountRoutes } from "./account-operations";
 import { attachEncounterRoutes } from "./encounter-operations";
 import { attachPersonRoutes } from "./person-operations";
 import { attachSearchRoutes } from "./search-operations";
+import { attachWaitlistRoutes } from "./waitlist-operations";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use(apiRateLimit);
@@ -13,6 +14,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
 
+  attachWaitlistRoutes(app);
   attachAccountRoutes(app);
   attachEncounterRoutes(app);
   attachPersonRoutes(app);

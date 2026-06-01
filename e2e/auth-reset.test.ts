@@ -2,14 +2,14 @@ import { test, expect } from "@playwright/test";
 
 test.describe("password reset flow", () => {
   test("forgot password link visible on sign-in form", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/sign-in");
 
     await expect(page.getByTestId("tab-password")).toBeVisible();
     await expect(page.getByTestId("link-forgot-password")).toBeVisible();
   });
 
   test("forgot password link navigates to reset-request view", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/sign-in");
 
     await page.getByTestId("link-forgot-password").click();
     await expect(page.getByTestId("input-reset-email")).toBeVisible();
@@ -17,7 +17,7 @@ test.describe("password reset flow", () => {
   });
 
   test("reset-request form submits and shows confirmation", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/sign-in");
     await page.getByTestId("link-forgot-password").click();
 
     await page.getByTestId("input-reset-email").fill("test@example.com");
@@ -58,7 +58,7 @@ test.describe("password reset flow", () => {
   });
 
   test("reset-request confirmation has back-to-sign-in link", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/sign-in");
     await page.getByTestId("link-forgot-password").click();
 
     await page.getByTestId("input-reset-email").fill("test@example.com");

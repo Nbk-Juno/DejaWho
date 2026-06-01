@@ -124,6 +124,26 @@ export const whitelistedEmails = pgTable("whitelisted_emails", {
 
 export type WhitelistedEmail = typeof whitelistedEmails.$inferSelect;
 
+// Pre-signup interest list. Collecting an email here grants nothing — access is
+// the separate whitelistedEmails allow-list. Operators promote people from this
+// list into the allow-list in batches.
+export const waitlistEmails = pgTable("waitlist_emails", {
+  email: text("email").primaryKey(),
+  source: text("source"),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+  invitedAt: timestamp("invited_at", { withTimezone: true }),
+});
+
+export type WaitlistEmail = typeof waitlistEmails.$inferSelect;
+
+export const joinWaitlistSchema = z.object({
+  email: z.string().trim().email().max(254),
+  source: z.string().trim().max(50).optional(),
+});
+
+export type JoinWaitlistInput = z.infer<typeof joinWaitlistSchema>;
+
 export const usageCounters = pgTable(
   "usage_counters",
   {

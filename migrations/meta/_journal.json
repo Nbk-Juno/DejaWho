@@ -43,6 +43,20 @@
       "when": 1780012800000,
       "tag": "0005_person_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780296366217,
+      "tag": "0006_waitlist_emails",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780296366300,
+      "tag": "0007_waitlist_rls",
+      "breakpoints": true
     }
   ]
 }

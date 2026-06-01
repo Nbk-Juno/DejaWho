@@ -3,13 +3,13 @@ import { storage } from "./storage";
 import { toApiEncounter } from "@shared/schema";
 import { generateEmbedding, generateNaturalLanguageResponse, textToSpeech } from "./openai";
 import { rankEncounters } from "./encounter-search";
-import { requireAuth, userIdFrom } from "./auth";
+import { requireAuth, requireAllowlisted, userIdFrom } from "./auth";
 import { logError } from "./logger";
 import { AI_TEXT_LIMITS, assertAiTextWithinLimit, handleAiPolicyError } from "./ai-policy";
 import { billableAiCall } from "./usage-counters";
 
 export function attachSearchRoutes(app: Express): void {
-  app.post("/api/text-to-speech", requireAuth, async (req, res) => {
+  app.post("/api/text-to-speech", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const { text } = req.body;
       if (!text || typeof text !== "string") {
@@ -28,7 +28,7 @@ export function attachSearchRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/search", requireAuth, async (req, res) => {
+  app.post("/api/search", requireAuth, requireAllowlisted, async (req, res) => {
     try {
       const { query } = req.body;
       if (!query || typeof query !== "string") {

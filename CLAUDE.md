@@ -33,7 +33,9 @@ CI environment gotchas (each costs an iteration to discover the hard way — the
 
 ## E2E test maintenance
 
-E2E tests in `./e2e/` use stable `data-testid` attributes as their contract with the UI. If you remove or rename a testID that e2e relies on, the e2e job will fail and block the deploy. Current testIDs the suite depends on: `tab-password`, `tab-magic-link`, `input-email`, `input-password`, `button-sign-in`, `auth-error`, `input-magic-email`, `button-send-magic-link`, `home-loaded`, `button-sign-out`, plus the reset-password page testIDs.
+E2E tests in `./e2e/` use stable `data-testid` attributes as their contract with the UI. If you remove or rename a testID that e2e relies on, the e2e job will fail and block the deploy. Current testIDs the suite depends on: `tab-password`, `tab-magic-link`, `input-email`, `input-password`, `button-sign-in`, `auth-error`, `input-magic-email`, `button-send-magic-link`, `home-loaded`, `button-sign-out`, the landing testIDs (`landing-loaded`, `nav-sign-in`, `waitlist-email-hero`, `waitlist-submit-hero`), plus the reset-password page testIDs.
+
+**Routing for logged-out visitors:** the public marketing landing (`client/src/pages/landing.tsx`) is the front door at `/`; the sign-in form lives at `/sign-in`. The auth gate in `App.tsx` renders `<Landing />` for any logged-out path except `/sign-in`, `/privacy`, and `/reset-password`. Sign-out redirects to `/sign-in`. E2E tests that need the sign-in form `goto("/sign-in")`, not `/`.
 
 Test users are created via Supabase admin API with `user_metadata.onboarding_completed_at` pre-set so they skip the onboarding flow. If you change how onboarding completion is tracked, update the e2e test setup or the tests will land on onboarding instead of home.
 
@@ -103,7 +105,11 @@ Supabase auth with three methods: **email/password** (primary — solves iOS PWA
 
 The sign-in page (`client/src/pages/sign-in.tsx`) has Password and Magic Link tabs, with a "Forgot password?" flow built into the password tab. Password reset calls `supabase.auth.resetPasswordForEmail()` with a redirect to `/reset-password`. The reset-password page (`client/src/pages/reset-password.tsx`) handles the Supabase callback (recovery token in URL hash, parsed by `detectSessionInUrl: true`) and calls `supabase.auth.updateUser({ password })`. The `/reset-password` route renders outside the auth gate in `App.tsx` so recovery sessions work. Auth methods (`resetPassword`, `updatePassword`) live in `use-auth.tsx`.
 
-`/api/me` checks the email against `whitelisted_emails` and returns 403 (`error: "invite_only"`) for non-allow-listed users. The client calls it on first sign-in and shows an "invite-only" screen on 403. Allow-list is currently checked only on `/api/me`, not on every request — revoking access requires invalidating Supabase sessions until a stricter middleware is wired up.
+`/api/me` checks the email against `whitelisted_emails` and returns 403 (`error: "invite_only"`) for non-allow-listed users. The client calls it on first sign-in and shows an "invite-only" screen on 403. **The allow-list is also enforced on every AI/data route** via the `requireAllowlisted` middleware (in `server/auth.ts`), applied after `requireAuth` in `encounter-operations.ts`, `search-operations.ts`, and `person-operations.ts`. This makes the allow-list the real spending gate: an authenticated-but-not-invited session cannot reach OpenAI. `requireAllowlisted` is a no-op when `INVITE_ONLY=false`.
+
+**`INVITE_ONLY` flag** (`isInviteOnly()` in `server/auth.ts`) defaults to true; the allow-list is enforced unless `INVITE_ONLY=false` is set. Flipping it to `false` opens signups to the public (the gate becomes a no-op) — the single switch for going public. Revoking an individual's access still requires invalidating their Supabase session.
+
+**Waitlist.** The public marketing landing captures interest into `waitlist_emails` (separate from `whitelisted_emails` — joining the waitlist grants nothing). `POST /api/waitlist` (`server/waitlist-operations.ts`) is unauthenticated, Zod-validated, idempotent on conflict. Promoting someone from waitlist → access is a manual `INSERT INTO whitelisted_emails` (run via the Supabase MCP/SQL editor), in batches. There is no automated invite send.
 
 To seed an allow-list email locally:
 ```bash

@@ -121,7 +121,7 @@ export default function SignIn() {
               ? "We'll send a reset link to your email."
               : tab === "password"
                 ? mode === "sign-up"
-                  ? "Create your account to get started."
+                  ? "Set up your account with the email you were approved with."
                   : "Sign in to continue."
                 : "Get a magic link sent to your email."}
           </p>
@@ -129,6 +129,24 @@ export default function SignIn() {
 
         {/* Card */}
         <div className="rounded-2xl bg-white/5 border border-white/10 p-6 space-y-5">
+          {/* Invite-only context — creating an account here doesn't grant access
+              on its own; the allow-list does. Point the un-invited to the waitlist. */}
+          {mode !== "forgot-password" && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-center">
+              <p className="text-xs leading-relaxed text-dw-fg-sec">
+                DejaWho is invite-only right now. If your email's been approved, sign in or
+                set up your account below.{" "}
+                <Link
+                  href="/"
+                  className="font-medium text-dw-indigo-text underline-offset-4 hover:underline"
+                  data-testid="link-join-waitlist"
+                >
+                  Not on the list yet? Join the waitlist
+                </Link>
+              </p>
+            </div>
+          )}
+
           {/* Tab switcher */}
           {mode !== "forgot-password" && (
             <div className="flex rounded-xl bg-white/6 border border-white/10 p-1 gap-1">

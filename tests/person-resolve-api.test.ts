@@ -3,6 +3,7 @@ import express from "express";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import { EMBEDDING_DIMENSIONS } from "@shared/schema";
+import { storage } from "../server/storage";
 
 const TEST_SECRET = "test-jwt-secret-for-vitest-only-do-not-use-in-prod";
 const USER_A = "11111111-1111-1111-1111-111111111111";
@@ -69,8 +70,10 @@ beforeAll(async () => {
   await registerRoutes(app);
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
+  // Functional tests run as an allow-listed user; the invite gate is tested in api-smoke.
+  await storage.addAllowedEmail("alice@example.com");
 });
 
 function createEncounter(body: Record<string, unknown>) {
