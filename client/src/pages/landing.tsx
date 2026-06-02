@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
   AlertCircle,
@@ -21,20 +21,67 @@ const STARS = Array.from({ length: 82 }, (_, i) => ({
   bright: i % 11 === 0,
 }));
 
-const SIGNALS = [
-  { x: "12%", y: "22%", label: "name" },
-  { x: "38%", y: "14%", label: "place" },
-  { x: "68%", y: "24%", label: "date" },
-  { x: "83%", y: "48%", label: "context" },
-  { x: "57%", y: "73%", label: "voice" },
-  { x: "25%", y: "68%", label: "memory" },
-];
+const SIGNALS = ["name", "place", "date", "context"];
 
 type FormStatus =
   | { kind: "idle" }
   | { kind: "sending" }
   | { kind: "done"; email: string }
   | { kind: "error"; message: string };
+
+function landingReveal(delay = 0) {
+  return {
+    "data-landing-reveal": true,
+    style: { "--landing-delay": `${delay}ms` } as CSSProperties,
+  };
+}
+
+function useLandingScrollReveal() {
+  useEffect(() => {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const items = Array.from(document.querySelectorAll<HTMLElement>("[data-landing-reveal]"));
+    if (reduce || items.length === 0) return;
+
+    const revealVisibleItems = () => {
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      items.forEach((item) => {
+        const rect = item.getBoundingClientRect();
+        if (rect.top < viewportHeight * 0.94 && rect.bottom > 0) {
+          item.classList.add("is-visible");
+        }
+      });
+    };
+
+    items.forEach((item) => item.classList.add("landing-reveal-pending"));
+    document.documentElement.classList.add("landing-motion-ready");
+
+    if (!("IntersectionObserver" in window)) {
+      items.forEach((item) => item.classList.add("is-visible"));
+      return;
+    }
+
+    const initialVisibilityFallback = window.setTimeout(revealVisibleItems, 180);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { rootMargin: "0px 0px -12% 0px", threshold: 0.16 },
+    );
+
+    items.forEach((item) => observer.observe(item));
+
+    return () => {
+      window.clearTimeout(initialVisibilityFallback);
+      observer.disconnect();
+      document.documentElement.classList.remove("landing-motion-ready");
+    };
+  }, []);
+}
 
 function Starfield({ dense = false }: { dense?: boolean }) {
   return (
@@ -147,7 +194,7 @@ function WaitlistForm({ source }: { source: string }) {
 
 function HeroMemoryScene() {
   return (
-    <div className="landing-scene" aria-label="A remembered encounter resolving from voice search">
+    <div className="landing-scene" aria-hidden="true">
       <div className="landing-orbit" aria-hidden="true" />
       <div className="landing-phone-shell">
         <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
@@ -178,24 +225,60 @@ function HeroMemoryScene() {
             </div>
           </div>
 
-          <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-white/10 bg-dw-amethyst/80 p-4">
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 260" aria-hidden="true">
+          <div className="landing-memory-canvas">
+            <svg
+              className="landing-wireframe landing-wireframe-desktop"
+              viewBox="0 0 520 320"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
               <path
                 className="landing-path"
-                d="M62 58 C120 20 165 48 214 37 S316 42 350 98 C386 158 318 194 260 188 S162 236 102 178 C63 140 39 91 62 58Z"
+                d="M76 74 C124 48 158 46 193 58"
+              />
+              <path
+                className="landing-path"
+                d="M236 64 C276 76 302 86 334 91"
+              />
+              <path
+                className="landing-path"
+                d="M380 97 C416 110 442 128 454 151"
               />
               <path
                 className="landing-path landing-path-secondary"
-                d="M106 176 C150 116 210 130 250 80 S315 50 351 98"
+                d="M459 178 C459 192 450 198 430 208"
+              />
+            </svg>
+            <svg
+              className="landing-wireframe landing-wireframe-mobile"
+              viewBox="0 0 420 260"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path
+                className="landing-path"
+                d="M78 62 C100 53 114 48 126 47"
+              />
+              <path
+                className="landing-path"
+                d="M169 47 C193 48 211 56 221 63"
+              />
+              <path
+                className="landing-path"
+                d="M267 67 C291 74 305 83 313 93"
+              />
+              <path
+                className="landing-path landing-path-secondary"
+                d="M336 110 C338 119 338 126 338 132"
               />
             </svg>
             {SIGNALS.map((signal, i) => (
               <span
-                key={signal.label}
-                className="landing-signal"
-                style={{ left: signal.x, top: signal.y, animationDelay: `${280 + i * 120}ms` }}
+                key={signal}
+                className={`landing-signal landing-signal-${signal}`}
+                style={{ animationDelay: `${280 + i * 120}ms` }}
               >
-                {signal.label}
+                {signal}
               </span>
             ))}
             <div className="landing-answer-card">
@@ -228,14 +311,16 @@ function StoryStep({
   title,
   body,
   meta,
+  delay = 0,
 }: {
   icon: React.ReactNode;
   title: string;
   body: string;
   meta: string;
+  delay?: number;
 }) {
   return (
-    <div className="landing-story-step">
+    <div className="landing-story-step" {...landingReveal(delay)}>
       <span className="landing-story-icon">{icon}</span>
       <div>
         <p className="text-xs font-semibold text-dw-indigo-text">{meta}</p>
@@ -248,7 +333,8 @@ function StoryStep({
 
 function SearchQualityPanel() {
   return (
-    <div className="landing-quality-panel">
+    <div className="landing-quality-panel" {...landingReveal(120)}>
+      <div className="landing-quality-scan" aria-hidden="true" />
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-dw-fg">Search weighs the whole memory</p>
@@ -276,7 +362,7 @@ function SearchQualityPanel() {
         ))}
       </div>
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-dw-success/25 bg-dw-success/[0.08] p-4">
+        <div className="landing-result-card rounded-2xl border border-dw-success/25 bg-dw-success/[0.08] p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-dw-success">
             <Check className="h-4 w-4" /> Confident
           </div>
@@ -284,7 +370,7 @@ function SearchQualityPanel() {
             That's Daniel Okafor, the recruiter from the rooftop mixer in October.
           </p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+        <div className="landing-result-card rounded-2xl border border-white/10 bg-white/[0.04] p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-dw-fg-sec">
             <Search className="h-4 w-4" /> Needs your call
           </div>
@@ -299,6 +385,8 @@ function SearchQualityPanel() {
 
 export default function Landing() {
   const [heroReady, setHeroReady] = useState(false);
+
+  useLandingScrollReveal();
 
   useEffect(() => {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -367,7 +455,7 @@ export default function Landing() {
 
         <section className="border-t border-white/[0.06] bg-dw-card">
           <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:py-28">
-            <div>
+            <div {...landingReveal()}>
               <h2 className="max-w-[16ch] text-balance text-3xl font-bold tracking-[-0.025em] text-dw-fg sm:text-5xl">
                 The button becomes the habit.
               </h2>
@@ -382,18 +470,21 @@ export default function Landing() {
                 meta="record"
                 title="Capture the encounter while it is fresh"
                 body="Say who they are, where you met, and the detail that will matter later. A rough sentence is enough."
+                delay={80}
               />
               <StoryStep
                 icon={<Timer className="h-5 w-5" />}
                 meta="keep"
                 title="Let the week move on"
                 body="The app stores the thread around the person, so your notes stay useful without becoming another task list."
+                delay={160}
               />
               <StoryStep
                 icon={<MapPin className="h-5 w-5" />}
                 meta="recall"
                 title="Ask with the clue you still have"
                 body="Search by a name, a city, a month, a role, or a half-memory. The answer comes back by voice."
+                delay={240}
               />
             </div>
           </div>
@@ -402,7 +493,7 @@ export default function Landing() {
         <section className="relative overflow-hidden border-t border-white/[0.06]">
           <div className="landing-section-mark" aria-hidden="true" />
           <div className="relative mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:py-28">
-            <div>
+            <div {...landingReveal()}>
               <h2 className="max-w-[17ch] text-balance text-3xl font-bold tracking-[-0.025em] text-dw-fg sm:text-5xl">
                 It listens for the shape of a memory.
               </h2>
@@ -417,7 +508,7 @@ export default function Landing() {
 
         <section className="border-t border-white/[0.06] bg-dw-card">
           <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:py-28">
-            <div>
+            <div {...landingReveal()}>
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.06]">
                 <Lock className="h-5 w-5 text-dw-fg-sec" />
               </span>
@@ -432,7 +523,7 @@ export default function Landing() {
             <div className="landing-trust-stack">
               {["Invite-only access", "Private encounter notes", "Honest uncertainty", "Voice-first recall"].map(
                 (item, index) => (
-                  <div key={item} className="landing-trust-row" style={{ animationDelay: `${index * 110}ms` }}>
+                  <div key={item} className="landing-trust-row" {...landingReveal(index * 80)}>
                     <Check className="h-4 w-4 text-dw-success" />
                     <span>{item}</span>
                     <ChevronRight className="ml-auto h-4 w-4 text-dw-fg-ter" />
@@ -445,7 +536,7 @@ export default function Landing() {
 
         <section className="relative overflow-hidden border-t border-white/[0.06]">
           <Starfield />
-          <div className="relative mx-auto max-w-2xl px-5 py-20 text-center sm:py-24 lg:py-32">
+          <div className="relative mx-auto max-w-2xl px-5 py-20 text-center sm:py-24 lg:py-32" {...landingReveal()}>
             <h2
               className="mx-auto max-w-[18ch] text-balance font-bold leading-[1.04] tracking-[-0.025em] text-dw-fg"
               style={{ fontSize: "clamp(2.25rem, 5vw, 4.5rem)" }}
