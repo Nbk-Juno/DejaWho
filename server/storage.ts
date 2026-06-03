@@ -29,6 +29,22 @@ export type UpdateEncounterInput = {
   personId?: string | null;
 };
 
+// Generic person-row field update. The derived values (encounterCount, locationTag, lastName,
+// summary) are computed by the Person Clustering module, not storage — storage just persists
+// what it's handed and bumps updatedAt.
+export type UpdatePersonInput = {
+  normalizedName?: string;
+  lastName?: string | null;
+  locationTag?: string | null;
+  encounterCount?: number;
+  summary?: string | null;
+};
+
+// The storage seam is pure per-user data access — CRUD over encounters and persons, plus the
+// allow-list/waitlist. It deliberately holds NO clustering rules: deciding which person an
+// encounter belongs to, recounting/retagging a person, and reconciling both sides of a merge
+// all live in server/person-clustering.ts, composed over these primitives. Two adapters
+// implement this: DbStorage (Postgres) and MemStorage (in-memory, for tests).
 export interface IStorage {
   getAllEncountersForUser(userId: string): Promise<Encounter[]>;
   getEncounterForUser(id: string, userId: string): Promise<Encounter | undefined>;
@@ -46,10 +62,8 @@ export interface IStorage {
   getEncountersForPerson(userId: string, personId: string): Promise<Encounter[]>;
   createPersonForUser(userId: string, normalizedName: string, lastName?: string | null): Promise<Person>;
   attachEncounterToPerson(encounterId: string, userId: string, personId: string): Promise<void>;
-  reassignEncounterPerson(encounterId: string, userId: string, toPersonId: string): Promise<void>;
-  recomputePerson(userId: string, personId: string): Promise<void>;
-  updatePersonSummary(id: string, userId: string, summary: string): Promise<void>;
-  updatePersonIdentity(id: string, userId: string, normalizedName: string, lastName: string | null): Promise<void>;
+  updatePerson(id: string, userId: string, input: UpdatePersonInput): Promise<void>;
+  deletePersonRow(id: string, userId: string): Promise<void>;
   deletePersonForUser(id: string, userId: string): Promise<number>;
   deletePersonsForUser(userId: string): Promise<number>;
 }
@@ -111,41 +125,6 @@ export class DbStorage implements IStorage {
       .where(and(eq(encounters.id, id), eq(encounters.userId, userId)))
       .returning();
     return row;
-  }
-
-  // Recount + retag a person from its currently-attached encounters. Deletes the person row
-  // when nothing is left attached (e.g. its only encounter was deleted or reassigned away).
-  // Nulls the cached summary so it regenerates on next PersonCard open.
-  async recomputePerson(userId: string, personId: string): Promise<void> {
-    const attached = await this.getEncountersForPerson(userId, personId);
-    if (attached.length === 0) {
-      await db.delete(persons).where(and(eq(persons.id, personId), eq(persons.userId, userId)));
-      return;
-    }
-    // getEncountersForPerson returns datetime-desc, so [0] is the most recent.
-    const latest = attached[0];
-    const latestWithLastName = attached.find((e) => e.lastName && e.lastName.trim());
-    await db
-      .update(persons)
-      .set({
-        encounterCount: attached.length,
-        lastName: latestWithLastName?.lastName ?? null,
-        locationTag: latest.location?.trim() || null,
-        summary: null,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(persons.id, personId), eq(persons.userId, userId)));
-  }
-
-  // Delete a person and every encounter attached to it. Returns the number of encounters
-  // removed (0 if the person doesn't exist / isn't this user's).
-  async deletePersonForUser(id: string, userId: string): Promise<number> {
-    const deletedEncounters = await db
-      .delete(encounters)
-      .where(and(eq(encounters.personId, id), eq(encounters.userId, userId)))
-      .returning({ id: encounters.id });
-    await db.delete(persons).where(and(eq(persons.id, id), eq(persons.userId, userId)));
-    return deletedEncounters.length;
   }
 
   async deleteAllEncountersForUser(userId: string): Promise<number> {
@@ -238,37 +217,28 @@ export class DbStorage implements IStorage {
       .where(and(eq(encounters.id, encounterId), eq(encounters.userId, userId)));
   }
 
-  async reassignEncounterPerson(encounterId: string, userId: string, toPersonId: string): Promise<void> {
-    const existing = await this.getEncounterForUser(encounterId, userId);
-    if (!existing) return;
-    const fromPersonId = existing.personId;
-    if (fromPersonId === toPersonId) return;
-    await this.attachEncounterToPerson(encounterId, userId, toPersonId);
-    await this.recomputePerson(userId, toPersonId);
-    if (fromPersonId) {
-      await this.recomputePerson(userId, fromPersonId);
-    }
-  }
-
-  async updatePersonSummary(id: string, userId: string, summary: string): Promise<void> {
+  async updatePerson(id: string, userId: string, input: UpdatePersonInput): Promise<void> {
     await db
       .update(persons)
-      .set({ summary, updatedAt: new Date() })
+      .set({ ...input, updatedAt: new Date() })
       .where(and(eq(persons.id, id), eq(persons.userId, userId)));
   }
 
-  // Set the person's canonical first (normalized) + last name. Nulls the cached summary so it
-  // regenerates with the corrected name. Encounter backfill/re-embed is handled in the route.
-  async updatePersonIdentity(
-    id: string,
-    userId: string,
-    normalizedName: string,
-    lastName: string | null,
-  ): Promise<void> {
-    await db
-      .update(persons)
-      .set({ normalizedName, lastName, summary: null, updatedAt: new Date() })
-      .where(and(eq(persons.id, id), eq(persons.userId, userId)));
+  // Delete just the person row (its encounters are already gone / reassigned). Used by the
+  // clustering module's recompute when a person is left empty.
+  async deletePersonRow(id: string, userId: string): Promise<void> {
+    await db.delete(persons).where(and(eq(persons.id, id), eq(persons.userId, userId)));
+  }
+
+  // Delete a person and every encounter attached to it. Returns the number of encounters
+  // removed (0 if the person doesn't exist / isn't this user's).
+  async deletePersonForUser(id: string, userId: string): Promise<number> {
+    const deletedEncounters = await db
+      .delete(encounters)
+      .where(and(eq(encounters.personId, id), eq(encounters.userId, userId)))
+      .returning({ id: encounters.id });
+    await db.delete(persons).where(and(eq(persons.id, id), eq(persons.userId, userId)));
+    return deletedEncounters.length;
   }
 
   async deletePersonsForUser(userId: string): Promise<number> {

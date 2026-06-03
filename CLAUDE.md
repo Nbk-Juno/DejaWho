@@ -66,7 +66,8 @@ Monorepo with three roots:
   - `server/search-operations.ts` — `/api/search` + `/api/text-to-speech`
   - `server/openai.ts` — all OpenAI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing)
   - `server/encounter-search.ts` — hybrid search ranking, scoring, date/location extraction
-  - `server/storage.ts` — `IStorage` interface + `DbStorage` implementation
+  - `server/storage.ts` — `IStorage` (pure per-user CRUD seam) + `DbStorage`; `server/mem-storage.ts` is the in-memory second adapter (tests)
+  - `server/person-clustering.ts` — the **Person Clustering** lifecycle (resolve/attach/recompute/reassign/rename) composed over `IStorage` + the pure `resolvePerson`
   - `server/auth.ts` — `requireAuth` middleware + `userIdFrom(req)` helper
   - `server/route.ts` — the **Guarded Route** envelope (`get`/`post`/`patch`/`del`) every authenticated route registers through; bundles auth + allow-list + body validation + error translation
   - `server/ai-policy.ts` — input size limits, `AiPolicyError`, `handleAiPolicyError`
@@ -100,7 +101,7 @@ Local development uses `docker compose up -d` to start a `pgvector/pgvector:pg16
 docker exec who-that-postgres psql -U who_that -d postgres -c "CREATE DATABASE who_that_test;"
 ```
 
-`encounters.userId` is `NOT NULL` and is populated server-side from the JWT subject — never from the request body. Storage methods are user-scoped: `getAllEncountersForUser(userId)`, `getEncounterForUser(id, userId)`. The application-layer `WHERE user_id = $1` filter is the gate everywhere. RLS policies referencing `auth.uid()` are also defined and only activate on Supabase (the migration's `DO $$ ... IF EXISTS auth $$` block makes it a no-op locally) — they are defense-in-depth against app-layer bugs and require a non-superuser DB role to actually enforce. The `whitelisted_emails` table backs the invite-only allow-list.
+`encounters.userId` is `NOT NULL` and is populated server-side from the JWT subject — never from the request body. Storage methods are user-scoped: `getAllEncountersForUser(userId)`, `getEncounterForUser(id, userId)`. `IStorage` is intentionally **pure CRUD** — it holds no clustering rules; deciding which Person an Encounter belongs to and reconciling Person rows lives in `server/person-clustering.ts`, composed over these primitives. The application-layer `WHERE user_id = $1` filter is the gate everywhere. RLS policies referencing `auth.uid()` are also defined and only activate on Supabase (the migration's `DO $$ ... IF EXISTS auth $$` block makes it a no-op locally) — they are defense-in-depth against app-layer bugs and require a non-superuser DB role to actually enforce. The `whitelisted_emails` table backs the invite-only allow-list.
 
 ## Auth
 
@@ -162,4 +163,5 @@ Configured in `.mcp.json` — connects to the prod Supabase project. Provides di
 ## What not to touch without asking
 
 - The hybrid search scoring weights and helpers in `server/encounter-search.ts` — they were tuned against real queries. Changing them silently regresses search quality.
-- The `IStorage` interface shape — it's the seam for the eventual Postgres swap.
+- The `IStorage` interface is now a real seam with two adapters (`DbStorage`, `MemStorage`). Keep it pure CRUD — put derived/clustering logic in `server/person-clustering.ts`, not storage — and keep both adapters in lockstep when you change the interface.
+- The Person Clustering bands/weights in `server/person-resolution.ts` (`resolvePerson`) — identity-resolution thresholds tuned against real data; change deliberately.

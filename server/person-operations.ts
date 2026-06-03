@@ -35,7 +35,7 @@ export function attachPersonRoutes(app: Express): void {
       summary = await billableAiCall(userId, "parse_calls", () =>
         generatePersonSummary(personDisplayName(person), encounterList),
       );
-      await storage.updatePersonSummary(person.id, userId, summary);
+      await storage.updatePerson(person.id, userId, { summary });
     }
 
     res.json({
@@ -85,10 +85,15 @@ export function attachPersonRoutes(app: Express): void {
       });
     }
 
-    // Authoritative: the typed name wins. We deliberately don't recomputePerson here, since
-    // that re-derives lastName from encounters and would override a surname the user just set
-    // when some encounter still carries a different one.
-    await storage.updatePersonIdentity(person.id, userId, normalizedName, newLastName);
+    // Authoritative: the typed name wins. We deliberately don't recompute the person here,
+    // since that re-derives lastName from encounters and would override a surname the user just
+    // set when some encounter still carries a different one. Null the summary so it regenerates
+    // with the corrected name.
+    await storage.updatePerson(person.id, userId, {
+      normalizedName,
+      lastName: newLastName,
+      summary: null,
+    });
 
     const updated = await storage.getPersonForUser(person.id, userId);
     res.json(toApiPerson(updated ?? { ...person, normalizedName, lastName: newLastName }));

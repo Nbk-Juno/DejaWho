@@ -2,19 +2,15 @@ import type { Express, NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { storage } from "./storage";
 import {
-  type ApiPerson,
-  type Encounter,
   encounterEmbeddingText,
   insertEncounterSchema,
-  normalizePersonName,
   parseEncounterBodySchema,
   reassignPersonBodySchema,
   toApiEncounter,
-  toApiPerson,
   updateEncounterSchema,
 } from "@shared/schema";
-import { resolvePerson, type PersonCandidate } from "./person-resolution";
 import { generateEmbedding, parseEncounterFromSpeech, transcribeAudio } from "./openai";
+import { personClustering, type ResolutionResponse } from "./person-clustering";
 import { logError } from "./logger";
 import { AI_AUDIO_MAX_BYTES, AI_TEXT_LIMITS, assertAiTextWithinLimit } from "./ai-policy";
 import { billableAiCall } from "./usage-counters";
@@ -39,61 +35,6 @@ function makeUploadAudio() {
       res.status(400).json({ error: "Invalid audio upload" });
     });
   };
-}
-
-type ResolutionResponse =
-  | { status: "attached"; personId: string }
-  | { status: "created_new"; personId: string }
-  | { status: "ambiguous"; personId: string; candidates: { person: ApiPerson; lastSeen: string | null }[] };
-
-async function gatherCandidates(
-  userId: string,
-  normalizedName: string,
-): Promise<PersonCandidate[]> {
-  const people = await storage.getPersonsByNameForUser(userId, normalizedName);
-  const candidates: PersonCandidate[] = [];
-  for (const person of people) {
-    const personEncounters = await storage.getEncountersForPerson(userId, person.id);
-    candidates.push({ person, encounters: personEncounters });
-  }
-  return candidates;
-}
-
-// Decide which person a freshly-created encounter belongs to. Clear winner → attach
-// silently. Anything else → attach to a brand-new person (never silently mis-merge); for the
-// ambiguous band we also return the candidates so the client can offer a merge.
-async function resolveAndAttach(userId: string, encounter: Encounter): Promise<ResolutionResponse> {
-  const normalizedName = normalizePersonName(encounter.name);
-  const candidates = await gatherCandidates(userId, normalizedName);
-  const result = resolvePerson({
-    embedding: encounter.embedding,
-    lastName: encounter.lastName,
-    location: encounter.location,
-    datetime: encounter.datetime,
-    candidates,
-  });
-
-  if (result.band === "winner" && result.winner) {
-    await storage.attachEncounterToPerson(encounter.id, userId, result.winner.id);
-    await storage.recomputePerson(userId, result.winner.id);
-    return { status: "attached", personId: result.winner.id };
-  }
-
-  const person = await storage.createPersonForUser(userId, normalizedName, encounter.lastName ?? null);
-  await storage.attachEncounterToPerson(encounter.id, userId, person.id);
-  await storage.recomputePerson(userId, person.id);
-
-  if (result.band === "ambiguous") {
-    return {
-      status: "ambiguous",
-      personId: person.id,
-      candidates: candidates.map((c) => ({
-        person: toApiPerson(c.person),
-        lastSeen: c.encounters[0]?.datetime.toISOString() ?? null,
-      })),
-    };
-  }
-  return { status: "created_new", personId: person.id };
 }
 
 export function attachEncounterRoutes(app: Express): void {
@@ -167,19 +108,14 @@ export function attachEncounterRoutes(app: Express): void {
       return;
     }
 
-    // If the name changed, this encounter may now belong to a different identity:
-    // re-resolve against the new name (edits attach silently — no disambiguation sheet)
-    // and recompute the old person. Otherwise just refresh the current person's cached
-    // tag/summary when search-relevant fields changed.
+    // If the name changed, this encounter may now belong to a different identity — the
+    // clustering module re-resolves it and reconciles the person it left behind. Otherwise
+    // just refresh the current person's cached tag/summary when search-relevant fields changed.
     const nameChanged = validated.name !== undefined && validated.name !== existing.name;
     let finalEncounter = updated;
     if (nameChanged) {
       try {
-        const oldPersonId = existing.personId;
-        const resolution = await resolveAndAttach(userId, updated);
-        if (oldPersonId && oldPersonId !== resolution.personId) {
-          await storage.recomputePerson(userId, oldPersonId);
-        }
+        await personClustering.reclusterAfterRename(userId, updated, existing.personId);
         finalEncounter = (await storage.getEncounterForUser(updated.id, userId)) ?? updated;
       } catch (personError) {
         logError("reconcile_person_after_update_failed", personError, {
@@ -190,7 +126,7 @@ export function attachEncounterRoutes(app: Express): void {
     } else if (embeddingChanged && existing.personId) {
       // Same person, but location/context/last name changed → tag + cached summary are stale.
       try {
-        await storage.recomputePerson(userId, existing.personId);
+        await personClustering.recompute(userId, existing.personId);
       } catch (personError) {
         logError("recompute_person_after_update_failed", personError, {
           userId,
@@ -211,7 +147,7 @@ export function attachEncounterRoutes(app: Express): void {
     // Recompute the person this encounter belonged to — drop it if no encounters remain,
     // otherwise refresh its count/tag so the Recent surface reflects reality.
     if (deleted.personId) {
-      await storage.recomputePerson(userId, deleted.personId);
+      await personClustering.recompute(userId, deleted.personId);
     }
     res.status(204).end();
   });
@@ -225,7 +161,7 @@ export function attachEncounterRoutes(app: Express): void {
     // the encounter is saved either way (it just stays unattached until a later edit).
     let resolution: ResolutionResponse = { status: "created_new", personId: "" };
     try {
-      resolution = await resolveAndAttach(userId, encounter);
+      resolution = await personClustering.resolveAndAttach(userId, encounter);
     } catch (personError) {
       logError("resolve_person_after_encounter_failed", personError, {
         userId,
@@ -251,7 +187,7 @@ export function attachEncounterRoutes(app: Express): void {
       res.status(404).json({ error: "Person not found" });
       return;
     }
-    await storage.reassignEncounterPerson(encounter.id, userId, body.personId);
+    await personClustering.reassign(userId, encounter.id, body.personId);
     const updated = await storage.getEncounterForUser(encounter.id, userId);
     res.json(toApiEncounter(updated ?? { ...encounter, personId: body.personId }));
   });
