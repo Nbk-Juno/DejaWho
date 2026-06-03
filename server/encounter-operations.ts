@@ -7,21 +7,18 @@ import {
   encounterEmbeddingText,
   insertEncounterSchema,
   normalizePersonName,
+  parseEncounterBodySchema,
+  reassignPersonBodySchema,
   toApiEncounter,
   toApiPerson,
   updateEncounterSchema,
 } from "@shared/schema";
 import { resolvePerson, type PersonCandidate } from "./person-resolution";
 import { generateEmbedding, parseEncounterFromSpeech, transcribeAudio } from "./openai";
-import { requireAuth, requireAllowlisted, userIdFrom } from "./auth";
 import { logError } from "./logger";
-import {
-  AI_AUDIO_MAX_BYTES,
-  AI_TEXT_LIMITS,
-  assertAiTextWithinLimit,
-  handleAiPolicyError,
-} from "./ai-policy";
+import { AI_AUDIO_MAX_BYTES, AI_TEXT_LIMITS, assertAiTextWithinLimit } from "./ai-policy";
 import { billableAiCall } from "./usage-counters";
+import { del, get, patch, post } from "./route";
 
 function makeUploadAudio() {
   const upload = multer({
@@ -102,218 +99,160 @@ async function resolveAndAttach(userId: string, encounter: Encounter): Promise<R
 export function attachEncounterRoutes(app: Express): void {
   const uploadAudio = makeUploadAudio();
 
-  app.post("/api/transcribe", requireAuth, requireAllowlisted, uploadAudio, async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No audio file provided" });
-      }
-      const text = await billableAiCall(userIdFrom(req), "voice_transcriptions", () =>
-        transcribeAudio(req.file!.buffer, req.file!.originalname),
-      );
-      res.json({ text });
-    } catch (error: any) {
-      if (handleAiPolicyError(error, res)) return;
-      logError("transcribe_route_failed", error);
-      res.status(500).json({ error: error.message || "Failed to transcribe audio" });
+  post(app, "/api/transcribe", { tag: "transcribe", middleware: [uploadAudio] }, async (req, res, { userId }) => {
+    if (!req.file) {
+      res.status(400).json({ error: "No audio file provided" });
+      return;
     }
+    const text = await billableAiCall(userId, "voice_transcriptions", () =>
+      transcribeAudio(req.file!.buffer, req.file!.originalname),
+    );
+    res.json({ text });
   });
 
-  app.post("/api/parse-encounter", requireAuth, requireAllowlisted, async (req, res) => {
-    try {
-      const { text } = req.body;
-      if (!text || typeof text !== "string") {
-        return res.status(400).json({ error: "Text is required" });
-      }
-      assertAiTextWithinLimit(text, AI_TEXT_LIMITS.parseEncounter, "Text");
-      const parsed = await billableAiCall(userIdFrom(req), "parse_calls", () =>
-        parseEncounterFromSpeech(text),
-      );
-      res.json(parsed);
-    } catch (error: any) {
-      if (handleAiPolicyError(error, res)) return;
-      logError("parse_encounter_route_failed", error);
-      res.status(500).json({ error: error.message || "Failed to parse encounter" });
-    }
+  post(app, "/api/parse-encounter", { body: parseEncounterBodySchema, tag: "parse_encounter" }, async (_req, res, { userId, body }) => {
+    assertAiTextWithinLimit(body.text, AI_TEXT_LIMITS.parseEncounter, "Text");
+    const parsed = await billableAiCall(userId, "parse_calls", () => parseEncounterFromSpeech(body.text));
+    res.json(parsed);
   });
 
-  app.get("/api/encounters", requireAuth, requireAllowlisted, async (req, res) => {
-    try {
-      const encounters = await storage.getAllEncountersForUser(userIdFrom(req));
-      res.json(encounters.map(toApiEncounter));
-    } catch (error) {
-      logError("list_encounters_route_failed", error);
-      res.status(500).json({ error: "Failed to fetch encounters" });
-    }
+  get(app, "/api/encounters", { tag: "list_encounters" }, async (_req, res, { userId }) => {
+    const encounters = await storage.getAllEncountersForUser(userId);
+    res.json(encounters.map(toApiEncounter));
   });
 
-  app.get("/api/encounters/:id", requireAuth, requireAllowlisted, async (req, res) => {
-    try {
-      const encounter = await storage.getEncounterForUser(req.params.id, userIdFrom(req));
-      if (!encounter) {
-        return res.status(404).json({ error: "Encounter not found" });
-      }
-      res.json(toApiEncounter(encounter));
-    } catch (error) {
-      logError("get_encounter_route_failed", error);
-      res.status(500).json({ error: "Failed to fetch encounter" });
+  get(app, "/api/encounters/:id", { tag: "get_encounter" }, async (req, res, { userId }) => {
+    const encounter = await storage.getEncounterForUser(req.params.id, userId);
+    if (!encounter) {
+      res.status(404).json({ error: "Encounter not found" });
+      return;
     }
+    res.json(toApiEncounter(encounter));
   });
 
-  app.patch("/api/encounters/:id", requireAuth, requireAllowlisted, async (req, res) => {
-    try {
-      const userId = userIdFrom(req);
-      const existing = await storage.getEncounterForUser(req.params.id, userId);
-      if (!existing) {
-        return res.status(404).json({ error: "Encounter not found" });
-      }
-
-      const validated = updateEncounterSchema.parse(req.body);
-
-      // Re-embed only when search-relevant fields (name/location/context) change. Datetime
-      // changes alone skip the OpenAI call.
-      const merged = {
-        name: validated.name ?? existing.name,
-        lastName: validated.lastName !== undefined ? validated.lastName : existing.lastName,
-        location: validated.location ?? existing.location,
-        context: validated.context !== undefined ? validated.context : existing.context,
-      };
-      const embeddingChanged =
-        merged.name !== existing.name ||
-        merged.lastName !== existing.lastName ||
-        merged.location !== existing.location ||
-        merged.context !== existing.context;
-
-      let embedding: number[] | undefined;
-      if (embeddingChanged) {
-        const text = encounterEmbeddingText(merged);
-        assertAiTextWithinLimit(text, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
-        embedding = await billableAiCall(userId, "encounter_embeddings", () =>
-          generateEmbedding(text),
-        );
-      }
-
-      const updated = await storage.updateEncounterForUser(req.params.id, userId, {
-        ...validated,
-        ...(embedding !== undefined ? { embedding } : {}),
-      });
-      if (!updated) {
-        return res.status(404).json({ error: "Encounter not found" });
-      }
-
-      // If the name changed, this encounter may now belong to a different identity:
-      // re-resolve against the new name (edits attach silently — no disambiguation sheet)
-      // and recompute the old person. Otherwise just refresh the current person's cached
-      // tag/summary when search-relevant fields changed.
-      const nameChanged = validated.name !== undefined && validated.name !== existing.name;
-      let finalEncounter = updated;
-      if (nameChanged) {
-        try {
-          const oldPersonId = existing.personId;
-          const resolution = await resolveAndAttach(userId, updated);
-          if (oldPersonId && oldPersonId !== resolution.personId) {
-            await storage.recomputePerson(userId, oldPersonId);
-          }
-          finalEncounter = (await storage.getEncounterForUser(updated.id, userId)) ?? updated;
-        } catch (personError) {
-          logError("reconcile_person_after_update_failed", personError, {
-            userId,
-            encounterId: updated.id,
-          });
-        }
-      } else if (embeddingChanged && existing.personId) {
-        // Same person, but location/context/last name changed → tag + cached summary are stale.
-        try {
-          await storage.recomputePerson(userId, existing.personId);
-        } catch (personError) {
-          logError("recompute_person_after_update_failed", personError, {
-            userId,
-            encounterId: updated.id,
-          });
-        }
-      }
-
-      res.json(toApiEncounter(finalEncounter));
-    } catch (error: any) {
-      if (handleAiPolicyError(error, res)) return;
-      logError("update_encounter_route_failed", error);
-      res.status(400).json({ error: error.message || "Failed to update encounter" });
+  patch(app, "/api/encounters/:id", { body: updateEncounterSchema, tag: "update_encounter" }, async (req, res, { userId, body: validated }) => {
+    const existing = await storage.getEncounterForUser(req.params.id, userId);
+    if (!existing) {
+      res.status(404).json({ error: "Encounter not found" });
+      return;
     }
-  });
 
-  app.delete("/api/encounters/:id", requireAuth, requireAllowlisted, async (req, res) => {
-    try {
-      const userId = userIdFrom(req);
-      const deleted = await storage.deleteEncounterForUser(req.params.id, userId);
-      if (!deleted) {
-        return res.status(404).json({ error: "Encounter not found" });
-      }
-      // Recompute the person this encounter belonged to — drop it if no encounters remain,
-      // otherwise refresh its count/tag so the Recent surface reflects reality.
-      if (deleted.personId) {
-        await storage.recomputePerson(userId, deleted.personId);
-      }
-      res.status(204).end();
-    } catch (error) {
-      logError("delete_encounter_route_failed", error);
-      res.status(500).json({ error: "Failed to delete encounter" });
+    // Re-embed only when search-relevant fields (name/location/context) change. Datetime
+    // changes alone skip the OpenAI call.
+    const merged = {
+      name: validated.name ?? existing.name,
+      lastName: validated.lastName !== undefined ? validated.lastName : existing.lastName,
+      location: validated.location ?? existing.location,
+      context: validated.context !== undefined ? validated.context : existing.context,
+    };
+    const embeddingChanged =
+      merged.name !== existing.name ||
+      merged.lastName !== existing.lastName ||
+      merged.location !== existing.location ||
+      merged.context !== existing.context;
+
+    let embedding: number[] | undefined;
+    if (embeddingChanged) {
+      const text = encounterEmbeddingText(merged);
+      assertAiTextWithinLimit(text, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
+      embedding = await billableAiCall(userId, "encounter_embeddings", () => generateEmbedding(text));
     }
-  });
 
-  app.post("/api/encounters", requireAuth, requireAllowlisted, async (req, res) => {
-    try {
-      const userId = userIdFrom(req);
-      const validated = insertEncounterSchema.parse(req.body);
-      const embeddingText = encounterEmbeddingText(validated);
-      assertAiTextWithinLimit(embeddingText, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
-      const embedding = await billableAiCall(userId, "encounter_embeddings", () =>
-        generateEmbedding(embeddingText),
-      );
-      const encounter = await storage.createEncounter({ ...validated, embedding, userId });
-      // Resolve which person this belongs to. Failures are logged but don't fail the create —
-      // the encounter is saved either way (it just stays unattached until a later edit).
-      let resolution: ResolutionResponse = { status: "created_new", personId: "" };
+    const updated = await storage.updateEncounterForUser(req.params.id, userId, {
+      ...validated,
+      ...(embedding !== undefined ? { embedding } : {}),
+    });
+    if (!updated) {
+      res.status(404).json({ error: "Encounter not found" });
+      return;
+    }
+
+    // If the name changed, this encounter may now belong to a different identity:
+    // re-resolve against the new name (edits attach silently — no disambiguation sheet)
+    // and recompute the old person. Otherwise just refresh the current person's cached
+    // tag/summary when search-relevant fields changed.
+    const nameChanged = validated.name !== undefined && validated.name !== existing.name;
+    let finalEncounter = updated;
+    if (nameChanged) {
       try {
-        resolution = await resolveAndAttach(userId, encounter);
+        const oldPersonId = existing.personId;
+        const resolution = await resolveAndAttach(userId, updated);
+        if (oldPersonId && oldPersonId !== resolution.personId) {
+          await storage.recomputePerson(userId, oldPersonId);
+        }
+        finalEncounter = (await storage.getEncounterForUser(updated.id, userId)) ?? updated;
       } catch (personError) {
-        logError("resolve_person_after_encounter_failed", personError, {
+        logError("reconcile_person_after_update_failed", personError, {
           userId,
-          encounterId: encounter.id,
+          encounterId: updated.id,
         });
       }
-      const finalEncounter = resolution.personId
-        ? { ...encounter, personId: resolution.personId }
-        : encounter;
-      res.status(201).json({ encounter: toApiEncounter(finalEncounter), resolution });
-    } catch (error: any) {
-      if (handleAiPolicyError(error, res)) return;
-      logError("create_encounter_route_failed", error);
-      res.status(400).json({ error: error.message || "Failed to create encounter" });
+    } else if (embeddingChanged && existing.personId) {
+      // Same person, but location/context/last name changed → tag + cached summary are stale.
+      try {
+        await storage.recomputePerson(userId, existing.personId);
+      } catch (personError) {
+        logError("recompute_person_after_update_failed", personError, {
+          userId,
+          encounterId: updated.id,
+        });
+      }
     }
+
+    res.json(toApiEncounter(finalEncounter));
+  });
+
+  del(app, "/api/encounters/:id", { tag: "delete_encounter" }, async (req, res, { userId }) => {
+    const deleted = await storage.deleteEncounterForUser(req.params.id, userId);
+    if (!deleted) {
+      res.status(404).json({ error: "Encounter not found" });
+      return;
+    }
+    // Recompute the person this encounter belonged to — drop it if no encounters remain,
+    // otherwise refresh its count/tag so the Recent surface reflects reality.
+    if (deleted.personId) {
+      await storage.recomputePerson(userId, deleted.personId);
+    }
+    res.status(204).end();
+  });
+
+  post(app, "/api/encounters", { body: insertEncounterSchema, tag: "create_encounter" }, async (_req, res, { userId, body: validated }) => {
+    const embeddingText = encounterEmbeddingText(validated);
+    assertAiTextWithinLimit(embeddingText, AI_TEXT_LIMITS.encounterEmbedding, "Encounter text");
+    const embedding = await billableAiCall(userId, "encounter_embeddings", () => generateEmbedding(embeddingText));
+    const encounter = await storage.createEncounter({ ...validated, embedding, userId });
+    // Resolve which person this belongs to. Failures are logged but don't fail the create —
+    // the encounter is saved either way (it just stays unattached until a later edit).
+    let resolution: ResolutionResponse = { status: "created_new", personId: "" };
+    try {
+      resolution = await resolveAndAttach(userId, encounter);
+    } catch (personError) {
+      logError("resolve_person_after_encounter_failed", personError, {
+        userId,
+        encounterId: encounter.id,
+      });
+    }
+    const finalEncounter = resolution.personId
+      ? { ...encounter, personId: resolution.personId }
+      : encounter;
+    res.status(201).json({ encounter: toApiEncounter(finalEncounter), resolution });
   });
 
   // Merge an encounter into a different existing person (the disambiguation "this was
   // actually the same John" correction). Reconciles both the old and new person rows.
-  app.patch("/api/encounters/:id/person", requireAuth, requireAllowlisted, async (req, res) => {
-    try {
-      const userId = userIdFrom(req);
-      const { personId } = req.body;
-      if (!personId || typeof personId !== "string") {
-        return res.status(400).json({ error: "personId is required" });
-      }
-      const encounter = await storage.getEncounterForUser(req.params.id, userId);
-      if (!encounter) {
-        return res.status(404).json({ error: "Encounter not found" });
-      }
-      const target = await storage.getPersonForUser(personId, userId);
-      if (!target) {
-        return res.status(404).json({ error: "Person not found" });
-      }
-      await storage.reassignEncounterPerson(encounter.id, userId, personId);
-      const updated = await storage.getEncounterForUser(encounter.id, userId);
-      res.json(toApiEncounter(updated ?? { ...encounter, personId }));
-    } catch (error) {
-      logError("reassign_encounter_person_route_failed", error);
-      res.status(500).json({ error: "Failed to reassign encounter" });
+  patch(app, "/api/encounters/:id/person", { body: reassignPersonBodySchema, tag: "reassign_encounter_person" }, async (req, res, { userId, body }) => {
+    const encounter = await storage.getEncounterForUser(req.params.id, userId);
+    if (!encounter) {
+      res.status(404).json({ error: "Encounter not found" });
+      return;
     }
+    const target = await storage.getPersonForUser(body.personId, userId);
+    if (!target) {
+      res.status(404).json({ error: "Person not found" });
+      return;
+    }
+    await storage.reassignEncounterPerson(encounter.id, userId, body.personId);
+    const updated = await storage.getEncounterForUser(encounter.id, userId);
+    res.json(toApiEncounter(updated ?? { ...encounter, personId: body.personId }));
   });
 }

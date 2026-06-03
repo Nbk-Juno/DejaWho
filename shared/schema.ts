@@ -191,6 +191,18 @@ export const updatePersonSchema = z.object({
 });
 export type UpdatePerson = z.infer<typeof updatePersonSchema>;
 
+// Request-body schemas for the thin AI routes. These enforce presence/shape only (→ 400);
+// per-operation size limits stay in the handlers via assertAiTextWithinLimit (→ 413), so a
+// `.max()` here must NOT duplicate them or it would turn an oversize into the wrong status.
+const requiredText = (label: string) =>
+  z.string({ required_error: `${label} is required`, invalid_type_error: `${label} is required` })
+    .min(1, `${label} is required`);
+
+export const parseEncounterBodySchema = z.object({ text: requiredText("Text") });
+export const textToSpeechBodySchema = z.object({ text: requiredText("Text") });
+export const searchBodySchema = z.object({ query: requiredText("Query") });
+export const reassignPersonBodySchema = z.object({ personId: requiredText("personId") });
+
 export function encounterEmbeddingText(e: { name: string; lastName?: string | null; location: string; context?: string | null }): string {
   return `${e.name} ${e.lastName || ""} ${e.location} ${e.context || ""}`.replace(/\s+/g, " ").trim();
 }

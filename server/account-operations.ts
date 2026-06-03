@@ -1,12 +1,16 @@
 import type { Express } from "express";
 import { storage } from "./storage";
 import { supabaseAdmin } from "./supabase";
-import { requireAuth, userIdFrom, isInviteOnly } from "./auth";
+import { isInviteOnly } from "./auth";
 import { logError } from "./logger";
 import { getMonthlyUsageSummary } from "./usage-counters";
+import { del, get } from "./route";
 
 export function attachAccountRoutes(app: Express): void {
-  app.get("/api/me", requireAuth, async (req, res) => {
+  // The one route that opts out of requireAllowlisted: it IS the gate the client reads to
+  // render the invite-only screen, so it must reach the handler and return that 403 shape
+  // itself rather than the middleware's.
+  get(app, "/api/me", { allowlist: false, tag: "me" }, async (req, res, { userId }) => {
     const email = req.user?.email;
     if (!email) {
       res.status(401).json({ error: "Token has no email claim" });
@@ -21,51 +25,34 @@ export function attachAccountRoutes(app: Express): void {
       });
       return;
     }
-    res.json({ id: userIdFrom(req), email });
+    res.json({ id: userId, email });
   });
 
-  app.get("/api/me/usage", requireAuth, async (req, res) => {
-    try {
-      res.json(await getMonthlyUsageSummary(userIdFrom(req)));
-    } catch (error) {
-      logError("usage_summary_route_failed", error);
-      res.status(500).json({ error: "Failed to fetch usage summary" });
-    }
+  get(app, "/api/me/usage", { tag: "usage_summary" }, async (_req, res, { userId }) => {
+    res.json(await getMonthlyUsageSummary(userId));
   });
 
-  app.get("/api/me/export", requireAuth, async (req, res) => {
-    try {
-      const userId = userIdFrom(req);
-      const allEncounters = await storage.getAllEncountersForUser(userId);
-      const exported = allEncounters.map(({ embedding, ...rest }) => rest);
-      res.setHeader("Content-Disposition", 'attachment; filename="encounters-export.json"');
-      res.json({ encounters: exported, exportedAt: new Date().toISOString() });
-    } catch (error) {
-      logError("export_route_failed", error);
-      res.status(500).json({ error: "Failed to export data" });
-    }
+  get(app, "/api/me/export", { tag: "export" }, async (_req, res, { userId }) => {
+    const allEncounters = await storage.getAllEncountersForUser(userId);
+    const exported = allEncounters.map(({ embedding, ...rest }) => rest);
+    res.setHeader("Content-Disposition", 'attachment; filename="encounters-export.json"');
+    res.json({ encounters: exported, exportedAt: new Date().toISOString() });
   });
 
-  app.delete("/api/me", requireAuth, async (req, res) => {
-    try {
-      const userId = userIdFrom(req);
-      await storage.deleteAllEncountersForUser(userId);
-      await storage.deletePersonsForUser(userId);
-      await storage.deleteUsageCountersForUser(userId);
+  del(app, "/api/me", { tag: "delete_account" }, async (_req, res, { userId }) => {
+    await storage.deleteAllEncountersForUser(userId);
+    await storage.deletePersonsForUser(userId);
+    await storage.deleteUsageCountersForUser(userId);
 
-      const { error: deleteError } = await supabaseAdmin().auth.admin.deleteUser(userId);
-      if (deleteError) {
-        logError("delete_account_supabase_failed", deleteError, { userId });
-        res
-          .status(502)
-          .json({ error: "Account data deleted but auth removal failed. Contact support." });
-        return;
-      }
-
-      res.status(204).end();
-    } catch (error) {
-      logError("delete_account_route_failed", error);
-      res.status(500).json({ error: "Failed to delete account" });
+    const { error: deleteError } = await supabaseAdmin().auth.admin.deleteUser(userId);
+    if (deleteError) {
+      logError("delete_account_supabase_failed", deleteError, { userId });
+      res
+        .status(502)
+        .json({ error: "Account data deleted but auth removal failed. Contact support." });
+      return;
     }
+
+    res.status(204).end();
   });
 }

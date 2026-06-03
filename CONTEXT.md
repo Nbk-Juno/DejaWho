@@ -45,3 +45,9 @@ Slide-up sheet listing every [[Encounter]] for the user, newest first. Includes 
 ### Profile Page
 
 A new page reached from the bottom navigation, consolidating account email, sign-out, monthly usage counters, data export, account deletion, privacy policy link, and app version.
+
+## Architecture Terms
+
+### Guarded Route
+
+The server-side envelope every authenticated route is registered through (`server/route.ts`, helpers `get`/`post`/`patch`/`del`). It bundles, in order: `requireAuth` → the invite allow-list (`requireAllowlisted`, applied by default; opt out with `allowlist: false` for the one route that *is* the gate, `/api/me`) → optional Zod body validation (→ 400) → the handler → error translation (`AiPolicyError` → 413/429, anything else → logged 500). The handler receives `{ userId, body }` and keeps the per-call concerns the envelope can't own — the spend (`billableAiCall`) and input-size guards (`assertAiTextWithinLimit`) — plus its own success response. The point is that the four envelope steps can't be reassembled (and mis-assembled) by hand at each call site.

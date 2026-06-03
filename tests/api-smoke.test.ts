@@ -104,6 +104,7 @@ vi.mock("../server/openai", async () => {
   return {
     generateEmbedding: vi.fn(async (text: string) => deterministicEmbedding(text)),
     generateNaturalLanguageResponse: vi.fn(async () => "stubbed response"),
+    generatePersonSummary: vi.fn(async () => "stub summary"),
     transcribeAudio: vi.fn(),
     textToSpeech: vi.fn(),
     parseEncounterFromSpeech: vi.fn(),
@@ -651,6 +652,23 @@ describe("API smoke", () => {
     expect(encounters).toHaveLength(0);
   });
 
+  it("gates the whole account family behind the allow-list (usage/export/delete → 403 for a stranger)", async () => {
+    const stranger = `Bearer ${tokenFor(USER_A, "stranger@example.com")}`;
+
+    const usage = await request(app).get("/api/me/usage").set("Authorization", stranger);
+    expect(usage.status).toBe(403);
+    expect(usage.body.error).toBe("invite_only");
+
+    const exportRes = await request(app).get("/api/me/export").set("Authorization", stranger);
+    expect(exportRes.status).toBe(403);
+    expect(exportRes.body.error).toBe("invite_only");
+
+    const del = await request(app).delete("/api/me").set("Authorization", stranger);
+    expect(del.status).toBe(403);
+    expect(del.body.error).toBe("invite_only");
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
   it("export returns empty array after account deletion", async () => {
     const authA = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
 
@@ -752,5 +770,31 @@ describe("API smoke", () => {
 
     expect(failed.status).not.toBe(201);
     expect(await encounterEmbeddingsFor(USER_A)).toBe(0);
+  });
+
+  it("GET /api/persons/:id returns 429 (not 500) when the lazy summary hits the parse cap", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    // Creating an encounter clusters it into a person with a null (not-yet-generated) summary.
+    const create = await request(app)
+      .post("/api/encounters")
+      .set("Authorization", auth)
+      .send({ name: "Summary Capped", location: "Office", datetime: "2026-04-22T09:15:00Z" });
+    expect(create.status).toBe(201);
+    const personId = create.body.resolution.personId;
+    expect(personId).toBeTruthy();
+
+    // Now max out the parse quota that the lazy summary draws from.
+    process.env.AI_MONTHLY_PARSE_LIMIT = "1";
+    await db.execute(sql`
+      UPDATE usage_counters SET parse_calls = 1
+      WHERE user_id = ${USER_A} AND year_month = ${currentYearMonth()}
+    `);
+
+    const res = await request(app).get(`/api/persons/${personId}`).set("Authorization", auth);
+
+    expect(res.status).toBe(429);
+    expect(res.body.code).toBe("ai_monthly_limit_reached");
+    expect(openai.generatePersonSummary).not.toHaveBeenCalled();
   });
 });
