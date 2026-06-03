@@ -25,6 +25,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAnimatedSheetClose } from "@/hooks/use-animated-sheet-close";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
+import { useSearchEncounters } from "@/hooks/use-search-encounters";
 import { PersonCard } from "@/components/person-card";
 import { formatAiErrorTitle } from "@/lib/ai-error";
 import {
@@ -179,11 +180,7 @@ export default function SearchPage() {
     queryKey: ["/api/encounters"],
   });
 
-  const searchMutation = useMutation<ApiSearchResponse, Error, string>({
-    mutationFn: async (q: string) => {
-      const res = await apiRequest("POST", "/api/search", { query: q });
-      return res.json() as Promise<ApiSearchResponse>;
-    },
+  const searchMutation = useSearchEncounters({
     onSuccess: (data) => setSearchResults(data),
     onError: (err) => {
       toast({ title: formatAiErrorTitle(err, "Search failed — try again."), variant: "destructive" });

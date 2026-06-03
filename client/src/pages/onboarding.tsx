@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Check, Mic, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { VoiceButton } from "@/components/voice-button/voice-button";
 import { SearchResultSheet } from "@/components/search-result-sheet";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
+import { useVoiceResponse } from "@/hooks/use-voice-response";
+import { useSearchEncounters } from "@/hooks/use-search-encounters";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { saveEncounterFromTranscript } from "@/lib/save-encounter";
 import type { VoiceButtonState } from "@/components/voice-button/state";
 import type { ApiSearchResponse } from "@shared/schema";
-import { datetimeFromDayOffset } from "@shared/datetime";
 
 async function markOnboardingComplete() {
   await supabase.auth.updateUser({ data: { onboarding_completed_at: new Date().toISOString() } });
@@ -21,15 +22,7 @@ function useOnboardingRecord(onSuccess: () => void) {
 
   const recordMutation = useMutation<void, Error, string>({
     mutationFn: async (transcript: string) => {
-      const parseRes = await apiRequest("POST", "/api/parse-encounter", { text: transcript });
-      const parsed = (await parseRes.json()) as { name: string; location: string; context?: string; dayOffset?: number };
-      const { dayOffset, ...fields } = parsed;
-      await apiRequest("POST", "/api/encounters", {
-        ...fields,
-        datetime: datetimeFromDayOffset(dayOffset),
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/persons"] });
+      await saveEncounterFromTranscript(transcript);
     },
     onSuccess: () => {
       setIsDone(true);
@@ -84,66 +77,20 @@ function useOnboardingRecord(onSuccess: () => void) {
 
 function useOnboardingSearch() {
   const { toast } = useToast();
+  const voice = useVoiceResponse();
   const [searchResults, setSearchResults] = useState<ApiSearchResponse | null>(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      if (audioRef.current.src) URL.revokeObjectURL(audioRef.current.src);
-      audioRef.current.pause();
-      audioRef.current = null;
-      setIsPlayingAudio(false);
-    }
-  }, []);
-
-  const playVoiceResponse = useCallback(
-    async (text: string) => {
-      stopAudio();
-      try {
-        setIsPlayingAudio(true);
-        const response = await apiRequest("POST", "/api/text-to-speech", { text });
-        const blob = await response.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        audio.onended = () => {
-          setIsPlayingAudio(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        audio.onerror = () => {
-          setIsPlayingAudio(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        await audio.play();
-      } catch {
-        setIsPlayingAudio(false);
-      }
-    },
-    [stopAudio],
-  );
-
-  const searchMutation = useMutation<ApiSearchResponse, Error, string>({
-    mutationFn: async (query: string) => {
-      const res = await apiRequest("POST", "/api/search", { query });
-      return (await res.json()) as ApiSearchResponse;
-    },
+  const searchMutation = useSearchEncounters({
     onSuccess: (data) => {
       setSearchResults(data);
       if (data.naturalLanguageResponse) {
-        playVoiceResponse(data.naturalLanguageResponse);
+        voice.play(data.naturalLanguageResponse);
       }
     },
     onError: () => {
       toast({ title: "Search failed — try again", variant: "destructive" });
     },
   });
-
-  const replayAudio = useCallback(() => {
-    if (searchResults?.naturalLanguageResponse) {
-      playVoiceResponse(searchResults.naturalLanguageResponse);
-    }
-  }, [searchResults, playVoiceResponse]);
 
   const { isRecording, isProcessing: isTranscribing, startRecording, stopRecording } =
     useVoiceTranscription({
@@ -180,15 +127,13 @@ function useOnboardingSearch() {
     }
   }, [isRecording, isProcessing, hasResults, startRecording, stopRecording]);
 
-  useEffect(() => () => stopAudio(), [stopAudio]);
-
   return {
     buttonState,
     onTap,
     searchResults,
-    isPlayingAudio,
-    replayAudio,
-    stopAudio,
+    isPlayingAudio: voice.isPlayingAudio,
+    replayAudio: voice.replay,
+    stopAudio: voice.stop,
   };
 }
 

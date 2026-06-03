@@ -2,21 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceTranscription } from "@/hooks/use-voice-transcription";
+import { useVoiceResponse } from "@/hooks/use-voice-response";
+import { useSearchEncounters } from "@/hooks/use-search-encounters";
+import {
+  saveEncounterFromTranscript,
+  type ResolutionCandidate,
+  type SaveEncounterResult,
+} from "@/lib/save-encounter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatAiErrorTitle } from "@/lib/ai-error";
 import type { VoiceButtonMode, VoiceButtonState } from "@/components/voice-button/state";
-import type { ApiEncounter, ApiPerson, ApiSearchResponse } from "@shared/schema";
-import { datetimeFromDayOffset } from "@shared/datetime";
-
-type ResolutionCandidate = { person: ApiPerson; lastSeen: string | null };
-
-type CreateEncounterResponse = {
-  encounter: ApiEncounter;
-  resolution:
-    | { status: "attached"; personId: string }
-    | { status: "created_new"; personId: string }
-    | { status: "ambiguous"; personId: string; candidates: ResolutionCandidate[] };
-};
+import type { ApiSearchResponse } from "@shared/schema";
 
 type DisambiguationState = {
   name: string;
@@ -26,66 +22,26 @@ type DisambiguationState = {
 
 export function useHomeVoice() {
   const { toast } = useToast();
+  const voice = useVoiceResponse();
   const [mode, setMode] = useState<VoiceButtonMode>("record");
   const [isDone, setIsDone] = useState(false);
   const [searchResults, setSearchResults] = useState<ApiSearchResponse | null>(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   // Last successfully-saved person name. Drives the fresh-card delight on home
   // (the matching RecentCard slides in + glows briefly). Auto-clears after ~2.2s
   // so the delight is one-shot, not sticky across navigations.
   const [lastSavedName, setLastSavedName] = useState<string | null>(null);
   const [disambiguation, setDisambiguation] = useState<DisambiguationState | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   // Mode is pinned at startRecording so a mid-processing swipe can't reroute
   // the in-flight transcript to the wrong mutation. The live `mode` state
   // still drives the button face; this ref is what the transcript honors.
   const recordingModeRef = useRef<VoiceButtonMode>("record");
 
-  const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      if (audioRef.current.src) URL.revokeObjectURL(audioRef.current.src);
-      audioRef.current.pause();
-      audioRef.current = null;
-      setIsPlayingAudio(false);
-    }
-  }, []);
-
-  const playVoiceResponse = useCallback(
-    async (text: string) => {
-      stopAudio();
-      try {
-        setIsPlayingAudio(true);
-        const response = await apiRequest("POST", "/api/text-to-speech", { text });
-        const blob = await response.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        audio.onended = () => {
-          setIsPlayingAudio(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        audio.onerror = () => {
-          setIsPlayingAudio(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        await audio.play();
-      } catch {
-        setIsPlayingAudio(false);
-      }
-    },
-    [stopAudio],
-  );
-
-  const searchMutation = useMutation<ApiSearchResponse, Error, string>({
-    mutationFn: async (q: string) => {
-      const res = await apiRequest("POST", "/api/search", { query: q });
-      return res.json() as Promise<ApiSearchResponse>;
-    },
+  const searchMutation = useSearchEncounters({
     onSuccess: (data) => {
       setSearchResults(data);
       setIsDone(true);
       if (data.naturalLanguageResponse) {
-        playVoiceResponse(data.naturalLanguageResponse);
+        voice.play(data.naturalLanguageResponse);
       }
     },
     onError: (err) => {
@@ -93,28 +49,8 @@ export function useHomeVoice() {
     },
   });
 
-  const replayAudio = useCallback(() => {
-    if (searchResults?.naturalLanguageResponse) {
-      playVoiceResponse(searchResults.naturalLanguageResponse);
-    }
-  }, [searchResults, playVoiceResponse]);
-
-  useEffect(() => () => stopAudio(), [stopAudio]);
-
-  const saveMutation = useMutation<{ name: string; create: CreateEncounterResponse }, Error, string>({
-    mutationFn: async (transcript: string) => {
-      const parseRes = await apiRequest("POST", "/api/parse-encounter", { text: transcript });
-      const parsed = (await parseRes.json()) as { name: string; lastName?: string; location: string; context?: string; dayOffset?: number };
-      const { dayOffset, ...fields } = parsed;
-      const createRes = await apiRequest("POST", "/api/encounters", {
-        ...fields,
-        datetime: datetimeFromDayOffset(dayOffset),
-      });
-      const create = (await createRes.json()) as CreateEncounterResponse;
-      queryClient.invalidateQueries({ queryKey: ["/api/encounters"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/persons"] });
-      return { name: parsed.name, create };
-    },
+  const saveMutation = useMutation<SaveEncounterResult, Error, string>({
+    mutationFn: saveEncounterFromTranscript,
     onSuccess: ({ name, create }) => {
       setIsDone(true);
       setLastSavedName(name);
@@ -212,9 +148,9 @@ export function useHomeVoice() {
   useEffect(() => {
     if (isRecording) {
       setIsDone(false);
-      stopAudio();
+      voice.stop();
     }
-  }, [isRecording, stopAudio]);
+  }, [isRecording, voice.stop]);
 
   return {
     buttonState,
@@ -224,12 +160,12 @@ export function useHomeVoice() {
     onDoneTimeout,
     searchResults,
     clearSearchResults: () => {
-      stopAudio();
+      voice.stop();
       setSearchResults(null);
     },
-    isPlayingAudio,
-    replayAudio,
-    stopAudio,
+    isPlayingAudio: voice.isPlayingAudio,
+    replayAudio: voice.replay,
+    stopAudio: voice.stop,
     lastSavedName,
     disambiguation,
     mergeIntoPerson,
