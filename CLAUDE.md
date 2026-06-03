@@ -64,7 +64,7 @@ Monorepo with three roots:
   - `server/account-operations.ts` — `/api/me`, `/api/me/usage`, `/api/me/export`, `DELETE /api/me`
   - `server/encounter-operations.ts` — encounter CRUD + `/api/transcribe` + `/api/parse-encounter`
   - `server/search-operations.ts` — `/api/search` + `/api/text-to-speech`
-  - `server/openai.ts` — all OpenAI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing)
+  - `server/openai.ts` — all OpenAI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing), bound to an injectable client via `createOpenAi(getClient)` with a shared `withRetry` helper; default named exports use the lazy real client
   - `server/encounter-search.ts` — hybrid search ranking, scoring, date/location extraction
   - `server/storage.ts` — `IStorage` (pure per-user CRUD seam) + `DbStorage`; `server/mem-storage.ts` is the in-memory second adapter (tests)
   - `server/person-clustering.ts` — the **Person Clustering** lifecycle (resolve/attach/recompute/reassign/rename) composed over `IStorage` + the pure `resolvePerson`
@@ -132,7 +132,7 @@ See `.env.example`. Required: `OPENAI_API_KEY`, `DATABASE_URL`, the four `SUPABA
 
 - **Shared types over duplication.** If a type or validator exists in `shared/schema.ts`, import it on both sides. Don't redefine.
 - **Server validates with Zod even when the client also does.** Don't skip server-side validation just because the form already validates.
-- **OpenAI calls have retry with exponential backoff** (see `generateEmbedding`). Match this pattern for any new AI calls.
+- **OpenAI calls live in `server/openai.ts` behind `createOpenAi(getClient)`** and share the `withRetry` backoff helper (used by embeddings + parse). Add new AI calls inside that factory so they get the injectable client (unit-testable with a fake — see `tests/openai.test.ts`) and the shared retry; preserve each call's intentional throw-vs-degrade contract.
 - **Register every authenticated route through the Guarded Route envelope** (`server/route.ts`). It applies `requireAuth` + the allow-list, validates the body against an optional Zod schema (→ 400), translates `AiPolicyError` (413/429) and logs/500s the rest, and hands the handler `{ userId, body }` — so a new route can't forget the auth, the gate, or the error translation. `/api/health` and `/api/waitlist` are the only unauthenticated routes. The user id always comes from the JWT (`ctx.userId`), never the request body.
 - **Per-user monthly AI usage caps** are enforced via `billableAiCall(userId, operation, fn)` in `server/usage-counters.ts`. Wrap every OpenAI call with it — it reserves quota before the call and rolls back on failure. Caps are configurable via env vars (see `.env.example`). Per-IP rate limiting (60 req/min) is applied to all `/api/*` routes.
 - **API responses use wire types**, not raw DB types. `toApiEncounter()` strips `embedding` and `userId` and serializes `datetime`/`createdAt` as ISO strings. Always use it before `res.json()` for encounter data.
