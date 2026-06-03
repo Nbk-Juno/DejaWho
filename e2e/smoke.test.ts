@@ -47,10 +47,9 @@ test.afterAll(async () => {
   }
 });
 
-// Encounter recording is voice-only on the home screen (ADR-0002), so a
-// proper "create and search" e2e needs mic mocking — out of scope here.
-// This smoke test just verifies the post-auth shell loads and the Search
-// page is reachable from the bottom nav.
+// This smoke test verifies the post-auth shell loads and the Search page is
+// reachable from the bottom nav. The voice loop itself (record → transcribe →
+// save / search, with a mocked mic) is covered in e2e/voice-loop.test.ts.
 test("sign in and navigate from home to search", async ({ page }) => {
   await page.goto("/sign-in");
   await page.getByTestId("input-email").fill(TEST_EMAIL);

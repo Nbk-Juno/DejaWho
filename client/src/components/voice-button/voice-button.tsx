@@ -267,6 +267,7 @@ export function VoiceButton({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          data-testid="voice-button"
           className={[
             "relative w-24 h-24 rounded-full flex items-center justify-center overflow-hidden",
             "touch-none transition-colors duration-200",
@@ -311,6 +312,7 @@ export function VoiceButton({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          data-testid="voice-button"
           className={[
             "relative w-full h-[72px] rounded-full flex items-center px-4 gap-3 overflow-hidden",
             "touch-none transition-colors duration-200",

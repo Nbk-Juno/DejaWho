@@ -342,6 +342,7 @@ export default function SearchPage() {
             onClick={onMicTap}
             aria-label={isRecording ? "Stop recording" : "Voice search"}
             aria-pressed={isRecording}
+            data-testid="search-voice-button"
             className="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl transition-colors text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-dw-indigo/60"
             style={{
               backgroundColor: isRecording ? "var(--dw-indigo-dim)" : "var(--dw-indigo)",
