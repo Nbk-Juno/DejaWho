@@ -125,6 +125,7 @@ function ModeToggle({
       onClick={() => onModeChange(isRecord ? "search" : "record")}
       aria-label={`Switch to ${isRecord ? "ask" : "record"} mode`}
       aria-pressed={!isRecord}
+      data-testid="mode-toggle"
       className="relative w-[52px] h-[30px] rounded-full transition-colors duration-300"
       style={{
         backgroundColor: trackBg,

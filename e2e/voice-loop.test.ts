@@ -131,6 +131,36 @@ test("home voice button records → transcribes → saves an encounter", async (
   await expect(page.getByText("Saved!", { exact: true })).toBeVisible({ timeout: 10_000 });
 });
 
+test("home search mode records → searches → speaks the answer (TTS)", async ({ page }) => {
+  await installFakeMic(page);
+
+  await page.route("**/api/transcribe", (route) =>
+    fulfillJson(route, { text: "who did I meet at blue bottle" }),
+  );
+  await page.route("**/api/search", (route) =>
+    fulfillJson(route, { results: [], naturalLanguageResponse: "You met Sarah Chen at Blue Bottle." }),
+  );
+  // Intercept TTS so the run is OpenAI-free; observing this request proves useVoiceResponse fired.
+  await page.route("**/api/text-to-speech", (route) =>
+    route.fulfill({ status: 200, contentType: "audio/mpeg", body: Buffer.from([0, 1, 2]) }),
+  );
+
+  await signIn(page);
+
+  // Flip the Voice Button from record to search mode via the toggle (no swipe needed).
+  await page.getByTestId("mode-toggle").click();
+
+  const button = page.getByTestId("voice-button");
+  await button.click(); // start recording in search mode
+  await expect(page.getByText("Listening…")).toBeVisible({ timeout: 5_000 });
+
+  const ttsRequest = page.waitForRequest("**/api/text-to-speech", { timeout: 10_000 });
+  await button.click(); // stop → transcribe → search → speak
+
+  await expect(page.getByText("You met Sarah Chen at Blue Bottle.").first()).toBeVisible({ timeout: 10_000 });
+  await ttsRequest; // the natural-language answer was sent to TTS playback
+});
+
 test("search page mic records → transcribes → shows a search result", async ({ page }) => {
   await installFakeMic(page);
 
