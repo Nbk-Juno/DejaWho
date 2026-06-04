@@ -7,6 +7,8 @@ import { storage } from "../server/storage";
 
 const TEST_SECRET = "test-jwt-secret-for-vitest-only-do-not-use-in-prod";
 const USER_A = "11111111-1111-1111-1111-111111111111";
+const USER_B = "22222222-2222-2222-2222-222222222222";
+const MISSING_ID = "99999999-9999-9999-9999-999999999999";
 
 function tokenFor(userId: string, email: string): string {
   return jwt.sign(
@@ -60,6 +62,7 @@ vi.mock("../server/openai", async () => {
 
 let app: express.Express;
 const auth = () => `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+const authB = () => `Bearer ${tokenFor(USER_B, "bob@example.com")}`;
 
 beforeAll(async () => {
   process.env.SUPABASE_JWT_SECRET = TEST_SECRET;
@@ -72,8 +75,9 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  // Functional tests run as an allow-listed user; the invite gate is tested in api-smoke.
+  // Functional tests run as allow-listed users; the invite gate is tested in api-smoke.
   await storage.addAllowedEmail("alice@example.com");
+  await storage.addAllowedEmail("bob@example.com");
 });
 
 function createEncounter(body: Record<string, unknown>) {
@@ -181,7 +185,150 @@ describe("person resolution API", () => {
     const res = await request(app)
       .patch(`/api/encounters/${enc.body.encounter.id}/person`)
       .set("Authorization", auth())
-      .send({ personId: "99999999-9999-9999-9999-999999999999" });
+      .send({ personId: MISSING_ID });
     expect(res.status).toBe(404);
+  });
+});
+
+// The delete route handlers wire storage deletion to clustering reconciliation. The pure
+// recompute/cascade primitives are unit-tested in person-clustering.test.ts; these exercise the
+// full HTTP path — auth/allow-list gate, 404s, per-user scoping, and the side effect that drops
+// or recounts the affected person.
+describe("delete flows (route handlers)", () => {
+  it("DELETE /api/encounters/:id removes the encounter and drops the now-empty person", async () => {
+    const created = await createEncounter({
+      name: "John",
+      location: "The Gym",
+      datetime: "2026-05-20T10:00:00Z",
+      context: "spotted me lifting weights",
+    });
+    const encounterId = created.body.encounter.id;
+    const personId = created.body.resolution.personId;
+
+    const del = await request(app)
+      .delete(`/api/encounters/${encounterId}`)
+      .set("Authorization", auth());
+    expect(del.status).toBe(204);
+
+    const encounters = await request(app).get("/api/encounters").set("Authorization", auth());
+    expect(encounters.body).toHaveLength(0);
+
+    // Its only encounter is gone, so recompute drops the person row entirely.
+    const person = await request(app).get(`/api/persons/${personId}`).set("Authorization", auth());
+    expect(person.status).toBe(404);
+    const persons = await request(app).get("/api/persons").set("Authorization", auth());
+    expect(persons.body).toHaveLength(0);
+  });
+
+  it("DELETE /api/encounters/:id recomputes the person count when encounters remain", async () => {
+    const first = await createEncounter({
+      name: "John",
+      location: "The Gym",
+      datetime: "2026-05-20T10:00:00Z",
+      context: "spotted me lifting weights",
+    });
+    const second = await createEncounter({
+      name: "John",
+      location: "The Gym",
+      datetime: "2026-05-22T10:00:00Z",
+      context: "spotted me lifting weights",
+    });
+    // Identical inputs cluster both into one person (see the clear-winner test above).
+    expect(second.body.resolution.status).toBe("attached");
+    const personId = second.body.resolution.personId;
+
+    const del = await request(app)
+      .delete(`/api/encounters/${first.body.encounter.id}`)
+      .set("Authorization", auth());
+    expect(del.status).toBe(204);
+
+    // The person survives with a recomputed count of 1; the other encounter is untouched.
+    const persons = await request(app).get("/api/persons").set("Authorization", auth());
+    expect(persons.body).toHaveLength(1);
+    expect(persons.body[0].id).toBe(personId);
+    expect(persons.body[0].encounterCount).toBe(1);
+
+    const encounters = await request(app).get("/api/encounters").set("Authorization", auth());
+    expect(encounters.body).toHaveLength(1);
+    expect(encounters.body[0].id).toBe(second.body.encounter.id);
+  });
+
+  it("DELETE /api/encounters/:id 404s for a non-existent encounter", async () => {
+    const res = await request(app)
+      .delete(`/api/encounters/${MISSING_ID}`)
+      .set("Authorization", auth());
+    expect(res.status).toBe(404);
+  });
+
+  it("DELETE /api/encounters/:id cannot delete another user's encounter", async () => {
+    const created = await createEncounter({
+      name: "John",
+      location: "The Gym",
+      datetime: "2026-05-20T10:00:00Z",
+    });
+    const encounterId = created.body.encounter.id;
+
+    // Bob is allow-listed (so this is a real per-user scoping check, not the invite gate).
+    const del = await request(app)
+      .delete(`/api/encounters/${encounterId}`)
+      .set("Authorization", authB());
+    expect(del.status).toBe(404);
+
+    const aStill = await request(app).get("/api/encounters").set("Authorization", auth());
+    expect(aStill.body).toHaveLength(1);
+    expect(aStill.body[0].id).toBe(encounterId);
+  });
+
+  it("DELETE /api/persons/:id cascades all the person's encounters", async () => {
+    await createEncounter({
+      name: "John",
+      location: "The Gym",
+      datetime: "2026-05-20T10:00:00Z",
+      context: "spotted me lifting weights",
+    });
+    const second = await createEncounter({
+      name: "John",
+      location: "The Gym",
+      datetime: "2026-05-22T10:00:00Z",
+      context: "spotted me lifting weights",
+    });
+    expect(second.body.resolution.status).toBe("attached");
+    const personId = second.body.resolution.personId;
+
+    const del = await request(app)
+      .delete(`/api/persons/${personId}`)
+      .set("Authorization", auth());
+    expect(del.status).toBe(200);
+    expect(del.body.deletedEncounters).toBe(2);
+
+    const persons = await request(app).get("/api/persons").set("Authorization", auth());
+    expect(persons.body).toHaveLength(0);
+    const encounters = await request(app).get("/api/encounters").set("Authorization", auth());
+    expect(encounters.body).toHaveLength(0);
+  });
+
+  it("DELETE /api/persons/:id 404s for a non-existent person", async () => {
+    const res = await request(app)
+      .delete(`/api/persons/${MISSING_ID}`)
+      .set("Authorization", auth());
+    expect(res.status).toBe(404);
+  });
+
+  it("DELETE /api/persons/:id cannot delete another user's person", async () => {
+    const created = await createEncounter({
+      name: "John",
+      location: "The Gym",
+      datetime: "2026-05-20T10:00:00Z",
+    });
+    const personId = created.body.resolution.personId;
+
+    const del = await request(app)
+      .delete(`/api/persons/${personId}`)
+      .set("Authorization", authB());
+    expect(del.status).toBe(404);
+
+    const persons = await request(app).get("/api/persons").set("Authorization", auth());
+    expect(persons.body).toHaveLength(1);
+    expect(persons.body[0].id).toBe(personId);
   });
 });
