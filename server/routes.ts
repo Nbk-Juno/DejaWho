@@ -6,6 +6,7 @@ import { attachEncounterRoutes } from "./encounter-operations";
 import { attachPersonRoutes } from "./person-operations";
 import { attachSearchRoutes } from "./search-operations";
 import { attachWaitlistRoutes } from "./waitlist-operations";
+import { attachInternalRoutes } from "./internal-operations";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use(apiRateLimit);
@@ -14,7 +15,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
 
+  // Unauthenticated carve-outs (no JWT). /api/waitlist is public; /api/internal/* is
+  // server-to-server, gated by a shared secret instead of auth.
   attachWaitlistRoutes(app);
+  attachInternalRoutes(app);
   attachAccountRoutes(app);
   attachEncounterRoutes(app);
   attachPersonRoutes(app);

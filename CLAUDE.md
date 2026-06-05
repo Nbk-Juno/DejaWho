@@ -64,7 +64,9 @@ Monorepo with three roots:
   - `server/account-operations.ts` — `/api/me`, `/api/me/usage`, `/api/me/export`, `DELETE /api/me`
   - `server/encounter-operations.ts` — encounter CRUD + `/api/transcribe` + `/api/parse-encounter`
   - `server/search-operations.ts` — `/api/search` + `/api/text-to-speech`
+  - `server/internal-operations.ts` — secret-gated server-to-server webhook (`POST /api/internal/whitelist-webhook`) that sends the invite email when a row is inserted into `whitelisted_emails`; an unauthenticated carve-out like `/api/health` and `/api/waitlist`
   - `server/openai.ts` — all OpenAI calls (embeddings, GPT-4o, Whisper, TTS, encounter parsing), bound to an injectable client via `createOpenAi(getClient)` with a shared `withRetry` helper; default named exports use the lazy real client
+  - `server/email.ts` — transactional email via **Resend**, bound to an injectable client by `createEmailer(getClient)` (mirrors `openai.ts`'s lazy/injectable pattern); on-brand **React Email** templates live in `server/emails/`. Sends the waitlist confirmation and the "you're in" invite. See `docs/EMAILS.md`
   - `server/encounter-search.ts` — hybrid search ranking, scoring, date/location extraction
   - `server/storage.ts` — `IStorage` (pure per-user CRUD seam) + `DbStorage`; `server/mem-storage.ts` is the in-memory second adapter (tests)
   - `server/person-clustering.ts` — the **Person Clustering** lifecycle (resolve/attach/recompute/reassign/rename) composed over `IStorage` + the pure `resolvePerson`
@@ -113,7 +115,7 @@ The sign-in page (`client/src/pages/sign-in.tsx`) has Password and Magic Link ta
 
 **`INVITE_ONLY` flag** (`isInviteOnly()` in `server/auth.ts`) defaults to true; the allow-list is enforced unless `INVITE_ONLY=false` is set. Flipping it to `false` opens signups to the public (the gate becomes a no-op) — the single switch for going public. Revoking an individual's access still requires invalidating their Supabase session.
 
-**Waitlist.** The public marketing landing captures interest into `waitlist_emails` (separate from `whitelisted_emails` — joining the waitlist grants nothing). `POST /api/waitlist` (`server/waitlist-operations.ts`) is unauthenticated, Zod-validated, idempotent on conflict. Promoting someone from waitlist → access is a manual `INSERT INTO whitelisted_emails` (run via the Supabase MCP/SQL editor), in batches. There is no automated invite send.
+**Waitlist.** The public marketing landing captures interest into `waitlist_emails` (separate from `whitelisted_emails` — joining the waitlist grants nothing). `POST /api/waitlist` (`server/waitlist-operations.ts`) is unauthenticated, Zod-validated, idempotent on conflict, and fires a best-effort **confirmation email** (fire-and-forget — a mail hiccup never 500s the join). Promoting someone from waitlist → access is a manual `INSERT INTO whitelisted_emails` (run via the Supabase MCP/SQL editor), in batches. That insert now **auto-sends the "you're in" invite** via a Supabase Database Webhook → `POST /api/internal/whitelist-webhook` (fires regardless of how the row was inserted). Granting access stays manual; only the email is automated. Full flow + prod webhook setup in `docs/EMAILS.md`.
 
 To seed an allow-list email locally:
 ```bash
@@ -150,7 +152,9 @@ See `.env.example`. Required: `OPENAI_API_KEY`, `DATABASE_URL`, the four `SUPABA
 
 Production runs on **Render** free tier (auto-deploy from `main`), backed by **Supabase** (Auth + Postgres + RLS). Custom SMTP via **Resend** for magic-link emails (configured in Supabase Auth settings, not in app code). Live at `https://dejawho.io` (Render also serves the underlying `https://dejawho.onrender.com`).
 
-Build command on Render: `npm install --include=dev; npm run build` (devDeps needed for Vite/esbuild at build time). `DATABASE_URL` on Render must use the Supabase **transaction pooler** connection string (port 6543), not the direct connection.
+Build command on Render: `npm install --include=dev; npm run build` (devDeps needed for Vite/esbuild at build time). An `.npmrc` pins `legacy-peer-deps=true` (the `@react-email/*` packages declare strict peer ranges npm 7+ otherwise rejects) so this `npm install` is reproducible on Render/CI. The server build passes `--jsx=automatic` so the React Email templates in `server/emails/` transform correctly (the project tsconfig is `jsx:"preserve"` for the client's Vite pipeline). `DATABASE_URL` on Render must use the Supabase **transaction pooler** connection string (port 6543), not the direct connection.
+
+Email (Resend) requires `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, and `WHITELIST_WEBHOOK_SECRET` on Render, plus the Supabase Database Webhook on `whitelisted_emails`. Render free spins down and `pg_net` does not retry, so keep the service warm with an external pinger on `/api/health`; `npm run invite -- email` is the manual resend backstop. See `docs/EMAILS.md`.
 
 ## PWA
 
