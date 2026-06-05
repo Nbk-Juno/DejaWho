@@ -50,7 +50,7 @@ export function createEmailer(getClient: () => EmailClient = defaultClient) {
   }
 
   function sendInvite(to: string): Promise<void> {
-    return send(to, "You're in — welcome to DejaWho", InviteEmail({ appUrl: appUrl() }));
+    return send(to, "You're in — welcome to DejaWho", InviteEmail({ appUrl: appUrl(), email: to }));
   }
 
   return { sendWaitlistConfirmation, sendInvite };

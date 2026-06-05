@@ -3,7 +3,6 @@ import { Link } from "wouter";
 import { Mail, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
-type AuthTab = "password" | "magic-link";
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
 
 type Status =
@@ -50,10 +49,16 @@ function DwInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export default function SignIn() {
-  const { signInWithEmail, signInWithPassword, signUpWithPassword, resetPassword } = useAuth();
-  const [tab, setTab] = useState<AuthTab>("password");
-  const [mode, setMode] = useState<AuthMode>("sign-in");
-  const [email, setEmail] = useState("");
+  const { signInWithPassword, signUpWithPassword, resetPassword } = useAuth();
+  // The invite email deep-links here as /sign-in?mode=signup&email=<addr> so a first-time
+  // invited user lands in account-setup mode with their email pre-filled. Returning users (or
+  // anyone arriving without params) get the normal sign-in form. Read once at mount.
+  const [mode, setMode] = useState<AuthMode>(() =>
+    new URLSearchParams(window.location.search).get("mode") === "signup" ? "sign-up" : "sign-in",
+  );
+  const [email, setEmail] = useState(
+    () => new URLSearchParams(window.location.search).get("email") ?? "",
+  );
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
@@ -90,26 +95,6 @@ export default function SignIn() {
     }
   }
 
-  async function handleMagicLinkSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setStatus({ kind: "sending" });
-    try {
-      await signInWithEmail(email.trim());
-      setStatus({ kind: "sent", email: email.trim() });
-    } catch (err) {
-      setStatus({
-        kind: "error",
-        message: err instanceof Error ? err.message : "Failed to send magic link",
-      });
-    }
-  }
-
-  function switchTab(next: AuthTab) {
-    setTab(next);
-    setStatus({ kind: "idle" });
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-5 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div className="w-full max-w-sm space-y-8">
@@ -119,11 +104,9 @@ export default function SignIn() {
           <p className="text-dw-fg-sec text-sm text-center">
             {mode === "forgot-password"
               ? "We'll send a reset link to your email."
-              : tab === "password"
-                ? mode === "sign-up"
-                  ? "Set up your account with the email you were approved with."
-                  : "Sign in to continue."
-                : "Get a magic link sent to your email."}
+              : mode === "sign-up"
+                ? "Set up your account — choose a password for the email you were invited with."
+                : "Welcome back. Sign in to continue."}
           </p>
         </div>
 
@@ -147,28 +130,6 @@ export default function SignIn() {
             </div>
           )}
 
-          {/* Tab switcher */}
-          {mode !== "forgot-password" && (
-            <div className="flex rounded-xl bg-white/6 border border-white/10 p-1 gap-1">
-              {(["password", "magic-link"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  data-testid={`tab-${t}`}
-                  onClick={() => switchTab(t)}
-                  className={[
-                    "flex-1 rounded-lg py-2 text-sm font-medium transition-all duration-150",
-                    tab === t
-                      ? "bg-white/12 text-white shadow-sm"
-                      : "text-white/45 hover:text-white/70",
-                  ].join(" ")}
-                >
-                  {t === "password" ? "Password" : "Magic Link"}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Error */}
           {status.kind === "error" && (
             <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
@@ -177,8 +138,8 @@ export default function SignIn() {
             </div>
           )}
 
-          {/* Password form */}
-          {tab === "password" && mode !== "forgot-password" && (
+          {/* Password form (default; also the account-setup form in sign-up mode) */}
+          {mode !== "forgot-password" && (
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="email" className="text-sm font-medium text-white/70">Email</label>
@@ -308,51 +269,6 @@ export default function SignIn() {
                     Back to sign in
                   </button>
                 </p>
-              </form>
-            )
-          )}
-
-          {/* Magic link form */}
-          {tab === "magic-link" && (
-            status.kind === "sent" ? (
-              <div className="text-center space-y-4 py-2">
-                <div className="w-12 h-12 mx-auto rounded-full bg-dw-indigo/20 border border-dw-indigo/30 flex items-center justify-center">
-                  <Mail className="h-6 w-6 text-dw-indigo" />
-                </div>
-                <div>
-                  <p className="text-white font-semibold">Check your email</p>
-                  <p className="text-dw-fg-sec text-sm mt-1">
-                    Magic link sent to <strong className="text-dw-fg">{(status as { kind: "sent"; email: string }).email}</strong>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="text-sm text-dw-indigo font-medium"
-                  onClick={() => setStatus({ kind: "idle" })}
-                  data-testid="button-use-different-email"
-                >
-                  Use a different email
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleMagicLinkSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="magic-email" className="text-sm font-medium text-white/70">Email</label>
-                  <DwInput
-                    id="magic-email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={status.kind === "sending"}
-                    data-testid="input-magic-email"
-                  />
-                </div>
-                <DwButton type="submit" disabled={status.kind === "sending"} data-testid="button-send-magic-link">
-                  {status.kind === "sending" ? "Sending…" : "Send magic link"}
-                </DwButton>
               </form>
             )
           )}

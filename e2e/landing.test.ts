@@ -16,7 +16,6 @@ test.describe("marketing landing", () => {
     await page.goto("/");
 
     await page.getByTestId("nav-sign-in").click();
-    await expect(page.getByTestId("tab-password")).toBeVisible();
     await expect(page.getByTestId("button-sign-in")).toBeVisible();
   });
 });

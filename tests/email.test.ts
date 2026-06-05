@@ -12,11 +12,14 @@ function fakeClient(result: { error: { message: string } | null } = { error: nul
 }
 
 describe("email templates", () => {
-  it("renders the invite with a sign-in CTA pointing at APP_URL/sign-in", async () => {
-    const html = await render(InviteEmail({ appUrl: "https://dejawho.io" }));
-    expect(html).toContain("https://dejawho.io/sign-in");
+  it("renders the invite with a setup CTA deep-linking to sign-up with the email pre-filled", async () => {
+    const html = await render(InviteEmail({ appUrl: "https://dejawho.io", email: "tester+1@example.com" }));
+    // Deep-links into account-setup mode with the recipient's email URL-encoded (the `&` between
+    // params is HTML-escaped in the rendered output, so assert the two halves separately).
+    expect(html).toContain("https://dejawho.io/sign-in?mode=signup");
+    expect(html).toContain("email=tester%2B1%40example.com");
     expect(html).toContain("just opened"); // body copy; apostrophes get HTML-escaped so avoid them
-    expect(html).toContain("Sign in to DejaWho");
+    expect(html).toContain("Set up your account");
   });
 
   it("renders the waitlist confirmation without an action link", async () => {
@@ -38,8 +41,8 @@ describe("createEmailer", () => {
     expect(payload.to).toBe("tester@example.com");
     expect(payload.from).toMatch(/@/);
     expect(payload.subject).toMatch(/welcome to DejaWho/i);
-    expect(payload.html).toContain("Sign in to DejaWho");
-    expect(payload.text).toContain("Sign in to DejaWho"); // plaintext part rendered from the same template
+    expect(payload.html).toContain("Set up your account");
+    expect(payload.text).toContain("Set up your account"); // plaintext part rendered from the same template
   });
 
   it("sends the waitlist confirmation with its own subject", async () => {

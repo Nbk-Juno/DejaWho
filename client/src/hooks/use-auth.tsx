@@ -6,7 +6,6 @@ type AuthState = {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signInWithEmail: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signUpWithPassword: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -34,14 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
-
-  async function signInWithEmail(email: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    if (error) throw error;
-  }
 
   async function signInWithPassword(email: string, password: string): Promise<void> {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -82,7 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     session,
     loading,
-    signInWithEmail,
     signInWithPassword,
     signUpWithPassword,
     resetPassword,

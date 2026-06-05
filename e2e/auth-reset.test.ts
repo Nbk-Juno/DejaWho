@@ -4,7 +4,7 @@ test.describe("password reset flow", () => {
   test("forgot password link visible on sign-in form", async ({ page }) => {
     await page.goto("/sign-in");
 
-    await expect(page.getByTestId("tab-password")).toBeVisible();
+    await expect(page.getByTestId("button-sign-in")).toBeVisible();
     await expect(page.getByTestId("link-forgot-password")).toBeVisible();
   });
 
@@ -67,7 +67,7 @@ test.describe("password reset flow", () => {
     await expect(page.getByTestId("reset-confirmation")).toBeVisible({ timeout: 10_000 });
     await page.getByTestId("link-back-to-sign-in").click();
 
-    await expect(page.getByTestId("tab-password")).toBeVisible();
+    await expect(page.getByTestId("button-sign-in")).toBeVisible();
     await expect(page.getByTestId("input-email")).toBeVisible();
   });
 });

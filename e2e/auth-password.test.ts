@@ -12,12 +12,16 @@ test.describe("password auth on sign-in page", () => {
   test("shows password form by default", async ({ page }) => {
     await page.goto("/sign-in");
 
-    await expect(page.getByTestId("tab-password")).toBeVisible();
-    await expect(page.getByTestId("tab-magic-link")).toBeVisible();
-
     await expect(page.getByTestId("input-email")).toBeVisible();
     await expect(page.getByTestId("input-password")).toBeVisible();
     await expect(page.getByTestId("button-sign-in")).toBeVisible();
+  });
+
+  test("invite deep-link opens account-setup mode with the email pre-filled", async ({ page }) => {
+    await page.goto("/sign-in?mode=signup&email=foo%40test.local");
+
+    await expect(page.getByTestId("input-email")).toHaveValue("foo@test.local");
+    await expect(page.getByTestId("button-sign-in")).toHaveText("Create account");
   });
 
   test("can sign in with password, navigate to profile, and sign out", async ({ page }) => {
@@ -56,8 +60,8 @@ test.describe("password auth on sign-in page", () => {
       await expect(page.getByTestId("button-sign-out")).toBeVisible({ timeout: 5_000 });
       await page.getByTestId("button-sign-out").click();
 
-      // Back to sign-in.
-      await expect(page.getByTestId("tab-password")).toBeVisible({ timeout: 5_000 });
+      // Back to sign-in (password form is the default view now).
+      await expect(page.getByTestId("button-sign-in")).toBeVisible({ timeout: 5_000 });
     } finally {
       const { data: cleanup } = await admin.auth.admin.listUsers();
       const toDelete = cleanup?.users?.find((u) => u.email === TEST_EMAIL);
@@ -74,15 +78,5 @@ test.describe("password auth on sign-in page", () => {
     await page.getByTestId("button-sign-in").click();
 
     await expect(page.getByTestId("auth-error")).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("can switch to magic link tab", async ({ page }) => {
-    await page.goto("/sign-in");
-
-    await page.getByTestId("tab-magic-link").click();
-
-    await expect(page.getByTestId("input-magic-email")).toBeVisible();
-    await expect(page.getByTestId("button-send-magic-link")).toBeVisible();
-    await expect(page.getByTestId("input-password")).not.toBeVisible();
   });
 });
