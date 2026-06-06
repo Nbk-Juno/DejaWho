@@ -15,6 +15,8 @@ test.describe("password auth on sign-in page", () => {
     await expect(page.getByTestId("input-email")).toBeVisible();
     await expect(page.getByTestId("input-password")).toBeVisible();
     await expect(page.getByTestId("button-sign-in")).toBeVisible();
+    // Google SSO is render-asserted only — the OAuth round-trip itself is manual-verify.
+    await expect(page.getByTestId("button-google-signin")).toBeVisible();
   });
 
   test("invite deep-link opens account-setup mode with the email pre-filled", async ({ page }) => {

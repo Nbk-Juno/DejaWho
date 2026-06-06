@@ -8,6 +8,7 @@ type AuthState = {
   loading: boolean;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signUpWithPassword: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   signOut: (redirectTo?: string) => Promise<void>;
@@ -48,6 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }
 
+  async function signInWithGoogle(): Promise<void> {
+    // Full-page redirect to Google → Supabase callback → back to app origin with the session
+    // in the URL hash (parsed by detectSessionInUrl). redirectTo must be in the project's
+    // allow-listed Redirect URLs. The allow-list (/api/me) still gates a non-invited Google email.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) throw error;
+  }
+
   async function resetPassword(email: string): Promise<void> {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -75,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     signInWithPassword,
     signUpWithPassword,
+    signInWithGoogle,
     resetPassword,
     updatePassword,
     signOut,

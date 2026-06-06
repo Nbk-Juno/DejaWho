@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Mail, AlertCircle } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 import { useAuth } from "@/hooks/use-auth";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
@@ -48,8 +49,25 @@ function DwInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
+// White/neutral per Google brand guidance (not the indigo DwButton). Matches DwButton's
+// height/radius so the two stack cleanly.
+function GoogleButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-testid="button-google-signin"
+      className="w-full h-14 rounded-2xl bg-white text-gray-800 font-semibold text-base flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+    >
+      <FcGoogle className="h-5 w-5" />
+      Continue with Google
+    </button>
+  );
+}
+
 export default function SignIn() {
-  const { signInWithPassword, signUpWithPassword, resetPassword } = useAuth();
+  const { signInWithPassword, signUpWithPassword, signInWithGoogle, resetPassword } = useAuth();
   // The invite email deep-links here as /sign-in?mode=signup&email=<addr> so a first-time
   // invited user lands in account-setup mode with their email pre-filled. Returning users (or
   // anyone arriving without params) get the normal sign-in form. Read once at mount.
@@ -76,6 +94,20 @@ export default function SignIn() {
       setStatus({
         kind: "error",
         message: err instanceof Error ? err.message : "Authentication failed",
+      });
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setStatus({ kind: "sending" });
+    try {
+      // On success this redirects the whole page to Google; the catch only fires on a
+      // pre-redirect failure (e.g. provider misconfigured), surfaced into the error box.
+      await signInWithGoogle();
+    } catch (err) {
+      setStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Google sign-in failed",
       });
     }
   }
@@ -127,6 +159,18 @@ export default function SignIn() {
                   Not on the list yet? Join the waitlist
                 </Link>
               </p>
+            </div>
+          )}
+
+          {/* Continue with Google — the one-tap option, above the email/password form */}
+          {mode !== "forgot-password" && (
+            <div className="space-y-5">
+              <GoogleButton onClick={handleGoogleSignIn} disabled={status.kind === "sending"} />
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-xs text-white/35">or</span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
             </div>
           )}
 
