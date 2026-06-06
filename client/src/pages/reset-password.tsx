@@ -41,7 +41,7 @@ export default function ResetPassword() {
 
   if (status.kind === "success") {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-5">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-5 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         <div className="w-full max-w-sm text-center space-y-6">
           <div
             className="w-20 h-20 mx-auto rounded-full bg-dw-indigo flex items-center justify-center"

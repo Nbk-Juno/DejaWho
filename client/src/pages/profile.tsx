@@ -126,6 +126,22 @@ function Row({
   const interactive = `w-full text-left rounded-2xl hover:brightness-110 transition-all duration-150 ${rowFocus}`;
 
   if (href) {
+    // wouter's <Link> is for in-app routing — it intercepts the click and tries to navigate
+    // to the href as a route, which silently swallows mailto:/tel:/http links. Render those as
+    // a native anchor so the OS handles them (mail client, dialer, new tab).
+    const isExternal = /^(mailto:|tel:|https?:)/i.test(href);
+    if (isExternal) {
+      return (
+        <a
+          href={href}
+          data-testid={testId}
+          className={`block ${interactive}`}
+          {...(href.toLowerCase().startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+        >
+          {content}
+        </a>
+      );
+    }
     return (
       <Link href={href} data-testid={testId} className={`block ${interactive}`}>
         {content}

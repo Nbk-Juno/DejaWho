@@ -400,7 +400,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-dw-fg" data-testid="landing-loaded">
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-background/86 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-background/86 backdrop-blur-md pt-[env(safe-area-inset-top)]">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <img src="/horizontal-lockup.svg" alt="DejaWho" className="h-7 w-auto object-contain" />
           <Link

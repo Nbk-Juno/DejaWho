@@ -403,11 +403,15 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
   return (
     <div className="fixed inset-0 bg-background flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] z-50">
-      {screen === 0 && <WelcomeScreen onNext={next} onSkip={skip} />}
-      {screen === 1 && <HowItWorksScreen onNext={next} onSkip={skip} />}
-      {screen === 2 && <TryRecordScreen onNext={next} onSkip={skip} />}
-      {screen === 3 && <TrySearchScreen onNext={next} onSkip={skip} />}
-      {screen === 4 && <CompleteScreen onFinish={finish} />}
+      {/* Constrain to a phone-width column so the mobile-designed screens stay centered and
+          legible on desktop instead of sprawling across the full viewport width. */}
+      <div className="w-full max-w-md mx-auto flex-1 min-h-0 flex flex-col">
+        {screen === 0 && <WelcomeScreen onNext={next} onSkip={skip} />}
+        {screen === 1 && <HowItWorksScreen onNext={next} onSkip={skip} />}
+        {screen === 2 && <TryRecordScreen onNext={next} onSkip={skip} />}
+        {screen === 3 && <TrySearchScreen onNext={next} onSkip={skip} />}
+        {screen === 4 && <CompleteScreen onFinish={finish} />}
+      </div>
     </div>
   );
 }
