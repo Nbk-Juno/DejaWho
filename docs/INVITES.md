@@ -22,7 +22,7 @@ on conflict (email) do nothing
 returning email, invited_by, created_at;
 ```
 
-After adding the email, ask the invitee to sign in with that exact email address. Supabase sends the magic link.
+Inserting the row **auto-sends the "you're in" invite email** via a Supabase Database Webhook (see `docs/EMAILS.md`). The email deep-links to `/sign-in?mode=signup&email=<addr>`, where the invitee creates a password (magic-link was removed). If the email doesn't arrive (e.g. Render was cold and `pg_net` dropped the call), resend by hand with `npm run invite -- friend@example.com`.
 
 ## Remove an Invitee
 
@@ -119,6 +119,6 @@ Non-allow-listed users are surfaced in these places:
 
 - Server: `/api/me` returns HTTP 403 with `error: "invite_only"` and the message `Your email isn't on the invite list yet. Request access from the operator and try again.`
 - Client: `client/src/App.tsx` shows the signed-in invite-only screen after `/api/me` returns 403.
-- Client: `client/src/pages/sign-in.tsx` warns that early access is invite-only before the user requests a magic link.
+- Client: `client/src/pages/sign-in.tsx` warns that early access is invite-only on the email/password sign-in form.
 
 When debugging a screenshot from a blocked user, confirm the email they used for Supabase sign-in exactly matches the email in `public.whitelisted_emails`.

@@ -47,7 +47,7 @@ When the top match exceeds 50% confidence, GPT-4o answers directly by name. Belo
 
 **Frontend**
 - React 18 + TypeScript on Vite
-- Tailwind CSS + shadcn/ui (Radix primitives) — Material Design 3 inspired, light/dark mode
+- Tailwind CSS + shadcn/ui (Radix primitives) — custom dark-only design system ("Night-Sky Atlas", see `DESIGN.md`)
 - TanStack Query for server state, React Hook Form + Zod for forms
 - Wouter for routing
 - MediaRecorder API for voice capture, browser Audio API for playback
@@ -73,23 +73,26 @@ When the top match exceeds 50% confidence, GPT-4o answers directly by name. Belo
 ## Project structure
 
 ```
-who-that/
-├── client/              # React + Vite frontend
+dejawho/
+├── client/                 # React + Vite frontend
 │   └── src/
-│       ├── pages/       # Home, Record, Search
-│       ├── components/  # VoiceRecorder, EncounterCard, shadcn/ui
-│       └── hooks/
-├── server/              # Express API
-│   ├── routes.ts        # REST endpoints
-│   ├── openai.ts        # Embeddings, chat, Whisper, TTS, parsing
-│   ├── search-utils.ts  # Date/location extraction + scoring
-│   ├── db.ts            # Drizzle + postgres.js client
-│   └── storage.ts       # IStorage interface + DbStorage (Postgres)
+│       ├── pages/          # home, search, onboarding, profile, sign-in, landing, …
+│       ├── components/      # voice button, recent-card, search-result-sheet, shadcn/ui
+│       └── hooks/           # use-home-voice, use-voice-response, use-search-encounters, …
+├── server/                 # Express API
+│   ├── routes.ts            # thin wiring → *-operations.ts domain modules
+│   ├── openai.ts            # embeddings, chat, Whisper, TTS, parsing (injectable client)
+│   ├── encounter-search.ts  # hybrid search ranking + date/location extraction
+│   ├── person-clustering.ts # Person lifecycle over IStorage
+│   ├── route.ts             # Guarded Route envelope (auth + allow-list + validation)
+│   ├── db.ts                # Drizzle + postgres.js client
+│   └── storage.ts           # IStorage interface + DbStorage (Postgres)
 ├── shared/
-│   └── schema.ts        # Drizzle tables + Zod schemas (single source of truth)
-├── tests/                # Vitest integration tests
-├── migrations/           # Drizzle SQL migrations
-└── docker-compose.yml    # Local Postgres + pgvector
+│   └── schema.ts            # Drizzle tables + Zod schemas (single source of truth)
+├── tests/                   # Vitest integration tests
+├── e2e/                     # Playwright end-to-end tests
+├── migrations/              # Drizzle SQL migrations
+└── docker-compose.yml       # Local Postgres + pgvector
 ```
 
 ## Running it locally
@@ -128,15 +131,19 @@ Tests run against the same local Postgres as `npm run dev`. The setup file appli
 
 ## API surface
 
+All routes below require a Supabase JWT and pass the invite allow-list (see the Guarded Route envelope in `server/route.ts`). `/api/health` and `/api/waitlist` are the only unauthenticated routes.
+
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/api/encounters` | List all encounters |
+| `GET` | `/api/encounters` | List the user's encounters |
 | `GET` | `/api/encounters/:id` | Fetch one |
 | `POST` | `/api/encounters` | Create — server generates the embedding |
+| `GET` | `/api/persons` / `/api/persons/:id` | List clustered people / one person + lazy LLM summary |
 | `POST` | `/api/search` | Natural-language search → ranked results + LLM answer |
 | `POST` | `/api/transcribe` | Audio → text (Whisper) |
 | `POST` | `/api/text-to-speech` | Text → audio (OpenAI TTS or ElevenLabs) |
 | `POST` | `/api/parse-encounter` | Spoken description → `{ name, location, context }` |
+| `GET` | `/api/me` / `/api/me/usage` / `/api/me/export`, `DELETE /api/me` | Account: identity + allow-list gate, usage counters, JSON export, delete |
 
 ---
 
