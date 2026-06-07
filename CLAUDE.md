@@ -154,7 +154,9 @@ Production runs on **Render** free tier (auto-deploy from `main`), backed by **S
 
 Build command on Render: `npm install --include=dev; npm run build` (devDeps needed for Vite/esbuild at build time). An `.npmrc` pins `legacy-peer-deps=true` (the `@react-email/*` packages declare strict peer ranges npm 7+ otherwise rejects) so this `npm install` is reproducible on Render/CI. The server build passes `--jsx=automatic` so the React Email templates in `server/emails/` transform correctly (the project tsconfig is `jsx:"preserve"` for the client's Vite pipeline). `DATABASE_URL` on Render must use the Supabase **transaction pooler** connection string (port 6543), not the direct connection.
 
-Email (Resend) requires `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, and `WHITELIST_WEBHOOK_SECRET` on Render, plus the Supabase Database Webhook on `whitelisted_emails`. Render free spins down and `pg_net` does not retry, so keep the service warm with an external pinger on `/api/health`; `npm run invite -- email` is the manual resend backstop. See `docs/EMAILS.md`.
+Email (Resend) requires `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, and `WHITELIST_WEBHOOK_SECRET` on Render, plus the Supabase Database Webhook on `whitelisted_emails`. `npm run invite -- email` is the manual resend backstop. See `docs/EMAILS.md`.
+
+**Keep-warm:** Render free naps after ~15 min idle and `pg_net` doesn't retry, so `/api/health` is pinged every ~10 min by two layers — an in-repo GitHub Actions cron (`.github/workflows/keep-warm.yml`, the backstop) and an external UptimeRobot monitor (the primary, with down-alerts). If you see cold starts, one has died: see [Keep Render warm](docs/EMAILS.md#4-keep-render-warm) for how to verify and revive each.
 
 ## PWA
 

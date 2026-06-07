@@ -44,8 +44,8 @@ The webhook route therefore sends the email _before_ responding, so a failure su
 The real hazard is **Render free spinning down**: a cold server can take longer to wake than the
 webhook timeout, and the request is then lost with no retry. Two mitigations:
 
-1. **Keep Render warm** with a free uptime pinger hitting `/api/health` every ~10 min
-   (cron-job.org, UptimeRobot, …). Also improves first-visitor load.
+1. **Keep Render warm** by pinging `/api/health` every ~10 min (Render naps at ~15 min idle).
+   See [Keep Render warm](#4-keep-render-warm) below for the live setup.
 2. **Resend backstop**: `npm run invite -- someone@example.com` re-sends the invite by hand. It
    does **not** touch `whitelisted_emails` — access is granted separately.
 
@@ -105,7 +105,23 @@ execute function supabase_functions.http_request(
 
 ### 4. Keep Render warm
 
-Point a free pinger at `https://dejawho.io/api/health` every ~10 min. See reliability note above.
+Render free naps after ~15 min idle, so something must ping `https://dejawho.io/api/health`
+every ~10 min. **Two independent layers** run so a single silent failure can't put the app back
+to sleep (the original setup was one un-monitored external pinger that died unnoticed and caused
+cold starts — hence the in-repo backstop):
+
+| Layer | Where it lives | Cadence | Alerts? | Revive if down |
+| --- | --- | --- | --- | --- |
+| **In-repo cron** (backstop) | `.github/workflows/keep-warm.yml` (workflow name `keep-warm`) | every ~10 min via GitHub Actions `schedule` | no | GitHub → **Actions** tab → enable `keep-warm`, or just push a commit (GitHub auto-disables scheduled workflows after 60 days of repo inactivity) |
+| **External monitor** (primary + alerting) | UptimeRobot account (HTTP monitor on `/api/health`) | every 5 min | yes — emails on down | UptimeRobot dashboard → re-enable / recreate the monitor |
+
+- **Verify either is working:** `curl -s -o /dev/null -w '%{http_code} %{time_total}s\n'
+  https://dejawho.io/api/health` — a warm app answers `200` in <0.5s; a `503` / multi-second
+  first response means it had spun down (pinger not working).
+- **GitHub Actions cron is best-effort** and can be delayed several minutes under load, which is
+  why the always-on-time external monitor is the primary and the Action is the safety net.
+- The in-repo cron is free (public repo). It costs nothing and needs no account, so it stays even
+  if the external monitor is healthy.
 
 ### 5. Verify
 

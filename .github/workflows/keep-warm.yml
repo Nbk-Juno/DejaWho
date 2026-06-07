@@ -1,0 +1,36 @@
+name: keep-warm
+
+# Keeps the Render free-tier service from spinning down (it naps after ~15 min
+# idle, and a cold wake can outlast the invite webhook's pg_net timeout — see
+# docs/EMAILS.md). This is the in-repo backstop; a tighter-cadence external
+# monitor (cron-job.org / UptimeRobot) with down-alerts runs alongside it.
+#
+# GitHub scheduled runs are best-effort and can be delayed several minutes under
+# load, so the external monitor is the primary keep-warm and this is the safety
+# net. NOTE: GitHub disables scheduled workflows after 60 days of zero repo
+# activity — a normal commit cadence keeps it alive; if it ever goes quiet,
+# re-enable from the Actions tab.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes (Render naps at ~15)
+  workflow_dispatch: {} # allow a manual ping from the Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping /api/health
+        run: |
+          curl --fail --show-error --silent \
+            --retry 5 --retry-all-errors --retry-delay 10 \
+            --max-time 90 \
+            https://dejawho.io/api/health
