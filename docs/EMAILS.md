@@ -123,6 +123,25 @@ cold starts — hence the in-repo backstop):
 - The in-repo cron is free (public repo). It costs nothing and needs no account, so it stays even
   if the external monitor is healthy.
 
+#### Set up the external monitor (UptimeRobot, ~2 min)
+
+The in-repo cron above is already live. To add the alerting layer:
+
+1. Create a free account at <https://uptimerobot.com> (free plan: 50 monitors at a 5-min interval).
+2. **+ New monitor**:
+   - **Monitor Type:** HTTP(s)
+   - **Friendly Name:** DejaWho keep-warm
+   - **URL:** `https://dejawho.io/api/health`
+   - **Monitoring interval:** 5 minutes
+3. Under **Alert Contacts To Notify**, tick your email (add one under My Settings → Alert Contacts
+   first if none exists) so you're emailed on an outage.
+4. **Create Monitor.** It should flip to green/Up within a minute (a healthy `/api/health` returns
+   `{"status":"ok"}`).
+
+UptimeRobot then pings every 5 min on the dot and emails you on any downtime — the alerting the
+silent-dying pinger never had. Pause/edit/recreate it from the UptimeRobot dashboard (the "revive
+if down" path in the table above).
+
 ### 5. Verify
 
 - Join the waitlist on the landing page → confirmation email arrives.
