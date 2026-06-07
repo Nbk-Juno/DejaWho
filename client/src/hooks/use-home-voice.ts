@@ -133,13 +133,16 @@ export function useHomeVoice() {
     : "default";
 
   const onTap = useCallback(() => {
+    // Synchronously inside the tap, unlock the audio element so the answer can auto-play after
+    // the async transcribe→search→TTS chain (mobile autoplay policy). No-op after first prime.
+    voice.unlock();
     if (isRecording) {
       stopRecording();
     } else if (!isProcessing && !isDone) {
       recordingModeRef.current = mode;
       startRecording();
     }
-  }, [isRecording, isProcessing, isDone, mode, startRecording, stopRecording]);
+  }, [isRecording, isProcessing, isDone, mode, startRecording, stopRecording, voice.unlock]);
 
   const onDoneTimeout = useCallback(() => {
     setIsDone(false);

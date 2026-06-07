@@ -120,12 +120,15 @@ function useOnboardingSearch() {
     : "default";
 
   const onTap = useCallback(() => {
+    // Unlock the audio element inside the tap so the answer auto-plays after the async
+    // transcribe→search→TTS chain (mobile autoplay policy). No-op after first prime.
+    voice.unlock();
     if (isRecording) {
       stopRecording();
     } else if (!isProcessing && !hasResults) {
       startRecording();
     }
-  }, [isRecording, isProcessing, hasResults, startRecording, stopRecording]);
+  }, [isRecording, isProcessing, hasResults, startRecording, stopRecording, voice.unlock]);
 
   return {
     buttonState,
