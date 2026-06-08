@@ -57,7 +57,7 @@ Examples for LOW confidence (<50%):
 - If asked "who did I meet at the farmers market?" → "I couldn't find an exact match, but here's who it could be: Lisa Anderson at the Farmers Market."
 - If asked "what was the name of the person at the coffee shop?" → "I couldn't find an exact match, but here's who it could be: Sarah Johnson."
 
-Generate a helpful, natural language response that directly answers the user's query. Always mention the person's name. Be conversational and specific. If there are multiple matches, mention the top match by name first, then briefly reference others if relevant.`;
+Generate a response that directly answers the user's query in 1-2 sentences. Always mention the person's name. Be specific and natural, but do NOT add conversational filler, sign-offs, or offers to help further — never end with phrases like "feel free to ask" or "let me know if you need anything else". If there are multiple strong matches, name the top match first and reference another only if it's genuinely relevant; otherwise answer with just the top match.`;
 }
 
 export function buildParseEncounterPrompt(text: string): string {

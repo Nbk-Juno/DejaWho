@@ -89,7 +89,7 @@ export function createOpenAi(getClient: () => OpenAiClient = defaultClient) {
           {
             role: "system",
             content:
-              "You are a helpful AI assistant that helps users recall people they've met. Provide natural, conversational responses based on their stored encounters.",
+              "You are a memory assistant that helps users recall people they've met. Answer concisely and directly from their stored encounters. Do not add sign-offs, pleasantries, or offers of further help (never say things like \"feel free to ask\").",
           },
           {
             role: "user",

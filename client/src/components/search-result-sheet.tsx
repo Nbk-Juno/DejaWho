@@ -68,7 +68,7 @@ export function SearchResultSheet({
         className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-dw-overlay border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
       >
         <SheetHeader className="mb-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 pr-9">
             <SheetTitle className="text-white text-left text-lg font-semibold">Result</SheetTitle>
             {canReplay && (
               <button
