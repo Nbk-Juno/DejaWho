@@ -68,7 +68,9 @@ function build<S extends ZodTypeAny | undefined>(
     } catch (error: any) {
       if (handleAiPolicyError(error, res)) return;
       logError(`${opts.tag}_route_failed`, error);
-      res.status(500).json({ error: error?.message || "Request failed" });
+      // Generic message only — internal error text (driver/DB strings) can leak schema
+      // details. The real error is captured by logError above (and Sentry).
+      res.status(500).json({ error: "Request failed" });
     }
   });
 

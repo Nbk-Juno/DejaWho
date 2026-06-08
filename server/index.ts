@@ -30,9 +30,10 @@ app.use(apiRequestLogger);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
     Sentry.captureException(err);
+    // Never leak internal error text on 5xx (driver/DB messages can carry schema details);
+    // deliberate 4xx errors keep their message. The real error went to Sentry above.
+    const message = status >= 500 ? "Internal Server Error" : err.message || "Request failed";
     res.status(status).json({ message });
   });
 

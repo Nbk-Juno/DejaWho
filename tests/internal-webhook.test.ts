@@ -10,6 +10,7 @@ vi.mock("../server/email", () => ({
 }));
 
 import { attachInternalRoutes } from "../server/internal-operations";
+import { storage } from "../server/storage";
 
 const SECRET = "test-webhook-secret";
 
@@ -35,6 +36,8 @@ describe("POST /api/internal/whitelist-webhook", () => {
   });
 
   it("sends the invite for a valid whitelist INSERT with the right secret", async () => {
+    // The real webhook fires only after the row lands in whitelisted_emails, so seed it.
+    await storage.addAllowedEmail("newtester@example.com");
     const res = await request(makeApp())
       .post("/api/internal/whitelist-webhook")
       .set("x-webhook-secret", SECRET)
@@ -42,6 +45,19 @@ describe("POST /api/internal/whitelist-webhook", () => {
 
     expect(res.status).toBe(200);
     expect(sendInvite).toHaveBeenCalledWith("newtester@example.com");
+  });
+
+  it("ignores a valid-secret INSERT whose email is NOT on the allow-list (forged payload)", async () => {
+    // No seeding: the address isn't actually in whitelisted_emails, so even a correctly-signed
+    // payload must not trigger a send — this is the invite-relay defense.
+    const res = await request(makeApp())
+      .post("/api/internal/whitelist-webhook")
+      .set("x-webhook-secret", SECRET)
+      .send({ ...insertPayload, record: { email: "attacker@evil.example" } });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ignored).toBe(true);
+    expect(sendInvite).not.toHaveBeenCalled();
   });
 
   it("rejects a missing/wrong secret with 401 and sends nothing", async () => {
@@ -76,6 +92,7 @@ describe("POST /api/internal/whitelist-webhook", () => {
   });
 
   it("returns 500 when the invite send fails so pg_net records the failure", async () => {
+    await storage.addAllowedEmail("newtester@example.com");
     sendInvite.mockRejectedValueOnce(new Error("resend down"));
     const res = await request(makeApp())
       .post("/api/internal/whitelist-webhook")

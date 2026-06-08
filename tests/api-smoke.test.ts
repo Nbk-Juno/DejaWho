@@ -287,6 +287,8 @@ describe("API smoke", () => {
       .send({ text: "hello" });
 
     expect(failed.status).toBe(500);
+    // Generic message only — the internal "provider down" error text must not reach the client.
+    expect(failed.body.error).toBe("Request failed");
     expect(await ttsCallsFor(USER_A)).toBe(0);
   });
 

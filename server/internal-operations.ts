@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "crypto";
 import type { Express } from "express";
 import { sendInvite } from "./email";
+import { storage } from "./storage";
 import { logError, logInfo, logWarn } from "./logger";
 
 // Constant-time comparison of the shared secret. Returns false on any missing/length
@@ -47,6 +48,17 @@ export function attachInternalRoutes(app: Express): void {
     const email = body.record?.email;
     if (typeof email !== "string" || !email.includes("@")) {
       logWarn("whitelist_webhook_no_email", { type: body.type, table: body.table });
+      res.status(200).json({ ok: true, ignored: true });
+      return;
+    }
+
+    // Trust the database, not the webhook payload. The legitimate webhook fires only after a
+    // row lands in whitelisted_emails, so the email is genuinely on the allow-list here; a
+    // forged/replayed payload (someone holding the secret POSTing an arbitrary address) would
+    // otherwise turn this into an invite-email relay. Re-checking the DB closes that — a
+    // non-allow-listed address is ack'd (200) and dropped without sending.
+    if (!(await storage.isEmailAllowed(email))) {
+      logWarn("whitelist_webhook_email_not_allowlisted", { email });
       res.status(200).json({ ok: true, ignored: true });
       return;
     }
