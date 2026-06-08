@@ -96,8 +96,11 @@ export class MemStorage implements IStorage {
     this.allowed.add(email.trim().toLowerCase());
   }
 
-  async addToWaitlist(email: string, source: string | null = null): Promise<void> {
-    this.waitlist.set(email.trim().toLowerCase(), source);
+  async addToWaitlist(email: string, source: string | null = null): Promise<boolean> {
+    const normalized = email.trim().toLowerCase();
+    const isNew = !this.waitlist.has(normalized);
+    this.waitlist.set(normalized, source);
+    return isNew;
   }
 
   async getPersonsForUser(userId: string): Promise<Person[]> {

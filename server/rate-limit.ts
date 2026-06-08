@@ -8,6 +8,19 @@ type RateLimitBucket = {
 const WINDOW_MS = 60_000;
 const DEFAULT_REQUESTS_PER_MINUTE = 60;
 const bucketsByIp = new Map<string, RateLimitBucket>();
+let lastSweepAt = 0;
+
+// Drop buckets whose window has fully elapsed so the map can't grow without bound under a
+// burst of distinct client IPs. Runs at most once per window, so it's O(n) amortised.
+function sweepExpiredBuckets(now: number): void {
+  if (now - lastSweepAt < WINDOW_MS) return;
+  lastSweepAt = now;
+  for (const [key, bucket] of bucketsByIp) {
+    if (now - bucket.windowStartedAt >= WINDOW_MS) {
+      bucketsByIp.delete(key);
+    }
+  }
+}
 
 function configuredLimit(): number {
   const configured = Number.parseInt(process.env.API_RATE_LIMIT_REQUESTS_PER_MINUTE ?? "", 10);
@@ -25,6 +38,7 @@ export function apiRateLimit(req: Request, res: Response, next: NextFunction): v
   }
 
   const now = Date.now();
+  sweepExpiredBuckets(now);
   const limit = configuredLimit();
   const key = rateLimitKey(req);
   const existing = bucketsByIp.get(key);
@@ -50,4 +64,5 @@ export function apiRateLimit(req: Request, res: Response, next: NextFunction): v
 
 export function resetApiRateLimitForTests(): void {
   bucketsByIp.clear();
+  lastSweepAt = 0;
 }

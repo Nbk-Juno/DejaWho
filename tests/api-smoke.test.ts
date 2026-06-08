@@ -7,6 +7,7 @@ import { EMBEDDING_DIMENSIONS } from "@shared/schema";
 import { db } from "../server/db";
 import * as openai from "../server/openai";
 import { resetApiRateLimitForTests } from "../server/rate-limit";
+import { sendWaitlistConfirmationSafe } from "../server/email";
 
 const TEST_SECRET = "test-jwt-secret-for-vitest-only-do-not-use-in-prod";
 const USER_A = "11111111-1111-1111-1111-111111111111";
@@ -41,6 +42,16 @@ async function encounterEmbeddingsFor(userId: string, yearMonth = currentYearMon
       AND year_month = ${yearMonth}
   `);
   return Number((rows as Array<{ encounter_embeddings: number }>)[0]?.encounter_embeddings ?? 0);
+}
+
+async function searchCallsFor(userId: string, yearMonth = currentYearMonth()): Promise<number> {
+  const rows = await db.execute(sql`
+    SELECT search_calls
+    FROM usage_counters
+    WHERE user_id = ${userId}
+      AND year_month = ${yearMonth}
+  `);
+  return Number((rows as Array<{ search_calls: number }>)[0]?.search_calls ?? 0);
 }
 
 function tokenFor(userId: string, email: string): string {
@@ -111,6 +122,13 @@ vi.mock("../server/openai", async () => {
   };
 });
 
+// Spy on the waitlist confirmation send without touching Resend; everything else (sendInvite,
+// etc.) keeps its real implementation so the rest of the suite is unaffected.
+vi.mock("../server/email", async (importActual) => {
+  const actual = await importActual<typeof import("../server/email")>();
+  return { ...actual, sendWaitlistConfirmationSafe: vi.fn() };
+});
+
 let app: express.Express;
 
 beforeAll(async () => {
@@ -168,6 +186,21 @@ describe("API smoke", () => {
     expect(search.body.results).toBeInstanceOf(Array);
     const names = search.body.results.map((r: any) => r.encounter.name);
     expect(names).toContain("Sarah Chen");
+  });
+
+  it("a successful search consumes exactly one search_call covering both AI calls", async () => {
+    const auth = `Bearer ${tokenFor(USER_A, "alice@example.com")}`;
+
+    const search = await request(app)
+      .post("/api/search")
+      .set("Authorization", auth)
+      .send({ query: "anyone at all" });
+
+    expect(search.status).toBe(200);
+    // One reservation gates both the embedding and the GPT-4o NL response — not zero, not two.
+    expect(await searchCallsFor(USER_A)).toBe(1);
+    expect(openai.generateEmbedding).toHaveBeenCalledTimes(1);
+    expect(openai.generateNaturalLanguageResponse).toHaveBeenCalledTimes(1);
   });
 
   it("rejects unauthenticated requests to protected routes", async () => {
@@ -522,6 +555,23 @@ describe("API smoke", () => {
   it("waitlist rejects an invalid email", async () => {
     const res = await request(app).post("/api/waitlist").send({ email: "not-an-email" });
     expect(res.status).toBe(400);
+  });
+
+  it("waitlist sends the confirmation email only on a new row, never on a duplicate", async () => {
+    const sendMock = vi.mocked(sendWaitlistConfirmationSafe);
+
+    const first = await request(app)
+      .post("/api/waitlist")
+      .send({ email: "fresh@example.com", source: "hero" });
+    expect(first.status).toBe(200);
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledWith("fresh@example.com");
+
+    // A case-insensitive duplicate must not re-send — otherwise repeated POSTs are an
+    // unauthenticated mail-bomb / Resend-cost vector.
+    const dup = await request(app).post("/api/waitlist").send({ email: "FRESH@example.com" });
+    expect(dup.status).toBe(200);
+    expect(sendMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns the authenticated user's monthly usage summary and ignores spoofed user input", async () => {

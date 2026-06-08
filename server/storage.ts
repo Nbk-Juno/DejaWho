@@ -55,7 +55,9 @@ export interface IStorage {
   deleteUsageCountersForUser(userId: string): Promise<number>;
   isEmailAllowed(email: string): Promise<boolean>;
   addAllowedEmail(email: string, invitedBy?: string | null): Promise<void>;
-  addToWaitlist(email: string, source?: string | null): Promise<void>;
+  // Returns true only when a new row was inserted (false on conflict / already-on-list), so
+  // the caller can fire the confirmation email exactly once per address.
+  addToWaitlist(email: string, source?: string | null): Promise<boolean>;
   getPersonsForUser(userId: string): Promise<Person[]>;
   getPersonForUser(id: string, userId: string): Promise<Person | undefined>;
   getPersonsByNameForUser(userId: string, normalizedName: string): Promise<Person[]>;
@@ -161,12 +163,14 @@ export class DbStorage implements IStorage {
       .onConflictDoNothing();
   }
 
-  async addToWaitlist(email: string, source: string | null = null): Promise<void> {
+  async addToWaitlist(email: string, source: string | null = null): Promise<boolean> {
     const normalized = email.trim().toLowerCase();
-    await db
+    const inserted = await db
       .insert(waitlistEmails)
       .values({ email: normalized, source })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning({ email: waitlistEmails.email });
+    return inserted.length > 0;
   }
 
   async getPersonsForUser(userId: string): Promise<Person[]> {

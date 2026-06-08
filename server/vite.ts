@@ -65,6 +65,17 @@ export function serveStatic(app: Express) {
     );
   }
 
+  // Never serve source maps publicly. Maps are "hidden" (no sourceMappingURL pointer) and the
+  // Sentry plugin deletes them after upload, but when SENTRY_AUTH_TOKEN is unset the plugin is
+  // disabled and the .map files survive the build — this 404s them either way.
+  app.use((req, res, next) => {
+    if (req.path.endsWith(".map")) {
+      res.status(404).end();
+      return;
+    }
+    next();
+  });
+
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist

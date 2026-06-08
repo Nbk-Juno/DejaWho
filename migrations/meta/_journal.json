@@ -57,6 +57,13 @@
       "when": 1780296366300,
       "tag": "0007_waitlist_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780944990000,
+      "tag": "0008_persons_whitelist_rls",
+      "breakpoints": true
     }
   ]
 }

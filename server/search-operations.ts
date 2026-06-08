@@ -5,7 +5,7 @@ import { generateEmbedding, generateNaturalLanguageResponse, textToSpeech } from
 import { rankEncounters } from "./encounter-search";
 import { logError } from "./logger";
 import { AI_TEXT_LIMITS, assertAiTextWithinLimit, handleAiPolicyError } from "./ai-policy";
-import { billableAiCall } from "./usage-counters";
+import { billableAiCall, reserveMonthlyAiCall, rollbackMonthlyAiCall } from "./usage-counters";
 import { post } from "./route";
 
 export function attachSearchRoutes(app: Express): void {
@@ -23,10 +23,20 @@ export function attachSearchRoutes(app: Express): void {
     // Inner try/catches are intentional degradation, not bugs: a failed embedding is a
     // retryable 503 (AI down), and a failed NL response degrades to a canned summary. The
     // route envelope is only the outer net for the genuinely unexpected.
+    // Reserve one search unit up front; it covers BOTH AI calls below — the cheap embedding
+    // and the expensive GPT-4o natural-language response. Reserving once (rather than metering
+    // each call) keeps "one search = one billable unit" while still gating the GPT-4o call
+    // behind the quota: an over-cap user 429s here, before either call runs. (Previously only
+    // the embedding was metered and the GPT-4o response rode for free.) The 429 propagates to
+    // the route envelope; a failed embedding rolls the reservation back; an NL failure degrades
+    // to a canned summary and keeps the reservation, because the search itself did happen.
+    await reserveMonthlyAiCall(userId, "search_calls");
+
     let queryEmbedding: number[];
     try {
-      queryEmbedding = await billableAiCall(userId, "search_calls", () => generateEmbedding(query));
+      queryEmbedding = await generateEmbedding(query);
     } catch (error) {
+      await rollbackMonthlyAiCall(userId, "search_calls");
       if (handleAiPolicyError(error, res)) return;
       logError("search_embedding_failed", error);
       res.status(503).json({

@@ -15,11 +15,15 @@ export function attachWaitlistRoutes(app: Express): void {
       return;
     }
     try {
-      await storage.addToWaitlist(parsed.data.email, parsed.data.source ?? null);
+      const isNew = await storage.addToWaitlist(parsed.data.email, parsed.data.source ?? null);
       res.status(200).json({ ok: true });
-      // Confirmation is best-effort: the user's already on the list, so a mail hiccup
-      // must not turn into a 500. Fire-and-forget after the response.
-      sendWaitlistConfirmationSafe(parsed.data.email);
+      // Confirmation is best-effort (a mail hiccup must not 500 — the user's already on the
+      // list) and fires only on a genuinely new row. Without the isNew guard, repeatedly
+      // POSTing the same address would re-send the email each time — an unauthenticated
+      // mail-bomb / Resend-cost vector. Fire-and-forget after the response either way.
+      if (isNew) {
+        sendWaitlistConfirmationSafe(parsed.data.email);
+      }
     } catch (error) {
       logError("waitlist_join_failed", error);
       res.status(500).json({ error: "Couldn't join the waitlist. Try again in a moment." });
