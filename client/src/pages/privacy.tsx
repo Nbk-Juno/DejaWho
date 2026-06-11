@@ -12,7 +12,7 @@ export default function Privacy() {
 
         <div className="space-y-6">
           <h1 className="text-3xl font-bold">Privacy Policy &amp; Terms of Service</h1>
-          <p className="text-sm text-muted-foreground">Last updated: May 2026</p>
+          <p className="text-sm text-muted-foreground">Last updated: June 2026</p>
 
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">What DejaWho is</h2>
@@ -34,6 +34,55 @@ export default function Privacy() {
             <p className="text-muted-foreground">
               All data is stored in a secured database. Each user can only see their own
               encounters — this is enforced at both the application and database level.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold">Signing in with Google</h2>
+            <p className="text-muted-foreground">
+              If you choose “Continue with Google,” DejaWho uses Google Sign-In (OAuth) to
+              authenticate you. This is the <strong>only</strong> way DejaWho interacts with
+              Google, and it is used strictly to sign you in. DejaWho does not request or
+              access Gmail, Google Drive, Google Calendar, Contacts, or any other Google
+              service or data.
+            </p>
+            <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+              <li>
+                <strong>What we access:</strong> only your basic Google profile — your email
+                address, name, and profile picture — via Google's standard sign-in scopes
+                (<code>email</code>, <code>profile</code>, <code>openid</code>). We never
+                receive your Google password.
+              </li>
+              <li>
+                <strong>How we use it:</strong> your email address signs you in, identifies
+                your account, and is checked against our invite allow-list. Your name and
+                profile picture, if provided, are used only to show your account within the
+                app. We do not use Google user data for any other purpose.
+              </li>
+              <li>
+                <strong>How we store it:</strong> this profile information is held by our
+                authentication provider (Supabase) as your account identity, in a secured
+                database, for as long as your account exists. When you delete your account it
+                is permanently deleted along with the rest of your data.
+              </li>
+              <li>
+                <strong>How we share it:</strong> we do not sell, rent, or share your Google
+                user data, and we never use it for advertising. It is not transferred to any
+                third party except the infrastructure provider strictly necessary to run
+                sign-in (our authentication and database provider, Supabase).
+              </li>
+            </ul>
+            <p className="text-muted-foreground">
+              DejaWho's use of information received from Google APIs adheres to the{" "}
+              <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                Google API Services User Data Policy
+              </a>
+              , including the Limited Use requirements.
             </p>
           </section>
 
